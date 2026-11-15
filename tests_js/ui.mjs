@@ -1,4 +1,4 @@
-// Drives the real page in headless Chromium: boots Pyodide from the CDN, clicks through each tab, asserts visible results.
+// Drives the real page in headless Chrome: boots Pyodide from the CDN, then exercises every mode through the canvas and asserts what is visible.
 import { chromium } from "playwright";
 import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
@@ -11,35 +11,83 @@ const srv = createServer((req, res) => { const f = join(root, req.url === "/" ? 
   if (!existsSync(f)) { res.writeHead(404).end(); return; } res.writeHead(200, { "content-type": types[extname(f)] || "text/plain" }).end(readFileSync(f)); }).listen(0);
 const url = `http://127.0.0.1:${srv.address().port}/`;
 const browser = await chromium.launch(process.env.CI ? {} : { executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
-const page = await browser.newPage();
-const errors = []; page.on("pageerror", (e) => errors.push(e.message));
-await page.goto(url);
-await page.waitForFunction(() => window.__lab?.ready, null, { timeout: 120000 });
-const tab = (t) => page.click(`nav button[data-t=${t}]`);
+const page = await browser.newPage({ viewport: { width: 1440, height: 860 } });
+const errors = []; page.on("pageerror", (e) => errors.push(e.message)); page.on("console", (m) => m.type() === "error" && !/404/.test(m.text()) && errors.push(m.text()));
+const open = async (hash = "") => { await page.goto("about:blank"); await page.goto(url + hash); await page.waitForFunction(() => window.__lab?.ready, null, { timeout: 120000 }); };
+const mode = (m) => page.click(`#tools button[data-m=${m}]`);
+const node = (id) => page.locator(`.node[data-id="${id}"]`);
+const txt = (sel) => page.textContent(sel);
+const ORD = "facts/orders-timestamps-utc.md";
 
-await page.fill("#q", "order_date UTC"); await page.click("#qgo");
-assert.match(await page.textContent("#qres"), /orders-timestamps/);
+await open();
+// --- map: nodes, edges, hover traces neighbours, click opens file, search shows ranks
+assert.ok((await page.locator(".node").count()) >= 15);
+assert.ok((await page.locator(".edge").count()) >= 7);
+await node("eval:midnight-mismatch").hover();
+assert.ok((await page.locator(".node.dim").count()) > 5, "hover dims everything that is not a neighbour");
+assert.ok((await page.locator(".edge.hot").count()) >= 1);
+await node(ORD).click();
+assert.match(await page.inputValue("#fbody"), /orders\.created_at/);
+await page.fill("#qin", "order_date UTC"); await page.click("[data-act=search]");
+assert.ok((await page.locator(".node .badge").count()) >= 1, "search puts rank badges on the graph");
+assert.match(await txt("#hits"), /orders-timestamps/);
 
-await tab("evals"); await page.click("#runev");
-assert.match(await page.textContent("#evsum"), /PASS · must 7\/7/);
-await page.click("#addbad");
-assert.match(await page.textContent("#evsum"), /FAIL/);
-assert.match(await page.textContent("#evres"), /this-string-is-not-in-the-brain/);
+// --- evals: replay finishes with PASS; a bad eval fails visibly
+await mode("evals"); await node("eval:midnight-mismatch").click();
+await page.waitForFunction(() => /PASS/.test(document.querySelector("#drawer").textContent) && document.querySelectorAll(".chk.in").length >= 2, null, { timeout: 8000 });
+await page.click("[data-act=bad1]");
+assert.match(await txt("#drawer"), /FAIL/);
+assert.ok((await page.locator(".node.fail").count()) >= 1);
+await page.waitForFunction(() => /this-string-is-not-in-the-brain/.test(document.querySelector("#drawer").textContent), null, { timeout: 8000 });
+await page.click("[data-act=qreset]");
+assert.match(await txt("#drawer"), /PASS · 7\/7/);
 
-await tab("break"); await page.selectOption("#mpath", "facts/orders-timestamps-utc.md"); await page.click("#mgo");
-assert.match(await page.textContent("#mout"), /KILLED|SURVIVED/);
+// --- break: deleting the answer is killed; auto-mutate reports a score
+await mode("break"); await node(ORD).click(); await page.click("[data-act=break]");
+assert.match(await txt("#drawer"), /KILLED by midnight-mismatch/);
+assert.ok((await page.locator(".node.broken").count()) === 1);
+await page.click("[data-act=restore]");
+await page.click("[data-act=auto]");
+await page.waitForFunction(() => /score \d+\/\d+/.test(document.querySelector("#drawer").textContent), null, { timeout: 30000 });
 
-await tab("gate");
-assert.equal((await page.textContent("#gverdict")).trim(), "ADOPT");
-await page.click("button[data-k='No effect']"); assert.equal((await page.textContent("#gverdict")).trim(), "NO_DELTA");
-await page.click("button[data-k='Baseline already good (ceiling)']"); assert.equal((await page.textContent("#gverdict")).trim(), "CEILING");
-await page.click("button[data-k='Helps dev, hurts one probe']"); assert.equal((await page.textContent("#gverdict")).trim(), "REGRESSION");
-await page.click("#pdumb"); assert.match(await page.textContent("#pgrade"), /correct|incorrect/);
+// --- gate: presets move the fired rule; flipping a cell changes the verdict; the URL carries the state
+await mode("gate");
+const fired = () => page.locator(".step.fired").getAttribute("data-step");
+assert.equal(await fired(), "ADOPT");
+await page.click("[data-act=preset][data-k='No effect']"); assert.equal(await fired(), "NO_DELTA");
+await page.click("[data-act=preset][data-k='Already good (ceiling)']"); assert.equal(await fired(), "CEILING");
+await page.click("[data-act=preset][data-k='Helps dev, hurts one']"); assert.equal(await fired(), "REGRESSION");
+await page.click("[data-act=preset][data-k='Skill clearly helps']");
+await page.locator("[data-gc]").first().click(); // flip one baseline sample: gain 12 -> 11, still ADOPT
+assert.equal(await fired(), "ADOPT");
+await page.fill("[data-gp=min_gain]", "99"); assert.equal(await fired(), "NO_DELTA");
+const hash = new URL(page.url()).hash; assert.match(hash, /g=/);
+await open(hash); assert.equal(await fired(), "NO_DELTA", "shared link restores the scenario");
+await page.click("[data-act=dumb]"); assert.match(await txt("#gpr"), /correct/);
 
-await tab("ab"); await page.click("#fgo"); assert.match(await page.textContent("#fres"), /FIT/);
-await page.click("#fhij"); await page.click("#fgo"); assert.match(await page.textContent("#fres"), /BREAKS|POLLUTES/);
-await page.click("#sgo"); assert.match(await page.textContent("#sres"), /ADOPT|NO_DELTA|REGRESSION|CEILING/);
-await page.click("#sfill"); await page.click("#sgo"); assert.match(await page.textContent("#sres"), /NO_DELTA/);
+// --- A/B fact: a good fact fits; a hijacking fact is flagged and breaks the eval it displaces
+await mode("abfact"); await page.click("[data-act=abfact]");
+assert.match(await txt("#drawer"), /FIT/);
+assert.equal(await page.locator(".node.new").count(), 1);
+await page.click("[data-act=hijack]"); await page.click("[data-act=abfact]");
+assert.match(await txt("#drawer"), /BREAKS/);
+await page.click("[data-act=abdiscard]");
+
+// --- A/B skill: dst is judged; filler is NO_DELTA; a bad skill shows lint errors
+await mode("abskill");
+await page.waitForSelector(".step.fired");
+await page.selectOption("#sk", "dst"); await page.click("[data-act=sload]"); await page.click("[data-act=sgo]");
+assert.match(await txt("#drawer"), /clean/);
+await page.click("[data-act=sfill]"); await page.click("[data-act=sgo]");
+assert.equal(await page.locator(".step.fired").getAttribute("data-step"), "NO_DELTA");
+await page.click("[data-act=sbad]"); await page.click("[data-act=sgo]");
+assert.match(await txt("#drawer"), /private string|description missing|name/);
+
+// --- palette + theme + about
+await page.keyboard.press("Control+k"); await page.fill("#pin", "pii"); await page.keyboard.press("Enter");
+assert.match(await txt("#drawer"), /pii-hashed-email|Email is only available hashed/);
+await page.click("#theme"); assert.equal(await page.getAttribute("html", "data-theme"), "light");
+await mode("about"); assert.match(await txt("#drawer"), /Not real here/);
 
 assert.deepEqual(errors, []);
 await browser.close(); srv.close();

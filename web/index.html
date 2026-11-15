@@ -1,83 +1,16 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>agent-lab: the knowledge map, evals and the deterministic gate, live</title>
-<link rel="stylesheet" href="style.css"></head>
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>agent-lab · see how the map, evals and gate work</title><link rel="stylesheet" href="style.css"></head>
 <body>
-<header><h1>agent-lab</h1><span>Runs the real <code>agent-knowledge-map</code> and <code>agent-toolkit</code> Python in your browser. No server, no model calls.</span></header>
-<nav id="nav">
-  <button data-t="map" class="on">1 · The map</button><button data-t="evals">2 · Evals</button><button data-t="break">3 · Break it</button>
-  <button data-t="gate">4 · The gate</button><button data-t="ab">5 · A/B a fact or skill</button><button data-t="about">About</button>
-</nav>
-<main>
-<div id="boot">Loading Python (Pyodide, ~10 MB, cached after the first visit)…</div>
-
-<section id="map">
-  <h2>The map is plain files, ranked by one deterministic function</h2>
-  <p class="lead">Facts, workstreams, decisions and catalogs are Markdown/YAML. Search is <code>brain.py</code>'s ranking: stemmed prefix matching, rarer words weigh more, title/tags count extra. Edit a file and search again; every other tab uses your edited copy.</p>
-  <div class="grid">
-    <div><div class="card"><div class="row"><input id="q" placeholder="search the brain, e.g. order_date UTC"><button class="b" id="qgo">Search</button></div><div id="qres" class="list"></div></div>
-         <div class="card"><b>Files</b><div id="files" class="list"></div></div></div>
-    <div class="card"><div class="row"><b id="fname">pick a file</b><span id="fmeta" class="mut"></span></div><textarea id="fbody" style="min-height:420px"></textarea>
-      <div class="row"><button class="b alt" id="fsave">Save edit (this tab only)</button><button class="b alt" id="freset">Reset all files</button></div></div>
-  </div>
-</section>
-
-<section id="evals">
-  <h2>An eval is: question → local lookup → substrings the answer must (not) contain</h2>
-  <p class="lead">Free, no model. Each result shows the lookup output and which individual criteria passed. The pass/fail is upstream <code>eval_run.check</code>; the per-criterion ticks are just its breakdown. Only <code>run: {search: …}</code> questions run here.</p>
-  <div class="grid">
-    <div class="card"><b>questions.yaml</b> <span class="mut">(editable)</span><textarea id="qs" style="min-height:360px"></textarea>
-      <div class="row"><button class="b" id="runev">Run evals</button>
-      <button class="b alt" id="addbad">+ add a bad eval</button><button class="b alt" id="addbad2">+ add a wrong first_line</button><button class="b alt" id="addbad3">+ add a forbid that hits</button><button class="b alt" id="qsreset">Reset</button></div></div>
-    <div class="card"><div id="evsum" class="verdict mut">not run yet</div><div id="evres"></div></div>
-  </div>
-</section>
-
-<section id="break">
-  <h2>Break the brain, see which evals notice</h2>
-  <p class="lead">A mutation is a deliberate, wrong edit to the knowledge. If no eval fails, the evals have a blind spot. This is the idea behind <code>mutation_check.py</code>, reimplemented over the real eval code.</p>
-  <div class="grid">
-    <div class="card"><div class="row"><select id="mop"><option value="delete_file">delete file</option><option value="remove_text">remove text</option><option value="replace_text">replace text</option></select><select id="mpath"></select></div>
-      <div class="row"><input id="mtext" placeholder="text to remove/replace"><input id="mwith" placeholder="replacement"></div>
-      <button class="b danger" id="mgo">Break it &amp; rerun evals</button><button class="b alt" id="mauto">Auto-mutate everything (mutation score)</button><div id="mres"></div></div>
-    <div class="card" id="mout"><span class="mut">results appear here</span></div>
-  </div>
-</section>
-
-<section id="gate">
-  <h2>The deterministic gate: same results in, same verdict out</h2>
-  <p class="lead">A model produces noisy per-sample outcomes once (a fixture here, hand-set by you). <code>gate.decide</code> then turns them into ADOPT / NO_DELTA / CEILING / REGRESSION / TOO_COSTLY. Click cells to flip individual outcomes; change thresholds; the verdict is recomputed by the real function.</p>
-  <div class="grid">
-    <div class="card"><div class="row" id="presets"></div><table id="grid"></table><div class="row" id="params"></div></div>
-    <div class="card"><div id="gverdict" class="verdict"></div><div id="greason" class="mut"></div><pre id="gfacts"></pre>
-      <hr style="border-color:var(--line)"><b>Probe grader playground</b><div class="row"><select id="pg"></select></div>
-      <pre id="pq"></pre><textarea id="pa" style="min-height:60px" placeholder="type an answer"></textarea>
-      <div class="row"><button class="b alt" id="pdumb">Fill the dumbest passing answer</button><span id="pgrade"></span></div></div>
-  </div>
-</section>
-
-<section id="ab">
-  <h2>Does a new fact or skill fit? Decided by rules, not by an agent</h2>
-  <p class="lead">Fact: add it to a copy of the brain, rerun every eval and compare search rankings. Skill: lint it, check whether its text even contains what the probes ask, then run the real gate against a synthetic baseline.</p>
-  <div class="grid">
-    <div class="card"><b>New fact</b><div class="row"><input id="fpath" value="facts/fiscal-calendar.md"></div>
-      <textarea id="ftext">---
-title: Fiscal year starts in February
-tags: [calendar, fiscal]
-verified: true
----
-Our fiscal year starts on 1 February, so quarter boundaries differ from calendar quarters.
-</textarea><div class="row"><input id="fown" placeholder="a query that SHOULD find it" value="fiscal year quarter"></div>
-      <button class="b" id="fgo">A/B this fact</button><button class="b alt" id="fhij">load a hijacking fact</button><div id="fres"></div></div>
-    <div class="card"><b>New skill</b><div class="row"><select id="sk"></select><select id="sprobe"></select></div>
-      <textarea id="stext" style="min-height:230px"></textarea>
-      <div class="row"><label class="mut">baseline pass rate without the skill <input id="srate" type="range" min="0" max="1" step="0.33" value="0" style="width:120px"></label></div>
-      <button class="b" id="sgo">A/B this skill</button><button class="b alt" id="sfill">load filler skill</button><div id="sres"></div></div>
-  </div>
-  <div class="note">Skill result is a proxy: "the skill text contains the answer" ≠ "a model behaves better". Recorded model runs (<code>agent-toolkit/evals/run.py</code>) are what prove behaviour; the gate then judges them identically.</div>
-</section>
-
-<section id="about"><h2>About</h2><div class="card" id="aboutbox"></div></section>
-</main>
+<div id="boot">Loading Python (Pyodide ~10 MB, cached after the first visit)…</div>
+<header id="top"><h1>agent-lab</h1><span class="sub" id="sub"></span>
+  <button class="chip" id="find">find <kbd>⌘K</kbd></button><button class="chip" id="share">copy link</button><button class="chip" id="theme">light</button></header>
+<nav id="tools" aria-label="modes"></nav>
+<main id="stage"><svg id="svg" role="img" aria-label="interactive graph"><g id="vp"></g></svg>
+  <div id="toast" role="status"></div><div id="hud"></div>
+  <div id="zoom"><button class="chip" id="zin">+</button><button class="chip" id="zout">−</button><button class="chip" id="zfit">fit</button></div></main>
+<aside id="drawer" aria-live="polite"></aside>
+<footer id="status"><span id="st1"></span><span id="st2"></span></footer>
+<div id="pal"><div><input id="pin" placeholder="jump to a file, eval or mode · or type words to search the brain" autocomplete="off"><div id="palist"></div></div></div>
 <script type="module" src="app.js"></script>
 </body></html>

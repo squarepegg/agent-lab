@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node smoke.mjs && node ui.mjs"
+    "test": "node --test model.test.mjs && node smoke.mjs && node ui.mjs"
   },
   "keywords": [],
   "author": "",

@@ -4,13 +4,17 @@ An interactive companion to [agent-knowledge-map](https://github.com/squarepegg/
 [agent-toolkit](https://github.com/squarepegg/agent-toolkit). A static site that runs the **real, unmodified** upstream Python
 (`brain.py`, `eval_run.py`, `gate.py`, `skill_ab.py`, `check_skills.py`) in your browser with Pyodide. No server, no secrets, no model calls.
 
-| Tab | What you can do |
+One canvas, seven modes (left toolbar; `⌘K` jumps to anything; scenarios live in the URL):
+
+| Mode | What you do |
 |---|---|
-| The map | Browse a sample brain, edit files, search with the real ranking. |
-| Evals | Edit `questions.yaml`, run it, see each criterion tick or fail; add a bad eval and watch it fail. |
-| Break it | Delete/alter a fact and see which evals notice; auto-mutate for a mutation score. |
-| The gate | Flip per-sample outcomes and thresholds; the real `gate.decide` returns ADOPT / NO_DELTA / CEILING / REGRESSION / TOO_COSTLY. Probe grader playground. |
-| A/B | Paste a new fact (BREAKS / POLLUTES / NOT_FINDABLE / FIT by rule) or skill (lint + text coverage + the real gate). |
+| Map | A graph of evals and the files they read. Hover traces neighbours, click opens and edits, search puts rank badges on nodes. Files no eval reads sink to a visible gap. |
+| Evals | Replay one eval step by step (lookup, ranked files, each check ticking); add a bad eval and watch it fail. |
+| Break it | Delete or alter a fact and see which evals notice; auto-mutate for a mutation score. |
+| The gate | The real `gate.decide` as a decision path: flip sample outcomes and thresholds and watch which rule fires. Probe grader playground. |
+| A/B a fact | Drop a new fact onto the map: BREAKS / POLLUTES / NOT_FINDABLE / FIT by rule. |
+| A/B a skill | Real `check_skills` lint, text coverage of the probes, then the real gate. |
+| About | Which upstream files run here, with hashes. |
 
 ## What is and is not real
 Real: ranking, eval checking, grading, gate verdicts, skill lint. **Not real:** model answers. Gate demos use fixtures; the skill A/B is a
@@ -21,7 +25,7 @@ text-coverage proxy ("the skill states the answer"), not evidence a model behave
 ```sh
 python3 scripts/build_bundle.py && python3 -m http.server -d web 8000     # http://localhost:8000
 python3 -W ignore -m unittest discover -s tests                            # native tests of lab/lab_core.py
-cd tests_js && npm ci && npm test                                          # same code inside Pyodide + the page in headless Chrome
+cd tests_js && npm ci && npm test                                          # graph model unit tests, same code inside Pyodide, the page in headless Chrome
 ```
 ## Vendoring
 `vendor/` holds byte-identical copies of upstream scripts, hashed in `vendor/VENDOR.json`. Refresh with
