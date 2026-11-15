@@ -152,6 +152,23 @@ class Explain(unittest.TestCase):
         self.assertGreater(after["killed"], before["killed"])
         self.assertTrue(L.summarize(L.run_evals(BRAIN, qs))["ok"])
 
+    def test_unique_tokens_exclude_anything_another_file_has(self):
+        files = {"facts/a.md": "alpha-unique shared-word-here", "facts/b.md": "shared-word-here other"}
+        self.assertEqual(L._unique_tokens(files, "facts/a.md"), ["alpha-unique"])
+
+    def test_a_fix_that_does_not_kill_is_never_offered(self):
+        # the unique token also lives in the title, so removing the body copy changes nothing an eval can see
+        files = {**BRAIN, "facts/zed.md": "---\ntitle: zyxwv-token quirk\n---\nbody says zyxwv-token\n"}
+        fix = L.explain_mutation(files, QS, {"op": "remove_text", "path": "facts/zed.md", "text": "body says zyxwv-token"})["fix"]
+        self.assertFalse(fix["verified"])
+        self.assertIsNone(fix["yaml"])
+
+    def test_providers_never_include_the_mutated_file_itself(self):
+        files = {**BRAIN}
+        files["facts/orders-timestamps-utc.md"] = files["facts/orders-timestamps-utc.md"] + "\nUTC appears twice. UTC again.\n"
+        e = L.explain_mutation(files, QS, {"op": "remove_text", "path": "facts/orders-timestamps-utc.md", "text": "UTC appears twice."})
+        self.assertFalse(any("also in" in w and "facts/orders-timestamps-utc.md" in w.split("also in", 1)[1] for w in e["why"]), e["why"])
+
     def test_duplicated_text_is_called_redundancy_not_a_weak_eval(self):
         fix = L.explain_mutation(BRAIN, QS, {"op": "remove_text", "path": "facts/orders-timestamps-utc.md", "text": "UTC"})["fix"]
         self.assertIsNone(fix["yaml"])
