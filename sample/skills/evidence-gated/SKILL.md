@@ -7,7 +7,7 @@ description: Use when putting any design, architecture, vendor or tooling trade-
 
 Put a trade-off to the owner as an **eval table, not a recommendation**. Pre-registered, deterministic checks decide which options are valid. The owner decides the requirements. Nobody's preference is an input, least of all the agent's.
 
-Why: on Passport v3 the agent that wrote eight rounds of design patches also recommended what to do next. Its "(Recommended)" labels nudged towards more patches. Result: 318 review findings, 80% caused by earlier fixes. Rules the user set: lean into simplicity; a corner that yields findings twice means re-architect, not patch; "(Recommended)" only on a DECISIVE verdict.
+Why: on one design project the agent that wrote eight rounds of design patches also recommended what to do next. Its "(Recommended)" labels nudged towards more patches. Result: a pile of review findings, most caused by earlier fixes. Rules the user set: lean into simplicity; a corner that yields findings twice means re-architect, not patch; "(Recommended)" only on a DECISIVE verdict.
 
 ## When to use
 
@@ -67,7 +67,7 @@ Env: `TLA2TOOLS_JAR` (required only if the file has a `tlc` check or `lint` bloc
 ## Limits
 
 - Only as good as its criteria. Mutants catch vacuous checks, not missing criteria. The screen and the owner catch those.
-- A threshold set after seeing the data is weaker. Say so in the file (as in the Passport R4 example).
+- A threshold set after seeing the data is weaker. Say so in the file (as in a threshold file that was revised after the first run).
 - `declared` rows are not evidence. If an option only has those, the verdict stays NOT DECISIVE.
 - Registration is a git commit of the decision file and everything it uses; eval runs on that snapshot. It proves ordering (the criteria existed in HEAD before the run), not honesty: nothing stops someone committing criteria after seeing data. Data commands must not touch the repo by absolute path.
 

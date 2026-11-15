@@ -15,6 +15,11 @@
    "repo": "map",
    "sha256": "08fb14f20a41f3b17af6e82994bd50db9e62ccc8e4d6b6e27f4575316c8be335"
   },
+  "check_skills.py": {
+   "path": "scripts/check_skills.py",
+   "repo": "toolkit",
+   "sha256": "85b3954cc513e0360afcdcca1f60dbba03a916009c52324e2950c7acd69fb1ac"
+  },
   "eval_run.py": {
    "path": "scripts/eval_run.py",
    "repo": "map",
@@ -23,21 +28,16 @@
   "gate.py": {
    "path": "evals/gate.py",
    "repo": "toolkit",
-   "sha256": "27a7c3012558780f4be75235e47b58192ebae91481bb794c9547b4ef813cf7e7"
+   "sha256": "0e69c2612661ce1799363836b0d7be560222e2cce0906cf5e4f1f5339086ce5b"
   },
-  "grade.py": {
-   "path": "evals/grade.py",
+  "skill_ab.py": {
+   "path": "scripts/skill_ab.py",
    "repo": "toolkit",
-   "sha256": "23df5adcd68753bf3df89bb2b17089fb732be76c39082beda08fa0e0d513dc8c"
-  },
-  "lint_skills.py": {
-   "path": "scripts/lint_skills.py",
-   "repo": "toolkit",
-   "sha256": "728a3b9c889f1aae68dc91cbbe53454f7c3fa140691e887df61a8542b8ccda90"
+   "sha256": "9b867b0d7782e06bb0632807f57e4a1a9ec887fa2c890521b3e27b3b21b8ece8"
   }
  },
  "upstream_commits": {
   "map": "57682757a30d8d8a4d7af1449bd2dbac2cdfd1d7",
-  "toolkit": "d847da3ecec97805b0901953281dd358ad206bca"
+  "toolkit": "22289bc78a01bf074837b692bf91892320e6a0a8"
  }
 }

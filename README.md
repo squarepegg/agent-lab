@@ -2,7 +2,7 @@
 
 An interactive companion to [agent-knowledge-map](https://github.com/squarepegg/agent-knowledge-map) and
 [agent-toolkit](https://github.com/squarepegg/agent-toolkit). A static site that runs the **real, unmodified** upstream Python
-(`brain.py`, `eval_run.py`, `gate.py`, `grade.py`, `lint_skills.py`) in your browser with Pyodide. No server, no secrets, no model calls.
+(`brain.py`, `eval_run.py`, `gate.py`, `skill_ab.py`, `check_skills.py`) in your browser with Pyodide. No server, no secrets, no model calls.
 
 | Tab | What you can do |
 |---|---|

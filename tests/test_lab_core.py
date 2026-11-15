@@ -19,8 +19,8 @@ def load_dir(base):
 BRAIN = load_dir(os.path.join(ROOT, "sample", "brain"))
 QS = L.parse_questions(BRAIN.pop("evals/questions.yaml"))
 BRAIN.pop("evals/recall.yaml", None)
-PROBES = yaml.safe_load(open(os.path.join(ROOT, "sample", "evals", "probes.yaml")))
 SKILLS = {n: open(os.path.join(ROOT, "sample", "skills", n, "SKILL.md")).read() for n in ("dst", "doubt", "evidence-gated")}
+PROBES = [{**p, "skill": n} for n in SKILLS for p in json.load(open(os.path.join(ROOT, "sample", "skills", n, "evals", "probes.json")))]
 
 
 class Map(unittest.TestCase):
@@ -136,9 +136,9 @@ class AbFact(unittest.TestCase):
 class Gate(unittest.TestCase):
     P = [{"id": f"p{i}", "split": "dev"} for i in range(3)] + [{"id": "h", "split": "heldout"}]
 
-    def grid(self, base, cand, held=(True, True, True), hcand=None):
-        g = {f"p{i}": {"baseline": base[i], "candidate": cand[i]} for i in range(3)}
-        g["h"] = {"baseline": list(held), "candidate": list(hcand or held)}
+    def grid(self, without, with_, held=(True, True, True), hwith=None):
+        g = {f"p{i}": {"without": without[i], "with": with_[i]} for i in range(3)}
+        g["h"] = {"without": list(held), "with": list(hwith or held)}
         return g
 
     def decide(self, grid, **params):
@@ -150,7 +150,7 @@ class Gate(unittest.TestCase):
         self.assertEqual(self.decide(self.grid([F, F, F], [F, F, F]))["verdict"], "NO_DELTA")
         self.assertEqual(self.decide(self.grid([T, T, T], [T, T, T]))["verdict"], "CEILING")
         self.assertEqual(self.decide(self.grid([F, F, T], [T, T, F]))["verdict"], "REGRESSION")
-        self.assertEqual(self.decide(self.grid([F, F, F], [T, T, F], held=T, hcand=F))["verdict"], "REGRESSION")
+        self.assertEqual(self.decide(self.grid([F, F, F], [T, T, F], held=T, hwith=F))["verdict"], "REGRESSION")
         self.assertEqual(self.decide(self.grid([F, F, F], [T, T, F]), _cand_cost=0.05)["verdict"], "TOO_COSTLY")
 
     def test_reason_names_the_rule_and_is_deterministic(self):
@@ -160,46 +160,51 @@ class Gate(unittest.TestCase):
         self.assertIn("gain 6", a["reason"])
 
     def test_thresholds_move_the_verdict(self):
-        F, T = [False] * 3, [True] * 3
+        F = [False] * 3
         g = self.grid([F, F, F], [[True, True, False], F, F])
         self.assertEqual(self.decide(g, min_gain=2)["verdict"], "ADOPT")
         self.assertEqual(self.decide(g, min_gain=3)["verdict"], "NO_DELTA")
 
+    def test_bad_input_is_reported(self):
+        F = [False] * 3
+        self.assertEqual(self.decide(self.grid([F, F, F], [F, F, F]), min_gain=-1)["verdict"], "BAD_INPUT")
+
     def test_grade_answer_and_the_dumbest_passing_answer(self):
-        p = next(p for p in PROBES if p.get("expect") and not p.get("expect_re") and not p.get("forbid"))
+        p = next(p for p in PROBES if p["id"] == "dst-pr-tier")
         self.assertFalse(L.grade_answer(p, "I like turtles")["correct"])
+        self.assertFalse(L.grade_answer(p, "")["correct"])
         self.assertTrue(L.grade_answer(p, L.trivial_pass(p))["correct"], "substring grading accepts a keyword list: that is the lesson")
-        r = next(p for p in PROBES if p.get("expect_re"))
-        self.assertFalse(L.grade_answer(r, L.trivial_pass(r))["correct"], "a regex requirement is harder to game with a keyword list")
+        self.assertTrue(L.grade_answer(p, "150 seeds, NO DOCKER").get("correct"), "case-insensitive any-of")
 
 
 class AbSkill(unittest.TestCase):
-    def test_dst_skill_covers_dst_probes_and_is_adopted_vs_empty_baseline(self):
-        probes = [p for p in PROBES if p.get("skill") == "dst"]
-        base = L.fixture_baseline(probes)
-        r = L.ab_skill(SKILLS["dst"], probes, base)
+    def test_dst_skill_covers_dst_probes_and_lints_clean(self):
+        probes = [p for p in PROBES if p["skill"] == "dst"]
+        r = L.ab_skill(SKILLS["dst"], probes, L.fixture_baseline(probes))
         self.assertTrue(any(c["covered"] for c in r["coverage"]))
         self.assertEqual(r["lint"]["errors"], [])
         self.assertIn(r["gate"]["verdict"], ("ADOPT", "NO_DELTA", "REGRESSION", "CEILING"))
         self.assertIn("proxy", r["caveat"])
 
+    def test_covered_probes_never_do_worse_than_baseline(self):
+        probes = [p for p in PROBES if p["skill"] == "doubt"]
+        base = L.fixture_baseline(probes, {probes[0]["id"]: 1})
+        r = L.ab_skill(SKILLS["doubt"], probes, base)
+        self.assertNotEqual(r["gate"]["verdict"], "REGRESSION")
+
     def test_irrelevant_text_is_no_delta(self):
-        probes = [p for p in PROBES if p.get("skill") == "dst"]
+        probes = [p for p in PROBES if p["skill"] == "dst"]
         r = L.ab_skill("---\nname: filler\ndescription: Use when you need filler text.\n---\nLorem ipsum.\n", probes, L.fixture_baseline(probes))
         self.assertEqual(r["gate"]["verdict"], "NO_DELTA")
         self.assertFalse(any(c["covered"] for c in r["coverage"]))
 
-    def test_lint_catches_a_bad_skill(self):
-        r = L.lint_skill_text("---\nname: Bad Name\ndescription: ''\n---\nbody", "bad")
-        self.assertTrue(r["errors"])
-        self.assertEqual(L.lint_skill_text("no frontmatter")["errors"][0].endswith("missing --- frontmatter ---"), True)
-
-    def test_a_skill_that_states_the_wrong_answer_is_flagged(self):
-        probes = [p for p in PROBES if p.get("forbid")][:1]
-        if probes:
-            bad = " ".join(probes[0]["forbid"])
-            r = L.skill_coverage(bad, probes)
-            self.assertTrue(r[0]["forbidden"])
+    def test_lint_uses_the_real_checks(self):
+        self.assertEqual(L.lint_skill_text(SKILLS["dst"], "dst")["errors"], [])
+        self.assertTrue(L.lint_skill_text("no frontmatter at all", "bad")["errors"])
+        self.assertTrue(any("description missing" in e for e in L.lint_skill_text("---\nname: x\n---\nbody", "x")["errors"]))
+        leak = "---\nname: x\ndescription: Use when testing.\n---\nuse ~/.agents/brain here"
+        self.assertTrue(any("private string" in e for e in L.lint_skill_text(leak, "x")["errors"]), "the public-repo hygiene check applies")
+        self.assertTrue(any("description" in e for e in L.lint_skill_text("---\nname: x\ndescription: " + "a" * 2000 + "\n---\nb", "x")["errors"]))
 
 
 if __name__ == "__main__":

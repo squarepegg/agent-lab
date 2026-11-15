@@ -1,7 +1,7 @@
 """agent-lab core: thin, deterministic wrappers around the REAL vendored scripts (vendor/). Runs natively and in Pyodide.
 
 A "brain" here is a plain dict {relative_path: text}. Every operation writes it to a throwaway directory, calls the upstream
-code (brain.search, eval_run.check, gate.decide, grade.grade, lint_skills.lint_skill) and returns JSON-able data. Nothing here
+code (brain.search, eval_run.check, gate.decide, skill_ab.missing, check_skills.check) and returns JSON-able data. Nothing here
 calls a model, the network, git or a subprocess, so the same input always gives the same output.
 
 What is NOT real (and the UI says so): model answers. Gate demos replay fixtures or hand-set outcomes; the skill "text coverage"
@@ -22,8 +22,8 @@ os.environ["BRAIN_DIR"] = _BRAIN
 import brain as _brain  # noqa: E402  (vendored brain.py)
 import eval_run as _eval  # noqa: E402
 import gate as _gate  # noqa: E402
-import grade as _grade  # noqa: E402
-import lint_skills as _lint  # noqa: E402
+import skill_ab as _ab  # noqa: E402  (its pure `missing()` is the probe grader)
+import check_skills as _check  # noqa: E402
 
 
 @contextlib.contextmanager
@@ -216,85 +216,83 @@ def ab_fact(files, questions, new_path, new_text, own_query=None, k=3):
 
 # ---------- 5. probes, grading, the gate
 def grade_answer(probe, text):
-    return _grade.grade(probe, text)
+    """skill_ab.missing: every `expect` group (any-of, case-insensitive substrings) must appear. -> {correct, missing}"""
+    miss = _ab.missing(probe, text or "")
+    return {"correct": bool(text) and not miss, "missing": miss}
 
 
 def trivial_pass(probe):
-    """The dumbest answer that passes the probe: just list every expected string. Shows what substring grading can and can't tell you."""
-    parts = [alts[0] for alts in probe.get("expect", [])]
-    return " ".join(str(p) for p in parts)
+    """The dumbest answer that passes: list one string from every expected group. Shows what substring grading can and can't tell you."""
+    return " ".join(str(g[0]) for g in probe.get("expect", []))
 
 
-def build_run(cand_id, arm, probes, outcomes, samples, model="fixture/none", costs=None):
-    """Make a run.py-shaped results dict from {probe_id: [bool]*samples} so the real gate can read it."""
-    results = []
-    for p in probes:
-        for i in range(samples):
-            results.append({"probe": p["id"], "split": p.get("split", "dev"), "sample": i, "correct": bool(outcomes[p["id"]][i]),
-                            "concise": True, "missing": [], "forbidden": [], "cost_usd": (costs or {}).get(arm, 0.01), "finished": True, "answer": ""})
-    return {"candidate": cand_id, "candidate_sha": "lab", "probes_sha": "lab", "arm": arm, "model": model, "samples": samples,
-            "date": "fixture", "results": results}
+def build_results(skill, probes, outcomes, samples=3, model="fixture/none", costs=None):
+    """A skill_ab-shaped results dict from outcomes {arm: {probe_id: [bool]*samples}} (arms: with, without) so the real gate can read it."""
+    rows = []
+    for arm in ("with", "without"):
+        for p in probes:
+            for n in range(samples):
+                rows.append({"probe": p["id"], "split": p.get("split", "dev"), "arm": arm, "n": n, "correct": bool(outcomes[arm][p["id"]][n]),
+                             "cost_usd": (costs or {}).get(arm, 0.01), "finished": True})
+    return {"skill": skill, "samples": samples, "pi_args": ["--model", model], "date": "fixture", "rows": rows}
 
 
-def gate_decide(cand, base, test):
+def gate_decide(cand, res):
     """Real gate.decide + a one-line reason naming the rule that fired (mirrors decide()'s order). -> dict"""
     try:
-        verdict, f = _gate.decide(cand, base, test)
+        verdict, f = _gate.decide(cand, res)
+        p = _gate.validate_candidate(cand)
     except _gate.BadInput as e:
         return {"verdict": "BAD_INPUT", "reason": str(e), "facts": {}}
-    p = f["params"]
     why = {
         "INCONCLUSIVE": f"more than {p['max_unfinished']:.0%} of runs did not finish",
-        "REGRESSION": f"regressed probes {f['regressed']} or heldout fell {f['heldout_base']}→{f['heldout_cand']} (limit {p['regress_by']})",
-        "CEILING": f"baseline dev {f['dev_base']}/{f['dev_n']} ≥ ceiling {p['ceiling']:.0%}: the probes cannot show a gain",
+        "REGRESSION": f"regressed probes {f['regressed']} or heldout fell {f['heldout_without']}→{f['heldout_with']} (limit {p['regress_by']})",
+        "CEILING": f"without-skill dev {f['dev_without']}/{f['dev_n']} ≥ ceiling {p['ceiling']:.0%}: the probes cannot show a gain",
         "NO_DELTA": f"gain {f['gain']} < min_gain {p['min_gain']}",
         "TOO_COSTLY": f"gain {f['gain']} ok but cost ×{f['cost_ratio']} > {p['max_cost_ratio']}",
         "ADOPT": f"gain {f['gain']} ≥ {p['min_gain']}, no regression, cost ×{f['cost_ratio']} ≤ {p['max_cost_ratio']}",
     }[verdict]
-    return {"verdict": verdict, "reason": why, "facts": {k: v for k, v in f.items() if k != "params"}, "params": p}
+    return {"verdict": verdict, "reason": why, "facts": f, "params": p}
 
 
 def gate_from_grid(probes, grid, params, samples=3):
-    """grid: {probe_id: {"baseline": [bool], "candidate": [bool]}} + thresholds -> gate_decide result."""
-    cand = {"id": "lab", **params}
-    base = build_run("lab", "baseline", probes, {k: v["baseline"] for k, v in grid.items()}, samples)
-    test = build_run("lab", "candidate", probes, {k: v["candidate"] for k, v in grid.items()}, samples,
-                     costs={"candidate": params.get("_cand_cost", 0.01)})
-    return gate_decide(cand, base, test)
+    """grid: {probe_id: {"without": [bool], "with": [bool]}} + thresholds -> gate_decide result."""
+    cand = {"id": "lab", "source": "lab", "claim": "lab", "skill": "lab", "samples": samples,
+            **{k: v for k, v in params.items() if not k.startswith("_")}}
+    res = build_results("lab", probes, {a: {k: v[a] for k, v in grid.items()} for a in ("with", "without")}, samples,
+                        costs={"with": params.get("_cand_cost", 0.01)})
+    return gate_decide(cand, res)
 
 
 # ---------- 6. A/B a skill (text-coverage proxy + lint)
 def lint_skill_text(text, name="skill"):
-    """Real lint_skills.lint_skill on a pasted SKILL.md. Missing-file references are separated: a single pasted file cannot satisfy them."""
+    """Real check_skills.check on a temp repo holding just this SKILL.md (+ the README install line the check requires)."""
+    fm = _check.frontmatter(text) or {}
+    sname = fm.get("name") or name
     with tempfile.TemporaryDirectory(prefix="lab-skill-") as d:
-        sd = os.path.join(d, name)
-        os.makedirs(sd)
-        path = os.path.join(sd, "SKILL.md")
-        open(path, "w", encoding="utf-8").write(text)
-        errs = [e.replace(path, "SKILL.md") for e in _lint.lint_skill(path)]
-    return {"errors": [e for e in errs if "does not exist" not in e], "missing_refs": [e for e in errs if "does not exist" in e]}
+        os.makedirs(os.path.join(d, "skills", name))
+        open(os.path.join(d, "skills", name, "SKILL.md"), "w", encoding="utf-8").write(text)
+        open(os.path.join(d, "README.md"), "w", encoding="utf-8").write(f'ln -s "$PWD/skills/{name}" ~/.agents/skills/{sname}\n')
+        errs = _check.check(d)
+    return {"errors": errs}
 
 
 def skill_coverage(skill_text, probes):
-    """For each probe: does the skill's TEXT contain what the probe expects (graded by the real grader)? A necessary condition for the
-    skill to help, not a measure of model behaviour."""
-    rows = []
-    for p in probes:
-        g = _grade.grade(p, skill_text)
-        # the grader needs a non-empty text; `forbid` strings in a skill (e.g. quoted wrong answers) are reported separately
-        rows.append({"probe": p["id"], "split": p.get("split", "dev"), "covered": not g["missing"], "missing": g["missing"], "forbidden": g["forbidden"]})
-    return rows
+    """For each probe: does the skill's TEXT contain what the probe expects (real skill_ab.missing)? Necessary for the skill to help, not
+    a measure of model behaviour."""
+    return [{"probe": p["id"], "split": p.get("split", "dev"), "covered": not _ab.missing(p, skill_text), "missing": _ab.missing(p, skill_text)}
+            for p in probes]
 
 
 def ab_skill(skill_text, probes, baseline_outcomes, samples=3, params=None):
-    """Deterministic fit check for a skill: lint + text coverage, then the REAL gate on (recorded baseline) vs (oracle candidate: a probe the
-    skill text covers counts as answered, one it does not stays at baseline). `baseline_outcomes` is a fixture {probe: [bool]*samples}."""
+    """Deterministic fit check for a skill: lint + text coverage, then the REAL gate on (recorded baseline: `without`) vs (oracle `with`: a
+    probe the skill text covers counts as answered, one it does not stays at baseline). `baseline_outcomes` is a fixture {probe: [bool]*samples}."""
     params = {"min_gain": 2, "ceiling": 0.9, "regress_by": 2, "max_cost_ratio": 1.5, **(params or {})}
     cov = skill_coverage(skill_text, probes)
     covered = {r["probe"]: r["covered"] for r in cov}
-    cand_out = {p["id"]: ([True] * samples if covered[p["id"]] else list(baseline_outcomes[p["id"]])) for p in probes}
-    g = gate_decide({"id": "lab", **params}, build_run("lab", "baseline", probes, baseline_outcomes, samples),
-                    build_run("lab", "candidate", probes, cand_out, samples))
+    with_out = {p["id"]: ([True] * samples if covered[p["id"]] else list(baseline_outcomes[p["id"]])) for p in probes}
+    cand = {"id": "lab", "source": "lab", "claim": "lab", "skill": "lab", "samples": samples, **params}
+    g = gate_decide(cand, build_results("lab", probes, {"with": with_out, "without": baseline_outcomes}, samples))
     return {"lint": lint_skill_text(skill_text), "coverage": cov, "gate": g,
             "caveat": "proxy: text coverage assumes a model that reads the skill answers what the skill states. Only a recorded model run shows behaviour."}
 

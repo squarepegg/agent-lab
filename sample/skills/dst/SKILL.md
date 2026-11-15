@@ -66,8 +66,8 @@ Choose something else when:
 
 | Situation | Use instead |
 |---|---|
-| one pure function, no state across calls | a property test (kotest-property, Hypothesis) |
-| you are still designing the protocol, and the code doesn't exist yet | TLA+ (exhaustive within bounds), then DST to replay its traces against the code |
+| one pure function, no state across calls | a property test (kotest-property, Hypothesis); skill `property-tests-from-examples` |
+| you are still designing the protocol, and the code doesn't exist yet | write the invariants and workload first (skill `correctness-first-design`), then TLA+ (exhaustive within bounds), then DST to replay its traces against the code |
 | an algebraic law over all inputs | Lean / a proof, plus a conformance test |
 | the risk is in the infrastructure (sizes, timeouts, config, DB semantics) | a real-infra test (Testcontainers, `@RestateTest`); a model can't see it |
 | the whole system, unmodified, under network and node faults | Antithesis itself, or Jepsen-style real clusters |
@@ -99,8 +99,8 @@ Work through `reference/real-vs-modelled-checklist.md`. In short:
   - **physical limits**: sizes, timeouts, quotas, future-timestamp guards, cardinalities, retention, clock source and
     resolution. Mark each one modelled, not modelled, or not applicable.
 
-  A limit you don't model is invisible. the reference engine's pipeline model had no sizes, and prod hit Scylla's
-  `Batch too large` (1,055,485 B against a 1,048,576 B limit, #185).
+  A limit you don't model is invisible. One engine's pipeline model had no sizes, and production hit the database's
+  `Batch too large` error with a batch just over its limit.
 
 ## 3. Make the environment deterministic
 
@@ -116,9 +116,9 @@ Work through `reference/real-vs-modelled-checklist.md`. In short:
 - **Interleaving.** Give the SUT no threads. Use inline executors and disabled schedulers, then create concurrency
   explicitly:
   - **phase splitting:** expose `plan`/`read` and `apply`/`write` as separate steps, and interleave other ops between
-    them (the reference engine's `readAndPlanIngest` / `executePlannedWrites`);
+    them (for example a `readAndPlan` step and an `executePlannedWrites` step);
   - **re-entrant hooks inside dependency calls:** a hook that runs *during* `delegate.read()` lets another op land
-    mid-call (the skeleton's `FaultInjectingStore.onInsideRead`; the reference engine's CleverTap `onInsideLookupHook`);
+    mid-call (the skeleton's `FaultInjectingStore.onInsideRead`; one engine's `onInsideLookupHook`);
   - **queues** with an explicit, seed-chosen drain order (FIFO, LIFO, or `shuffled`).
 - **Faults are ops.** Put each one in the generator with a seed-chosen rate: failure before a write, partial write,
   timeout then late success, retry or replay, kill between journal steps, duplicate delivery, clock step, eviction.
@@ -143,8 +143,8 @@ Seed count is not the lever (the reference engine: 150 → 2,500 / 10,000 seeds,
 
 - **Richer ops and pools.** Cover every public operation, plus admin and delete paths. Use small key pools, so ops
   collide, and timestamp pools with **ties**. Use unique values, so a stale answer is detectable.
-- **An unrestricted mode, next to any "safe envelope".** An envelope that skips known-bug preconditions (the reference engine
-  skipped hard deletes after soft deletes, which is bug 8's precondition) is green by construction around the bug and
+- **An unrestricted mode, next to any "safe envelope".** An envelope that skips known-bug preconditions (one engine
+  skipped hard deletes after soft deletes, which was a known bug's precondition) is green by construction around the bug and
   blind to its neighbours. Run the unrestricted generator too. Where a known bug fires, pin it (step 6) and filter
   that *specific* violation out, rather than the whole state region.
 - **`sometimes` for rare states, declared up front.** Examples: two in-flight ops on one key, a tie at the same
@@ -170,8 +170,8 @@ Seed count is not the lever (the reference engine: 150 → 2,500 / 10,000 seeds,
 - **Real contract classes as named properties.** Wrap a real constructor's `require` as
   `always("<Contract>", runCatching { ... }.isSuccess)`, so a violation is attributable. A bare
   `IllegalArgumentException` is not a property.
-- **Formal "invariants" that are meant to fail**, i.e. claims the TLA+ model exists to refute (Singular's
-  `VendorReceiptsBounded`): map each one to a `sometimes` (the counterexample must be reachable) plus an
+- **Formal "invariants" that are meant to fail**, i.e. claims the TLA+ model exists to refute (e.g. a
+  `ReceiptsBounded` property on a delivery contract): map each one to a `sometimes` (the counterexample must be reachable) plus an
   `accepted - ...` scenario test with the minimal trace.
 - **Oracles.** Prefer, in order:
   1. **differential:** shipped code against a simpler variant on the same ops. For example, guarded skip against
@@ -195,9 +195,9 @@ One mode per test, and the name starts with it. Use the helpers in `templates/ko
 | accepted | `accepted - <trade-off>` | a documented trade-off, citing the KDoc or ADR | the trade-off changes |
 | seed sweep | `seed sweep - <scope>, <N> seeds` | `runSuite(...)` | any seed violates an invariant, the replay differs, or a `sometimes` is never reached |
 
-Don't use `bug catch`. In the reference engine that one name covered unfixed bugs (1, 3, 8), fixed ones (9–14) and mutants (7),
+Don't use `bug catch`. In one engine that name covered unfixed bugs (1, 3, 8), fixed ones (9–14) and mutants (7),
 so a green run hid three known-broken behaviours. When a known-bug test is fixed, it becomes a regression guard
-(the reference engine's bug catch 5 was correctly renamed in `8d15f5ce`).
+(one engine's bug catch 5 was correctly renamed once it was fixed).
 
 ## 7. Determinism
 
@@ -248,7 +248,7 @@ production flags.
 If a stronger check fires first (a step-level oracle, a real contract class), the intended one is **shadowed**.
 Either record "shadowed by X", or rerun with X disabled to show the intended one also sees the fault. An invariant
 that is always shadowed is redundant, unless it names a formal invariant. A break that **survives** is a coverage gap:
-report it. For example, no Singular property checked the backoff schedule.
+report it. For example, no property checked the backoff schedule.
 
 Also break the harness: a draw from `Random.Default` must trip the replay check. The skeleton and engine were checked
 this way (template README, `SimulationEngineSelfTest`).
@@ -278,13 +278,12 @@ For each finding, give:
 - **severity**: what breaks, for whom, and how often;
 - **found by**: sweep, scenario, formal model, review or mutant. Be honest; it shapes where effort goes.
 
-Two the reference engine examples:
-- CleverTap bug catch 2 needs a backward observation-clock step that `System::nanoTime` can't produce, and the memo is
-  off in prod. So it is latent and model-only for now.
-- A CachingHashMappings repro first used an illegal direct table write (Copilot review on #176); it was rewritten
-  with legal calls only.
+Two examples:
+- A bug catch needed a backward observation-clock step that `System::nanoTime` can't produce, so it was latent and
+  model-only for now.
+- A repro first used an illegal direct table write (a review caught it); it was rewritten with legal calls only.
 
-## Anti-patterns (from the reference engine and the durable-execution dry run)
+## Anti-patterns (from one engine and a durable-execution dry run)
 
 - Saying the smoke sweep tests production when it runs a copy of the handler.
 - A hand-picked conformance seed sample, and drift checks that the model's own invariants catch first.

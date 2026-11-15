@@ -14,7 +14,7 @@ async function boot() {
   window.__lab = { call: lab.call, ready: true };
 }
 function resetAll() {
-  files = structuredClone(bundle.brain); questions = bundle.questions; probes = lab.call("parse_yaml", { text: bundle.probes });
+  files = structuredClone(bundle.brain); questions = bundle.questions; probes = bundle.probes;
   $("qs").value = questions; cur = null; renderFiles(); fillSelects(); initGate(); renderAbout();
 }
 const call = (n, a) => { const r = lab.call(n, a); if (r && r.error) throw new Error(r.error); return r; };
@@ -87,10 +87,10 @@ function initGate() {
   $("pg").innerHTML = probes.map((p, i) => `<option value="${i}">${esc(p.id)} (${p.split || "dev"})</option>`).join("");
   applyPreset("Skill clearly helps"); showProbe();
 }
-function applyPreset(k) { const v = PRESETS[k](pr); grid = {}; pr.forEach((p, i) => (grid[p.id] = { baseline: v[i][0].map(Boolean), candidate: v[i][1].map(Boolean) })); renderGate(); }
+function applyPreset(k) { const v = PRESETS[k](pr); grid = {}; pr.forEach((p, i) => (grid[p.id] = { without: v[i][0].map(Boolean), with: v[i][1].map(Boolean) })); renderGate(); }
 function renderGate() {
-  $("grid").innerHTML = `<tr><th>probe</th><th>split</th><th>baseline</th><th>candidate</th></tr>` + pr.map((p) => `<tr><td>${esc(p.id)}</td><td class="mut">${p.split || "dev"}</td>` +
-    ["baseline", "candidate"].map((a) => `<td>${grid[p.id][a].map((b, i) => `<span class="cell ${b ? "t" : "f"}" data-p="${esc(p.id)}" data-a="${a}" data-i="${i}">${b ? "✔" : "✘"}</span>`).join("")}</td>`).join("") + "</tr>").join("");
+  $("grid").innerHTML = `<tr><th>probe</th><th>split</th><th>without skill</th><th>with skill</th></tr>` + pr.map((p) => `<tr><td>${esc(p.id)}</td><td class="mut">${p.split || "dev"}</td>` +
+    ["without", "with"].map((a) => `<td>${grid[p.id][a].map((b, i) => `<span class="cell ${b ? "t" : "f"}" data-p="${esc(p.id)}" data-a="${a}" data-i="${i}">${b ? "✔" : "✘"}</span>`).join("")}</td>`).join("") + "</tr>").join("");
   try { const g = call("gate", { probes: pr, grid, params, samples: SAMPLES }); const col = g.verdict === "ADOPT" ? "ok" : g.verdict === "BAD_INPUT" ? "warn" : "bad";
     $("gverdict").className = "verdict " + col; $("gverdict").textContent = g.verdict; $("greason").textContent = g.reason; $("gfacts").textContent = JSON.stringify(g.facts, null, 1);
   } catch (e) { $("gverdict").textContent = "error"; $("greason").textContent = e.message; }
@@ -98,8 +98,8 @@ function renderGate() {
 $("presets").onclick = (e) => { if (e.target.dataset.k) applyPreset(e.target.dataset.k); };
 $("grid").onclick = (e) => { const d = e.target.dataset; if (d.p) { grid[d.p][d.a][+d.i] = !grid[d.p][d.a][+d.i]; renderGate(); } };
 $("params").oninput = (e) => { const k = e.target.dataset.p; if (k && !isNaN(+e.target.value)) { params[k] = +e.target.value; renderGate(); } };
-function showProbe() { const p = probes[+$("pg").value]; $("pq").textContent = p.q + "\n\nexpect (all groups, any in group): " + JSON.stringify(p.expect || []) + (p.expect_re ? "\nexpect_re: " + JSON.stringify(p.expect_re) : "") + (p.forbid ? "\nforbid: " + JSON.stringify(p.forbid) : ""); gradeNow(); }
-function gradeNow() { const g = call("grade", { probe: probes[+$("pg").value], text: $("pa").value }); $("pgrade").innerHTML = `<span class="${g.correct ? "ok" : "bad"}">${g.correct ? "correct" : "incorrect"}</span> <span class="mut">missing ${esc(JSON.stringify(g.missing))} forbidden ${esc(JSON.stringify(g.forbidden))}</span>`; }
+function showProbe() { const p = probes[+$("pg").value]; $("pq").textContent = p.q + "\n\nexpect (all groups, any in group): " + JSON.stringify(p.expect || []); gradeNow(); }
+function gradeNow() { const g = call("grade", { probe: probes[+$("pg").value], text: $("pa").value }); $("pgrade").innerHTML = `<span class="${g.correct ? "ok" : "bad"}">${g.correct ? "correct" : "incorrect"}</span> <span class="mut">missing ${esc(JSON.stringify(g.missing))}</span>`; }
 $("pg").onchange = showProbe; $("pa").oninput = gradeNow;
 $("pdumb").onclick = () => { $("pa").value = call("trivial_pass", { probe: probes[+$("pg").value] }); gradeNow(); };
 
@@ -117,8 +117,8 @@ $("sgo").onclick = () => safe($("sres"), () => { const ps = probes.filter((p) =>
   const r = call("ab_skill", { text: $("stext").value, probes: ps, rates: Object.fromEntries(ps.map((p) => [p.id, rate])), samples: SAMPLES });
   const g = r.gate;
   $("sres").innerHTML = `<div class="verdict ${g.verdict === "ADOPT" ? "ok" : "bad"}">${g.verdict}</div><div class="mut">${esc(g.reason)}</div>
-   <div>lint: ${r.lint.errors.length ? r.lint.errors.map((e) => `<span class="bad">${esc(e)}</span>`).join("<br>") : '<span class="ok">clean</span>'}${r.lint.missing_refs.length ? ` <span class="mut">(+${r.lint.missing_refs.length} unresolved file refs: expected for a single pasted file)</span>` : ""}</div>
-   <table><tr><th>probe</th><th>skill text covers it?</th></tr>${r.coverage.map((c) => `<tr><td>${esc(c.probe)}</td><td class="${c.covered ? "ok" : "bad"}">${c.covered ? "yes" : "no: " + esc(JSON.stringify(c.missing))}${c.forbidden.length ? ` <span class="warn">states forbidden: ${esc(c.forbidden.join(", "))}</span>` : ""}</td></tr>`).join("")}</table>
+   <div>lint: ${r.lint.errors.length ? r.lint.errors.map((e) => `<span class="bad">${esc(e)}</span>`).join("<br>") : '<span class="ok">clean</span>'}</div>
+   <table><tr><th>probe</th><th>skill text covers it?</th></tr>${r.coverage.map((c) => `<tr><td>${esc(c.probe)}</td><td class="${c.covered ? "ok" : "bad"}">${c.covered ? "yes" : "no: " + esc(JSON.stringify(c.missing))}</td></tr>`).join("")}</table>
    <div class="mut">${esc(r.caveat)}</div>`; });
 
 function renderAbout() { const v = bundle.vendor;

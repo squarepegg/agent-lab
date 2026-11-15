@@ -6,7 +6,7 @@ import argparse, hashlib, json, os, shutil, subprocess
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FILES = {"map": ["scripts/brain.py", "scripts/_fm.py", "scripts/eval_run.py", "scripts/_attempts.py"],
-         "toolkit": ["evals/gate.py", "evals/grade.py", "scripts/lint_skills.py"]}
+         "toolkit": ["evals/gate.py", "scripts/skill_ab.py", "scripts/check_skills.py"]}
 
 
 def sha(p):
@@ -14,7 +14,12 @@ def sha(p):
 
 
 def head(d):
-    return subprocess.run(["git", "-C", d, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+    """Upstream's published main when known (a local branch's HEAD would not be a commit anyone else has)."""
+    for ref in ("origin/main", "HEAD"):
+        r = subprocess.run(["git", "-C", d, "rev-parse", ref], capture_output=True, text=True)
+        if r.returncode == 0:
+            return r.stdout.strip()
+    return ""
 
 
 def main():
