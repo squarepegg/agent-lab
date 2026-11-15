@@ -1,0 +1,13 @@
+name: upstream-drift
+# Weekly: do the vendored files still match upstream? Opens nothing; a red run is the signal (re-run scripts/vendor.py, retest).
+on:
+  schedule: [{ cron: "0 9 * * 1" }]
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    env: { GH_TOKEN: "${{ github.token }}" }
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/check_vendor.py --upstream squarepegg/agent-knowledge-map squarepegg/agent-toolkit

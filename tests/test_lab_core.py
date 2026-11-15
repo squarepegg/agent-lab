@@ -1,0 +1,206 @@
+"""Native tests for lab/lab_core.py against the vendored upstream code. python3 -m unittest discover -s tests"""
+import json, os, sys, unittest
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "lab"))
+import yaml
+import lab_core as L
+
+
+def load_dir(base):
+    out = {}
+    for r, _, fs in os.walk(base):
+        for f in fs:
+            full = os.path.join(r, f)
+            out[os.path.relpath(full, base)] = open(full, encoding="utf-8").read()
+    return out
+
+
+BRAIN = load_dir(os.path.join(ROOT, "sample", "brain"))
+QS = L.parse_questions(BRAIN.pop("evals/questions.yaml"))
+BRAIN.pop("evals/recall.yaml", None)
+PROBES = yaml.safe_load(open(os.path.join(ROOT, "sample", "evals", "probes.yaml")))
+SKILLS = {n: open(os.path.join(ROOT, "sample", "skills", n, "SKILL.md")).read() for n in ("dst", "doubt", "evidence-gated")}
+
+
+class Map(unittest.TestCase):
+    def test_explore_and_search(self):
+        kinds = {n["kind"] for n in L.explore(BRAIN)}
+        self.assertTrue({"fact", "workstream", "decision", "catalog"} <= kinds)
+        top = L.search(BRAIN, "order_date UTC")[0]
+        self.assertIn("orders-timestamps", top["path"])
+        self.assertEqual(L.search(BRAIN, "zzzqxvnonsense"), [])
+
+    def test_search_is_deterministic(self):
+        self.assertEqual(L.search(BRAIN, "late rows"), L.search(dict(reversed(list(BRAIN.items()))), "late rows"))
+
+
+class Evals(unittest.TestCase):
+    def test_sample_must_evals_pass(self):
+        res = L.run_evals(BRAIN, QS)
+        s = L.summarize(res)
+        self.assertTrue(s["ok"], [r for r in res if not r["pass"] and r["tier"] == "must"])
+        self.assertGreater(s["must_total"], 3)
+
+    def test_breakdown_agrees_with_upstream_check(self):
+        import eval_run
+        for r, q in zip(L.run_evals(BRAIN, QS), QS):
+            if r["tier"] == "skip":
+                continue
+            ok, *_ = eval_run.check(q, r["output"])
+            self.assertEqual(r["pass"], ok, q["id"])
+            self.assertEqual(r["pass"], all(c["ok"] for c in r["checks"]), q["id"])
+
+    def test_cmd_questions_are_refused_not_faked(self):
+        r = L.run_question(BRAIN, {"id": "x", "run": {"cmd": ["ls"]}, "expect": []})
+        self.assertFalse(r["pass"])
+        self.assertIn("browser", r["error"])
+
+    def test_bad_eval_fails_visibly(self):
+        bad = {"id": "bad", "q": "?", "run": {"search": "order_date UTC"}, "expect": ["definitely-not-in-the-brain"], "tier": "must"}
+        r = L.run_question(BRAIN, bad)
+        self.assertFalse(r["pass"])
+        self.assertEqual([c for c in r["checks"] if not c["ok"]][0]["value"], "definitely-not-in-the-brain")
+        bad2 = {**bad, "expect": [], "first_line": "wrong-file"}
+        self.assertFalse(L.run_question(BRAIN, bad2)["pass"])
+        bad3 = {**bad, "expect": [], "forbid": ["orders.created_at"]}
+        self.assertFalse(L.run_question(BRAIN, bad3)["pass"])
+
+    def test_needs_skips(self):
+        r = L.run_question({}, {"id": "n", "run": {"search": "x"}, "needs": ["facts/gone.md"], "expect": ["y"]})
+        self.assertEqual((r["tier"], r["pass"]), ("skip", True))
+
+
+class Mutations(unittest.TestCase):
+    def test_deleting_the_answer_is_caught(self):
+        r = L.mutate_and_run(BRAIN, QS, {"op": "delete_file", "path": "facts/orders-timestamps-utc.md"})
+        self.assertIn("midnight-mismatch", r["killed_by"])
+        self.assertFalse(r["survived"])
+
+    def test_irrelevant_edit_survives(self):
+        r = L.mutate_and_run(BRAIN, QS, {"op": "replace_text", "path": "facts/orders-timestamps-utc.md", "text": "Use `created_at`", "with": "Use created_at"})
+        self.assertTrue(r["survived"], "a formatting-only edit must not be flagged")
+
+    def test_input_not_mutated_and_errors(self):
+        snap = dict(BRAIN)
+        L.apply_mutation(BRAIN, {"op": "delete_file", "path": "facts/pii-hashed-email.md"})
+        self.assertEqual(BRAIN, snap)
+        for m in ({"op": "delete_file", "path": "nope"}, {"op": "remove_text", "path": "glossary.yaml", "text": "zzz-not-there"}, {"op": "x", "path": "glossary.yaml"}):
+            with self.assertRaises(ValueError):
+                L.apply_mutation(BRAIN, m)
+
+    def test_auto_mutants_include_text_removals_that_get_killed(self):
+        full = L.auto_mutants(BRAIN, QS)
+        removals = [m for m in full["mutants"] if m["mutation"]["op"] == "remove_text"]
+        self.assertTrue(removals)
+        self.assertTrue(any(m["killed_by"] for m in removals), "removing an expected string from its fact must fail an eval")
+
+    def test_auto_mutants_score_and_a_weak_eval_set_scores_lower(self):
+        full = L.auto_mutants(BRAIN, QS)
+        self.assertGreater(full["total"], 5)
+        self.assertGreaterEqual(full["score"], 0.5)
+        weak = L.auto_mutants(BRAIN, QS[:1])  # one eval cannot notice most mutants
+        self.assertLess(weak["score"], full["score"])
+        self.assertTrue(weak["survivors"])
+
+
+class AbFact(unittest.TestCase):
+    GOOD = "---\ntitle: Fiscal calendar starts in February\ntags: [calendar]\nverified: true\n---\nOur fiscal year starts on 1 February; quarter boundaries differ from calendar quarters.\n"
+
+    def test_fit(self):
+        r = L.ab_fact(BRAIN, QS, "facts/fiscal-calendar.md", self.GOOD, own_query="fiscal year quarter")
+        self.assertEqual(r["verdict"], "FIT", r)
+        self.assertEqual(r["findable"]["rank"], 1)
+
+    def test_not_findable(self):
+        r = L.ab_fact(BRAIN, QS, "facts/x.md", self.GOOD, own_query="completely unrelated words")
+        self.assertEqual(r["verdict"], "NOT_FINDABLE")
+
+    def test_pollutes_when_it_hijacks_an_existing_query(self):
+        hijack = "---\ntitle: backfill concurrency\ntags: [backfill, concurrency]\n---\nbackfill concurrency\n"
+        r = L.ab_fact(BRAIN, QS, "facts/aaa-hijack.md", hijack, own_query="backfill concurrency")
+        self.assertEqual(r["verdict"], "POLLUTES", r)  # the eval still passes (substring present) but the right fact lost rank 1
+        self.assertEqual(r["polluted"][0]["id"], "backfill")
+
+    def test_breaks_when_a_must_eval_stops_passing(self):
+        hijack = "---\ntitle: late rollups final\ntags: [late, rollups, final]\n---\nlate rollups final\n"
+        r = L.ab_fact(BRAIN, QS, "facts/aaa-hijack.md", hijack)
+        self.assertEqual(r["verdict"], "BREAKS", "first_line moved off mobile-events: a must eval fails")
+        self.assertEqual(r["broke"], ["finality"])
+
+    def test_refuses_overwrite(self):
+        with self.assertRaises(ValueError):
+            L.ab_fact(BRAIN, QS, "facts/pii-hashed-email.md", "x")
+
+
+class Gate(unittest.TestCase):
+    P = [{"id": f"p{i}", "split": "dev"} for i in range(3)] + [{"id": "h", "split": "heldout"}]
+
+    def grid(self, base, cand, held=(True, True, True), hcand=None):
+        g = {f"p{i}": {"baseline": base[i], "candidate": cand[i]} for i in range(3)}
+        g["h"] = {"baseline": list(held), "candidate": list(hcand or held)}
+        return g
+
+    def decide(self, grid, **params):
+        return L.gate_from_grid(self.P, grid, {"min_gain": 2, "ceiling": 0.9, "regress_by": 2, "max_cost_ratio": 1.5, **params})
+
+    def test_every_verdict_reachable(self):
+        F, T = [False] * 3, [True] * 3
+        self.assertEqual(self.decide(self.grid([F, F, F], [T, T, F]))["verdict"], "ADOPT")
+        self.assertEqual(self.decide(self.grid([F, F, F], [F, F, F]))["verdict"], "NO_DELTA")
+        self.assertEqual(self.decide(self.grid([T, T, T], [T, T, T]))["verdict"], "CEILING")
+        self.assertEqual(self.decide(self.grid([F, F, T], [T, T, F]))["verdict"], "REGRESSION")
+        self.assertEqual(self.decide(self.grid([F, F, F], [T, T, F], held=T, hcand=F))["verdict"], "REGRESSION")
+        self.assertEqual(self.decide(self.grid([F, F, F], [T, T, F]), _cand_cost=0.05)["verdict"], "TOO_COSTLY")
+
+    def test_reason_names_the_rule_and_is_deterministic(self):
+        F, T = [False] * 3, [True] * 3
+        a = self.decide(self.grid([F, F, F], [T, T, F]))
+        self.assertEqual(a, self.decide(self.grid([F, F, F], [T, T, F])))
+        self.assertIn("gain 6", a["reason"])
+
+    def test_thresholds_move_the_verdict(self):
+        F, T = [False] * 3, [True] * 3
+        g = self.grid([F, F, F], [[True, True, False], F, F])
+        self.assertEqual(self.decide(g, min_gain=2)["verdict"], "ADOPT")
+        self.assertEqual(self.decide(g, min_gain=3)["verdict"], "NO_DELTA")
+
+    def test_grade_answer_and_the_dumbest_passing_answer(self):
+        p = next(p for p in PROBES if p.get("expect") and not p.get("expect_re") and not p.get("forbid"))
+        self.assertFalse(L.grade_answer(p, "I like turtles")["correct"])
+        self.assertTrue(L.grade_answer(p, L.trivial_pass(p))["correct"], "substring grading accepts a keyword list: that is the lesson")
+        r = next(p for p in PROBES if p.get("expect_re"))
+        self.assertFalse(L.grade_answer(r, L.trivial_pass(r))["correct"], "a regex requirement is harder to game with a keyword list")
+
+
+class AbSkill(unittest.TestCase):
+    def test_dst_skill_covers_dst_probes_and_is_adopted_vs_empty_baseline(self):
+        probes = [p for p in PROBES if p.get("skill") == "dst"]
+        base = L.fixture_baseline(probes)
+        r = L.ab_skill(SKILLS["dst"], probes, base)
+        self.assertTrue(any(c["covered"] for c in r["coverage"]))
+        self.assertEqual(r["lint"]["errors"], [])
+        self.assertIn(r["gate"]["verdict"], ("ADOPT", "NO_DELTA", "REGRESSION", "CEILING"))
+        self.assertIn("proxy", r["caveat"])
+
+    def test_irrelevant_text_is_no_delta(self):
+        probes = [p for p in PROBES if p.get("skill") == "dst"]
+        r = L.ab_skill("---\nname: filler\ndescription: Use when you need filler text.\n---\nLorem ipsum.\n", probes, L.fixture_baseline(probes))
+        self.assertEqual(r["gate"]["verdict"], "NO_DELTA")
+        self.assertFalse(any(c["covered"] for c in r["coverage"]))
+
+    def test_lint_catches_a_bad_skill(self):
+        r = L.lint_skill_text("---\nname: Bad Name\ndescription: ''\n---\nbody", "bad")
+        self.assertTrue(r["errors"])
+        self.assertEqual(L.lint_skill_text("no frontmatter")["errors"][0].endswith("missing --- frontmatter ---"), True)
+
+    def test_a_skill_that_states_the_wrong_answer_is_flagged(self):
+        probes = [p for p in PROBES if p.get("forbid")][:1]
+        if probes:
+            bad = " ".join(probes[0]["forbid"])
+            r = L.skill_coverage(bad, probes)
+            self.assertTrue(r[0]["forbidden"])
+
+
+if __name__ == "__main__":
+    unittest.main()

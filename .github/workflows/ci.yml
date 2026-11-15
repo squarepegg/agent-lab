@@ -1,0 +1,19 @@
+name: ci
+on: [push, pull_request, workflow_dispatch]
+permissions: { contents: read }
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: pip install pyyaml==6.0.2
+      - run: python scripts/check_vendor.py
+      - run: python -W ignore -m unittest discover -s tests -v
+      - run: python scripts/build_bundle.py
+      - run: cd tests_js && npm ci && node smoke.mjs
+      - run: cd tests_js && npx playwright install --with-deps chromium && CI=1 node ui.mjs
