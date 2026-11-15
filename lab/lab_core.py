@@ -185,6 +185,110 @@ def auto_mutants(files, questions):
             "survivors": [r["mutation"] for r in rows if not r["killed_by"]]}
 
 
+# ---------- 3b. explain a mutation: why it failed / survived, and a verified fix
+TOKEN = re.compile(r"[A-Za-z0-9_.\-/=<>]{5,}")
+
+
+def _provider_paths(output, needle):
+    """Files whose hit lines in an eval's lookup output contain `needle`."""
+    out = []
+    for line in output.splitlines():
+        m = re.match(r"^(.+?):\d+: (.*)$", line)
+        if m and needle in m.group(2) and m.group(1) not in out:
+            out.append(m.group(1))
+    return out
+
+
+def _unique_tokens(files, path, within=None):
+    """Tokens of files[path] (optionally only inside `within`) that no other file contains: what only this file can say."""
+    others = "\n".join(t for p, t in files.items() if p != path)
+    body = files[path] if within is None else within
+    seen, out = set(), []
+    for tok in TOKEN.findall(body):
+        tok = tok.strip(".-/=<>")
+        if len(tok) >= 5 and tok not in seen and tok not in others:
+            seen.add(tok)
+            out.append(tok)
+    return sorted(out, key=lambda t: (-len(t), t))
+
+
+def _title_words(files, path):
+    title = frontmatter(files[path]).get("title") or os.path.basename(path)
+    return [w for w in re.findall(r"[a-z][a-z0-9_]{3,}", str(title).lower())]
+
+
+def suggest_fix(files, questions, mutation):
+    """A new `must` eval that passes on the real brain and fails on the mutated one. Built from facts only this file holds, then VERIFIED by
+    running both. -> {yaml, verified, note}; yaml is None when no such eval exists (the lost text is not unique to the file)."""
+    path = mutation["path"]
+    broken = apply_mutation(files, mutation)
+    within = mutation.get("text") if mutation["op"] == "remove_text" else None
+    stem = os.path.splitext(os.path.basename(path))[0]
+    toks = _unique_tokens(files, path, within)
+    if not toks:
+        return {"yaml": None, "verified": False, "note": (
+            f"Nothing in the {'removed text' if within else 'file'} is unique to {path}: other files already say it, so no eval can tell "
+            "this edit apart. That is redundancy, not a weak eval. Accept it, or delete the duplicate so the fact lives in one place.")}
+    base_ids = {q["id"] for q in questions}
+    for tok in toks[:6]:
+        for query in (" ".join(_title_words(files, path)[:3]), tok):
+            if not query or path not in top_paths(files, query, 1):
+                continue
+            q = {"id": f"pin-{stem}"[:40], "q": f"Does the map still hold what {path} uniquely says?", "run": {"search": query},
+                 "expect": [tok], "tier": "must"}
+            if mutation["op"] == "delete_file":
+                q["first_line"] = stem
+            if q["id"] in base_ids:
+                q["id"] += "-2"
+            trial = questions + [q]
+            ok_base = run_question(files, q)["pass"]
+            ok_broken = run_question(broken, q)["pass"]
+            if ok_base and not ok_broken:
+                return {"yaml": yaml.safe_dump([q], sort_keys=False, default_flow_style=None).rstrip(), "verified": True, "eval": q,
+                        "note": f"Verified: passes on the real brain, fails once the edit is made. `{tok}` appears only in {path}."}
+    return {"yaml": None, "verified": False,
+            "note": f"{path} has text no other file has ({', '.join(toks[:3])}), but no search query puts it first, so an eval cannot reach it. Add a title or tag containing those words."}
+
+
+def explain_mutation(files, questions, mutation):
+    """Why a mutant was killed or survived, in plain facts computed from the runs, plus a verified fix for survivors."""
+    before = {r["id"]: r for r in run_evals(files, questions)}
+    broken = apply_mutation(files, mutation)
+    after = {r["id"]: r for r in run_evals(broken, questions)}
+    path = mutation["path"]
+    killed = [i for i in before if before[i]["pass"] and before[i]["tier"] != "skip" and not after[i]["pass"]]
+    out = {"mutation": mutation, "survived": not killed, "killed": [], "why": [], "fix": None}
+    for i in killed:
+        bad = [c for c in after[i]["checks"] if not c["ok"]]
+        out["killed"].append({"eval": i, "failed": [f"{c['kind']} `{c['value']}`" + (f" (top line was `{c.get('got', '')[:60]}`)" if c["kind"] == "first_line" else "") for c in bad]})
+        out["why"].append(f"Eval `{i}` read {path} (its lookup `{before[i]['query']}` returned it) and needed " +
+                          "; ".join(f"{c['kind']} `{c['value']}`" for c in bad) + ", which only that file supplied.")
+    if killed:
+        return out
+    readers = [i for i in before if path in [m.group(1) for l in before[i]["output"].splitlines() if (m := re.match(r"^(.+?):\d+: ", l))]]
+    if not readers:
+        out["why"].append(f"No eval's lookup returns {path}, so changing it cannot change any answer. The evals do not cover this file.")
+    lost = files[path] if mutation["op"] == "delete_file" else (mutation.get("text") or "")
+    idle = []
+    for i in readers:
+        carried = [c for c in after[i]["checks"] if c["kind"] == "expect" and c["value"] in lost]
+        if not carried:
+            idle.append(i)
+            continue
+        for c in carried:
+            who = [x for x in _provider_paths(after[i]["output"], c["value"]) if x != path]
+            if who:
+                out["why"].append(f"Eval `{i}` still passes: `{c['value']}` is also in {', '.join(who)}.")
+        if not any(c["kind"] == "first_line" for c in after[i]["checks"]):
+            out["why"].append(f"Eval `{i}` has no `first_line`, so it does not care which file ranks first.")
+    if idle:
+        out["why"].append(f"{', '.join('`' + i + '`' for i in idle)} {'also lists' if len(idle) == 1 else 'also list'} {path} in {'its' if len(idle) == 1 else 'their'} lookup, but nothing {'it requires' if len(idle) == 1 else 'they require'} came from the lost text.")
+    if not out["why"]:
+        out["why"].append("Every requirement of the evals that read this file is still met.")
+    out["fix"] = suggest_fix(files, questions, mutation)
+    return out
+
+
 # ---------- 4. A/B a new fact (deterministic, no model)
 def ab_fact(files, questions, new_path, new_text, own_query=None, k=3):
     """Add a candidate doc; compare before/after on the existing evals and on search ranking.

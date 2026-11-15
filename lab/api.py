@@ -10,6 +10,7 @@ FNS = {
     "search": lambda a: L.search(a["files"], a["query"], a.get("limit", 10)),
     "run_evals": lambda a: (lambda r: {"results": r, "summary": L.summarize(r)})(L.run_evals(a["files"], L.parse_questions(a["questions"]))),
     "mutate": lambda a: L.mutate_and_run(a["files"], L.parse_questions(a["questions"]), a["mutation"]),
+    "explain": lambda a: L.explain_mutation(a["files"], L.parse_questions(a["questions"]), a["mutation"]),
     "auto_mutants": lambda a: L.auto_mutants(a["files"], L.parse_questions(a["questions"])),
     "ab_fact": lambda a: L.ab_fact(a["files"], L.parse_questions(a["questions"]), a["path"], a["text"], a.get("own_query") or None),
     "grade": lambda a: L.grade_answer(a["probe"], a["text"]),

@@ -44,11 +44,22 @@ assert.match(await txt("#drawer"), /PASS · 7\/7/);
 
 // --- break: deleting the answer is killed; auto-mutate reports a score
 await mode("break"); await node(ORD).click(); await page.click("[data-act=break]");
-assert.match(await txt("#drawer"), /KILLED by midnight-mismatch/);
+assert.match(await txt("#drawer"), /KILLED/); assert.match(await txt("#drawer"), /midnight-mismatch/);
 assert.ok((await page.locator(".node.broken").count()) === 1);
 await page.click("[data-act=restore]");
 await page.click("[data-act=auto]");
 await page.waitForFunction(() => /score \d+\/\d+/.test(document.querySelector("#drawer").textContent), null, { timeout: 30000 });
+const score = async () => +(/score (\d+)\//.exec(await txt("#drawer"))[1]);
+const before = await score();
+await page.locator("tr.rowx:has(td.bad)").first().click(); // a survivor: why + verified fix
+assert.match(await txt("#drawer"), /SURVIVED/);
+assert.match(await txt("#drawer"), /still passes|No eval's lookup/);
+assert.match(await txt("#drawer"), /how to fix/);
+await page.locator("tr.rowx:has(td.ok)").first().click(); // a kill: which check failed
+assert.match(await txt("#drawer"), /KILLED/); assert.match(await txt("#drawer"), /only that file supplied/);
+for (const r of await page.locator("tr.rowx:has(td.bad)").all()) { await r.click(); if (await page.locator("[data-act=applyfix]").count()) break; }
+await page.click("[data-act=applyfix]");
+assert.ok((await score()) > before, "applying the verified fix raises the mutation score");
 
 // --- gate: presets move the fired rule; flipping a cell changes the verdict; the URL carries the state
 await mode("gate");

@@ -80,3 +80,5 @@ table{border-collapse:collapse;width:100%}td,th{padding:3px 4px;border-bottom:1p
 #boot{position:fixed;inset:0;display:grid;place-items:center;background:var(--canvas);z-index:20;color:var(--muted)}
 #status{grid-column:2/4;border-top:1px solid var(--border);background:var(--mask);padding:0 14px;display:flex;align-items:center;gap:16px;color:var(--muted);font-size:11px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+tr.rowx{cursor:pointer}tr.rowx:hover{background:var(--canvas)}

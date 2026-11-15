@@ -164,6 +164,18 @@ const evalInfo = () => {
   if (!r) return "";
   return `<h3>eval · ${esc(r.id)}</h3><div>${esc(r.q)}</div><div class="mut">lookup: <code>search "${esc(r.query)}"</code></div>`;
 };
+function explainCard() {
+  const e = S.explain; if (!e) return "";
+  const m = e.mutation, tgt = `${m.op.replace("_", " ")} <code>${esc(clip(m.path, 34))}</code>${m.text ? ` · <code>${esc(clip(m.text, 24))}</code>` : ""}`;
+  let h = `<h3>why · ${tgt}</h3><div class="card"><div class="big ${e.survived ? "warn" : "ok"}">${e.survived ? "SURVIVED" : "KILLED"}</div>`;
+  h += e.why.map((w) => `<div class="mut" style="margin:4px 0">• ${esc(w).replace(/`([^`]+)`/g, "<code>$1</code>")}</div>`).join("");
+  if (!e.survived) h += e.killed.map((k) => `<div class="bad">✘ ${esc(k.eval)}: ${k.failed.map(esc).join("; ")}</div>`).join("");
+  if (e.fix) {
+    h += `<h3>how to fix</h3><div class="mut">${esc(e.fix.note)}</div>`;
+    if (e.fix.yaml) h += `<pre>${esc(e.fix.yaml)}</pre><button class="btn" data-act="applyfix">Add this eval</button>`;
+  }
+  return h + "</div>";
+}
 const DRAW = {
   explore() {
     return `<div class="row"><input id="qin" placeholder="search the brain (real ranking)…"><button class="btn" data-act="search">Search</button></div>
@@ -188,9 +200,9 @@ const DRAW = {
       : `<div class="mut">Click a file node to choose what to break.</div>`;
     h += `<div class="row"><button class="btn alt" data-act="auto">Auto-mutate everything</button></div><div class="ring"><div id="mring" style="width:${S.mut ? (S.mut.i / S.mut.total) * 100 : 0}%"></div></div>`;
     if (S.mut) h += `<div class="big ${S.mut.done && S.mut.score >= 0.8 ? "ok" : S.mut.done ? "warn" : ""}">${S.mut.done ? `score ${S.mut.killed}/${S.mut.total} (${Math.round(S.mut.score * 100)}%)` : `${S.mut.i}/${S.mut.total}…`}</div>
-      <table>${S.mut.rows.map((r) => `<tr><td class="${r.killed_by.length ? "ok" : "bad"}">${r.killed_by.length ? "killed" : "SURVIVED"}</td><td>${esc(r.mutation.op)} <code>${esc(clip(r.mutation.path, 28))}</code></td><td class="mut">${esc(r.killed_by.join(", "))}</td></tr>`).join("")}</table>`;
-    if (S.whatif?.res) { const r = S.whatif.res; h += `<div class="card"><div class="big ${r.survived ? "warn" : "ok"}">${r.survived ? "SURVIVED: nothing noticed" : "KILLED by " + esc(r.killed_by.join(", "))}</div><div class="mut">${r.survived ? "A blind spot: this knowledge can be wrong and every eval still passes." : "The evals caught it."}</div></div>`; }
-    return h;
+      <div class="mut">click a row to see why</div><table>${S.mut.rows.map((r) => `<tr class="rowx" data-act="exp" data-i="${S.mut.rows.indexOf(r)}"><td class="${r.killed_by.length ? "ok" : "bad"}">${r.killed_by.length ? "killed" : "SURVIVED"}</td><td>${esc(r.mutation.op)} <code>${esc(clip(r.mutation.path, 28))}</code></td><td class="mut">${esc(r.killed_by.join(", "))}</td></tr>`).join("")}</table>`;
+    if (S.whatif?.res && !S.explain) { const r = S.whatif.res; h += `<div class="card"><div class="big ${r.survived ? "warn" : "ok"}">${r.survived ? "SURVIVED: nothing noticed" : "KILLED by " + esc(r.killed_by.join(", "))}</div></div>`; }
+    return h + explainCard();
   },
   abfact() {
     const pv = S.preview;
@@ -243,11 +255,18 @@ const ACT = {
   break() {
     const m = { op: $("mop").value, path: S.sel, text: $("mtext").value, with: $("mwith").value };
     const r = call("mutate", { files: S.files, questions: S.questions, mutation: m });
-    S.whatif = { results: r.after, broken: S.sel, res: r }; renderGraph(); drawer();
+    S.whatif = { results: r.after, broken: S.sel, res: r }; S.explain = call("explain", { files: S.files, questions: S.questions, mutation: m }); renderGraph(); drawer();
     setTimeout(() => flash(r.killed_by.map((i) => "eval:" + i)), 120); toast(r.survived ? "SURVIVED: no eval noticed" : "KILLED by " + r.killed_by.length + " eval(s)", r.survived ? "warn" : "pass");
   },
-  restore() { S.whatif = null; renderGraph(); drawer(); },
+  exp(t) { const row = S.mut.rows[+t.dataset.i]; S.sel = row.mutation.path; S.explain = call("explain", { files: S.files, questions: S.questions, mutation: row.mutation }); paintOverlay(); drawer(); $("drawer").querySelector(".card")?.scrollIntoView({ block: "nearest" }); },
+  applyfix() {
+    const q = S.explain.fix.yaml; S.questions = S.questions.trimEnd() + "\n" + q.replace(/^- /, "- ") + "\n"; S.explain = null; refresh(); renderGraph();
+    const r = call("auto_mutants", { files: S.files, questions: S.questions }); S.mut = { i: r.total, total: r.total, killed: r.killed, rows: r.mutants.slice().reverse(), done: true, score: r.score };
+    drawer(); toast(`added the eval · mutation score ${r.killed}/${r.total}`, "pass");
+  },
+  restore() { S.whatif = null; S.explain = null; renderGraph(); drawer(); },
   async auto() {
+    S.explain = null;
     const r = call("auto_mutants", { files: S.files, questions: S.questions }); S.whatif = null; renderGraph();
     S.mut = { i: 0, total: r.total, killed: 0, rows: [], done: false, score: r.score }; const tok = ++S.replayTok; drawer();
     const step = r.total > 25 ? 70 : 130;
@@ -391,7 +410,7 @@ function renderScene() {
   if (sc === "scene-graph") renderGraph(); else if (sc === "scene-gate") renderGate(); else if (sc === "scene-skill") renderSkill(); else renderAbout();
 }
 function setMode(m, fromHash) {
-  S.mode = m; S.replayTok++; if (m === "gate") computeGate(); S.ov = {}; S.sel = m === "break" || m === "evals" ? S.sel : S.sel; S.whatif = null; if (m !== "abfact") S.preview = null;
+  S.mode = m; S.explain = null; S.replayTok++; if (m === "gate") computeGate(); S.ov = {}; S.sel = m === "break" || m === "evals" ? S.sel : S.sel; S.whatif = null; if (m !== "abfact") S.preview = null;
   document.querySelectorAll("#tools button").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
   $("sub").textContent = MODES.find((x) => x[0] === m)[3];
   if (!fromHash && m !== "gate") history.replaceState(null, "", `#m=${m}`);

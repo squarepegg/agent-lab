@@ -18,6 +18,9 @@ assert.match(s[0].path, /orders-timestamps/);
 const m = lab.call("mutate", { files, questions, mutation: { op: "delete_file", path: "facts/orders-timestamps-utc.md" } });
 assert.ok(m.killed_by.includes("midnight-mismatch"));
 
+const ex = lab.call("explain", { files, questions, mutation: { op: "delete_file", path: "facts/airflow-backfill-concurrency.md" } });
+assert.equal(ex.survived, true); assert.equal(ex.fix.verified, true);
+
 const bad = lab.call("run_evals", { files, questions: "- id: bad\n  run: {search: order_date UTC}\n  expect: [nope-nope]\n  tier: must\n" });
 assert.equal(bad.summary.ok, false);
 

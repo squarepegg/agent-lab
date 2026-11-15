@@ -104,6 +104,60 @@ class Mutations(unittest.TestCase):
         self.assertTrue(weak["survivors"])
 
 
+class Explain(unittest.TestCase):
+    def test_killed_explains_which_check_failed(self):
+        e = L.explain_mutation(BRAIN, QS, {"op": "delete_file", "path": "facts/orders-timestamps-utc.md"})
+        self.assertFalse(e["survived"])
+        self.assertEqual(e["killed"][0]["eval"], "midnight-mismatch")
+        self.assertTrue(any("orders.created_at" in f for f in e["killed"][0]["failed"]))
+        self.assertIn("only that file supplied", e["why"][0])
+
+    def test_survivor_names_the_other_file_that_covers_it(self):
+        e = L.explain_mutation(BRAIN, QS, {"op": "delete_file", "path": "facts/airflow-backfill-concurrency.md"})
+        self.assertTrue(e["survived"])
+        self.assertTrue(any("max-active-runs" in w and "STATE.md" in w for w in e["why"]), e["why"])
+        self.assertTrue(any("no `first_line`" in w for w in e["why"]))
+
+    def test_uncovered_file_is_called_out(self):
+        files = {**BRAIN, "facts/orphan.md": "---\ntitle: Orphan zebra quokka\n---\nzebra quokka platypus specific words\n"}
+        e = L.explain_mutation(files, QS, {"op": "delete_file", "path": "facts/orphan.md"})
+        self.assertTrue(e["survived"])
+        self.assertIn("No eval's lookup returns", e["why"][0])
+        self.assertTrue(e["fix"]["verified"], e["fix"])
+
+    def test_every_suggested_fix_is_verified_and_actually_kills_the_survivor(self):
+        survivors = L.auto_mutants(BRAIN, QS)["survivors"]
+        self.assertTrue(survivors)
+        fixable = 0
+        for m in survivors:
+            fix = L.explain_mutation(BRAIN, QS, m)["fix"]
+            if fix["yaml"] is None:
+                self.assertFalse(fix["verified"])
+                self.assertTrue(fix["note"])
+                continue
+            fixable += 1
+            q = yaml.safe_load(fix["yaml"])
+            self.assertTrue(L.summarize(L.run_evals(BRAIN, QS + q))["ok"], "the new eval passes on the real brain")
+            self.assertFalse(L.mutate_and_run(BRAIN, QS + q, m)["survived"], f"and kills {m}")
+        self.assertGreaterEqual(fixable, 1)
+
+    def test_applying_all_fixes_never_lowers_the_mutation_score(self):
+        before = L.auto_mutants(BRAIN, QS)
+        qs = list(QS)
+        for m in before["survivors"]:
+            fix = L.explain_mutation(BRAIN, qs, m)["fix"]
+            if fix["yaml"]:
+                qs += yaml.safe_load(fix["yaml"])
+        after = L.auto_mutants(BRAIN, qs)
+        self.assertGreater(after["killed"], before["killed"])
+        self.assertTrue(L.summarize(L.run_evals(BRAIN, qs))["ok"])
+
+    def test_duplicated_text_is_called_redundancy_not_a_weak_eval(self):
+        fix = L.explain_mutation(BRAIN, QS, {"op": "remove_text", "path": "facts/orders-timestamps-utc.md", "text": "UTC"})["fix"]
+        self.assertIsNone(fix["yaml"])
+        self.assertIn("redundancy", fix["note"])
+
+
 class AbFact(unittest.TestCase):
     GOOD = "---\ntitle: Fiscal calendar starts in February\ntags: [calendar]\nverified: true\n---\nOur fiscal year starts on 1 February; quarter boundaries differ from calendar quarters.\n"
 
