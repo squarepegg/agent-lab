@@ -173,6 +173,7 @@ class Gate(unittest.TestCase):
         p = next(p for p in PROBES if p["id"] == "dst-pr-tier")
         self.assertFalse(L.grade_answer(p, "I like turtles")["correct"])
         self.assertFalse(L.grade_answer(p, "")["correct"])
+        self.assertFalse(L.grade_answer({"id": "x", "expect": []}, "")["correct"], "an empty answer is never correct, even with no requirements")
         self.assertTrue(L.grade_answer(p, L.trivial_pass(p))["correct"], "substring grading accepts a keyword list: that is the lesson")
         self.assertTrue(L.grade_answer(p, "150 seeds, NO DOCKER").get("correct"), "case-insensitive any-of")
 
