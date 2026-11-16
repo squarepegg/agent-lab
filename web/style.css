@@ -82,3 +82,12 @@ table{border-collapse:collapse;width:100%}td,th{padding:3px 4px;border-bottom:1p
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 tr.rowx{cursor:pointer}tr.rowx:hover{background:var(--canvas)}
+
+/* real-code panel */
+.code{border:1px solid var(--border);border-radius:8px;background:var(--canvas);overflow-x:auto;padding:4px 0;font-size:10.5px}
+.cl{display:flex;white-space:pre;padding:0 8px 0 0;min-width:max-content}.cl .ln{width:34px;text-align:right;padding-right:8px;color:var(--dim);flex:none;user-select:none}
+.cl .cx{flex:1}.cl .cnt{color:var(--muted);padding-left:10px;flex:none}
+.cl.hit{background:color-mix(in srgb,var(--pass) 16%,transparent);box-shadow:inset 3px 0 var(--pass)}
+.cl.miss{opacity:.5}.cl.none{opacity:.8}
+.cn{color:var(--acc);padding:0 8px 0 42px;font-size:10px;white-space:normal;border-left:0}
+.tabs .btn.on{border-color:var(--acc);color:var(--acc)}

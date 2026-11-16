@@ -281,3 +281,26 @@ class AbSkill(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Trace(unittest.TestCase):
+    """The code panel's executed-line trace: only vendored files, never changes results."""
+
+    def test_trace_reports_vendored_lines_only(self):
+        import api, json
+        r = json.loads(api.call("trace", json.dumps({"target": "search", "args": {"files": BRAIN, "query": "order_date UTC"}})))
+        self.assertIn("brain.py", r["hits"])
+        self.assertNotIn("lab_core.py", r["hits"])
+        self.assertTrue(all(int(k) > 0 for k in r["hits"]["brain.py"]))
+
+    def test_trace_cannot_recurse_or_run_unknown(self):
+        import api, json
+        for t in ("trace", "nope"):
+            self.assertIn("error", json.loads(api.call("trace", json.dumps({"target": t}))))
+
+    def test_gate_trace_shows_the_rule_that_fired(self):
+        import api, json
+        probes = [{"id": "p", "q": "?", "expect": [["x"]]}]
+        grid = {"p": {"without": [False] * 3, "with": [False] * 3}}
+        r = json.loads(api.call("trace", json.dumps({"target": "gate", "args": {"probes": probes, "grid": grid, "params": {"min_gain": 2}}})))
+        self.assertIn("gate.py", r["hits"])

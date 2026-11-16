@@ -34,4 +34,6 @@ const err = lab.call("run_evals", { files, questions: "not: [valid" });
 assert.ok(err.error, "bad yaml is reported, not thrown");
 assert.ok(lab.call("nope", {}).error);
 
+const tr = lab.call("trace", { target: "search", args: { files, query: "order_date UTC" } });
+assert.ok(Object.keys(tr.hits["brain.py"]).length > 5, "trace works under Pyodide");
 console.log("pyodide smoke ok");

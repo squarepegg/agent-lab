@@ -1,5 +1,5 @@
 """JSON-in/JSON-out dispatch used by the web UI (Pyodide) and the Node smoke test. Whitelisted; errors come back as {"error": ...}."""
-import json
+import json, os, sys
 
 import yaml
 
@@ -21,6 +21,36 @@ FNS = {
     "parse_yaml": lambda a: yaml.safe_load(a["text"]),
     "lint_skill": lambda a: L.lint_skill_text(a["text"]),
 }
+
+
+def _trace(a):
+    """Run FNS[target](args) with a line tracer on the vendored upstream files only. -> {"hits": {file: {line: count}}}.
+    The result of the call is discarded: this exists to show WHICH upstream lines ran, never to change a verdict."""
+    target = a["target"]
+    if target == "trace" or target not in FNS:
+        raise ValueError(f"cannot trace {target}")
+    vendor = os.path.realpath(L.VENDOR)
+    hits = {}
+
+    def local(frame, event, arg):
+        if event == "line":
+            d = hits.setdefault(os.path.basename(frame.f_code.co_filename), {})
+            d[frame.f_lineno] = d.get(frame.f_lineno, 0) + 1
+        return local
+
+    def glob(frame, event, arg):
+        return local if os.path.dirname(os.path.realpath(frame.f_code.co_filename)) == vendor else None
+
+    old = sys.gettrace()
+    sys.settrace(glob)
+    try:
+        FNS[target](a.get("args") or {})
+    finally:
+        sys.settrace(old)
+    return {"hits": {f: {str(k): v for k, v in d.items()} for f, d in hits.items()}}
+
+
+FNS["trace"] = _trace
 
 
 def call(name, args_json):

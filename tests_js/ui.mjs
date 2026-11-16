@@ -31,6 +31,12 @@ assert.match(await page.inputValue("#fbody"), /orders\.created_at/);
 await page.fill("#qin", "order_date UTC"); await page.click("[data-act=search]");
 assert.ok((await page.locator(".node .badge").count()) >= 1, "search puts rank badges on the graph");
 assert.match(await txt("#hits"), /orders-timestamps/);
+// --- code panel: the real rank() lights up after a search; level toggle swaps notes for counts
+assert.ok((await page.locator("#drawer .cl.hit").count()) >= 5, "search lights executed lines of brain.rank");
+assert.match(await txt("#drawer .code"), /def rank\(docs, terms/);
+assert.ok((await page.locator("#drawer .cn").count()) >= 3, "beginner sees plain-English notes");
+await page.click("#level"); assert.equal(await page.locator("#drawer .cn").count(), 0, "experienced sees none");
+await page.click("#level");
 
 // --- evals: replay finishes with PASS; a bad eval fails visibly
 await mode("evals"); await node("eval:midnight-mismatch").click();

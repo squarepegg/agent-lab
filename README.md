@@ -16,6 +16,11 @@ One canvas, seven modes (left toolbar; `⌘K` jumps to anything; scenarios live 
 | A/B a skill | Real `check_skills` lint, text coverage of the probes, then the real gate. |
 | About | Which upstream files run here, with hashes. |
 
+## Levels and the real-code panel
+Every mode ends with **the real code**: the upstream function behind what you just did, with the lines that actually ran highlighted
+(a `sys.settrace` of the vendored files in Pyodide). The `level` chip switches **beginner** (plain-English margin notes, a "what am I looking at" box)
+and **experienced** (no notes, per-line execution counts). Choice is remembered in localStorage.
+
 ## What is and is not real
 Real: ranking, eval checking, grading, gate verdicts, skill lint. **Not real:** model answers. Gate demos use fixtures; the skill A/B is a
 text-coverage proxy ("the skill states the answer"), not evidence a model behaves better. Behaviour needs recorded runs from

@@ -1,4 +1,5 @@
 import { bootLab } from "./lab.js";
+import { extractFunc, annotate, coverage, MODE_CODE, NOTES } from "./codepanel.js";
 import { buildGraph, layout, neighbors, gateSteps, clip, encodeGate, decodeGate, FILE_KINDS } from "./model.js";
 
 const PYODIDE = "https://cdn.jsdelivr.net/pyodide/v0.27.7/full/";
@@ -31,7 +32,7 @@ const MODES = [
 const HASH0 = location.hash;
 let lab, bundle;
 const S = { mode: "explore", files: {}, questions: "", docs: [], results: [], graph: null, sel: null, ov: {}, whatif: null, preview: null,
-  view: { x: 0, y: 0, k: 1 }, gate: null, skill: {}, replayTok: 0, ref: {} };
+  view: { x: 0, y: 0, k: 1 }, level: localStorage.getItem("lab.level") || "beginner", tab: {}, trace: new Map(), gate: null, skill: {}, replayTok: 0, ref: {} };
 const call = (n, a) => { const r = lab.call(n, a); if (r && r.error) throw new Error(r.error); return r; };
 const guard = (fn) => { try { return fn(); } catch (e) { toast(e.message, "fail"); console.error(e); } };
 
@@ -146,10 +147,61 @@ async function replay(evalId) {
 function drawer() {
   const d = $("drawer"), m = MODES.find((x) => x[0] === S.mode);
   const keep = d.scrollTop;
-  d.innerHTML = `<h2>${m[1]}</h2><p class="lead">${m[3]}</p>` + (DRAW[S.mode]?.() ?? "");
+  d.innerHTML = `<h2>${m[1]}</h2><p class="lead">${m[3]}</p>` + beginnerIntro() + (DRAW[S.mode]?.() ?? "") + codePanel();
   d.scrollTop = keep; bindDrawer();
   const s = S.summary; $("st1").textContent = s ? `evals ${s.must_pass}/${s.must_total} must pass${s.skipped ? ` · ${s.skipped} skipped` : ""}` : "";
   $("st2").textContent = `${Object.keys(S.files).length} files · deterministic · no model calls`;
+}
+// ---------------- level + real-code panel
+const INTRO = {
+  explore: ["Each box on the right is a file the agent can read; each box on the left is a question (an eval) we ask of it.", "Search “deploy” below and watch the numbered badges: that is the ranking function at work."],
+  evals: ["An eval is a question plus a pass/fail check. No model is involved: the “agent” is a search, so results never change.", "Click an eval to replay it, then press “+ bad expect” to see what a failing one looks like."],
+  break: ["If you delete a fact and every eval still passes, the evals would not have noticed. That is a blind spot.", "Click a file, pick “delete file”, press Break it. SURVIVED means a blind spot."],
+  gate: ["A gate is a fixed checklist that turns results into one verdict. The rules run top to bottom and the first that fires wins.", "Press “No effect” then flip a few ✔/✘ cells and watch which rule fires."],
+  abfact: ["Before adding a note to a knowledge base, test it: does it break an eval, steal a top search result, or can it even be found?", "Press “load a hijacking fact” then A/B it."],
+  abskill: ["A skill is a short instruction file for an agent. Here we only check that its text contains the answers. That is a proxy, not proof the model behaves better.", "Press “filler skill” then A/B: lint passes, the gate says no."],
+  about: ["Everything here runs the real upstream Python files, unmodified, in your browser.", ""],
+};
+function beginnerIntro() {
+  const i = INTRO[S.mode]; if (S.level !== "beginner" || !i) return "";
+  return `<div class="note"><b>What am I looking at?</b> ${i[0]}${i[1] ? `<br><b>Try:</b> ${i[1]}` : ""}</div>`;
+}
+function traceSpec() {
+  const f = S.files, q = S.questions;
+  switch (S.mode) {
+    case "explore": return S.lastQ ? { target: "search", args: { files: f, query: S.lastQ } } : null;
+    case "evals": case "break": {
+      if (S.mode === "break" && S.lastMut) return { target: "mutate", args: { files: f, questions: q, mutation: S.lastMut } };
+      const id = S.sel?.startsWith("eval:") ? S.sel.slice(5) : null;
+      if (!id) return { target: "run_evals", args: { files: f, questions: q } };
+      const one = call("parse_yaml", { text: q }).filter((x) => x.id === id);
+      return { target: "run_evals", args: { files: f, questions: JSON.stringify(one) } };
+    }
+    case "gate": return S.gate?.res ? { target: "gate", args: { probes: S.gate.probes, grid: S.gate.grid, params: S.gate.params, samples: 3 } } : null;
+    case "abfact": return S.ab ? { target: "search", args: { files: { ...f, [S.ab.path]: S.ab.text }, query: S.ab.own } } : null;
+    case "abskill": { const k = S.skill; if (!k.res) return null; const ps = bundle.probes.filter((p) => p.skill === k.name);
+      return { target: "ab_skill", args: { text: k.text, probes: ps, rates: Object.fromEntries(ps.map((p) => [p.id, k.rate])), samples: 3 } }; }
+    default: return null;
+  }
+}
+const TRACE_WHAT = { explore: "your last search", evals: "the selected eval (or all of them)", break: "the last break (or all evals)", gate: "the current outcomes and thresholds", abfact: "the fact's own query", abskill: "the last A/B" };
+function codePanel() {
+  const spec = MODE_CODE[S.mode]; if (!spec) return "";
+  const ti = Math.min(S.tab[S.mode] || 0, spec.length - 1), [file, fn, label] = spec[ti];
+  const src = bundle.py["vendor/" + file], f = src && extractFunc(src, fn); if (!f) return "";
+  let hits = null; const ts = traceSpec();
+  if (ts) {
+    const key = JSON.stringify(ts);
+    if (!S.trace.has(key)) { try { S.trace.set(key, call("trace", ts).hits); } catch (e) { S.trace.set(key, null); } if (S.trace.size > 24) S.trace.delete(S.trace.keys().next().value); }
+    hits = S.trace.get(key)?.[file] ?? {};
+  }
+  const rows = annotate(f, hits, NOTES[`${file}:${fn}`]), cov = coverage(rows), beg = S.level === "beginner";
+  const body = rows.map((r) => `<div class="cl ${hits ? r.state : "none"}"><span class="ln">${r.n}</span><span class="cx">${esc(r.text) || " "}</span><span class="cnt">${hits && r.count > 1 && !beg ? "×" + r.count : ""}</span></div>` +
+    (beg && r.note && r.code ? `<div class="cn">↳ ${esc(r.note)}</div>` : "")).join("");
+  const tabs = spec.length > 1 ? `<div class="row tabs">${spec.map((x, i) => `<button class="btn alt ${i === ti ? "on" : ""}" data-act="ctab" data-i="${i}">${x[2]}</button>`).join("")}</div>` : "";
+  const legend = !ts ? `<div class="mut">Do something on the left and the lines that ran will light up.</div>`
+    : `<div class="mut"><span class="ok">green</span> lines ran for ${TRACE_WHAT[S.mode]}${cov.total ? ` · ${cov.ran}/${cov.total} lines` : ""}. ${beg ? "Grey lines did not run this time." : "Counts show loop iterations."}</div>`;
+  return `<h3>the real code · ${file}</h3>${tabs}${legend}<div class="code">${body}</div><div class="mut">unmodified upstream <code>${esc(bundle.vendor.files[file]?.path ?? file)}</code> (${esc(bundle.vendor.files[file]?.repo ?? "")}), line numbers match the file.</div>`;
 }
 const fileEditor = () => {
   const p = S.sel && S.files[S.sel] != null ? S.sel : null;
@@ -239,10 +291,11 @@ function bindDrawer() {
 }
 const addQ = (y) => { S.questions = S.questions.trimEnd() + "\n" + y + "\n"; refresh(); renderGraph(); drawer(); const bad = S.results.at(-1); S.sel = "eval:" + bad.id; paintOverlay(); flash([S.sel]); replay(bad.id); };
 const ACT = {
+  ctab(t) { S.tab[S.mode] = +t.dataset.i; drawer(); },
   save() { S.files[S.sel] = $("fbody").value; refresh(); renderGraph(); toast("saved to this tab", ""); drawer(); },
   reset() { S.files = structuredClone(bundle.brain); S.questions = bundle.questions; S.sel = null; S.whatif = null; S.preview = null; S.ov = {}; refresh(); renderGraph(); drawer(); },
   search() {
-    const q = $("qin").value; const r = call("search", { files: S.files, query: q });
+    const q = $("qin").value; S.lastQ = q; const r = call("search", { files: S.files, query: q });
     S.ov = { ranks: Object.fromEntries(r.map((x) => [x.path, x.rank]).filter(([, rk], i, a) => true)), hits: r.length ? r.map((x) => `<div class="li" data-hit="${esc(x.path)}"><span class="pill">#${x.rank}</span><span><b>${esc(x.path)}</b>:${x.line}<br><span class="mut">${esc(clip(x.text, 110))}</span></span></div>`).join("") : '<div class="mut">no matches</div>' };
     const first = {}; for (const x of r) first[x.path] ??= x.rank; S.ov.ranks = first; paintOverlay(); drawer(); $("qin").value = q;
   },
@@ -254,7 +307,7 @@ const ACT = {
   applyqs() { S.questions = $("qs").value; refresh(); renderGraph(); drawer(); },
   break() {
     const m = { op: $("mop").value, path: S.sel, text: $("mtext").value, with: $("mwith").value };
-    const r = call("mutate", { files: S.files, questions: S.questions, mutation: m });
+    S.lastMut = m; const r = call("mutate", { files: S.files, questions: S.questions, mutation: m });
     S.whatif = { results: r.after, broken: S.sel, res: r }; S.explain = call("explain", { files: S.files, questions: S.questions, mutation: m }); renderGraph(); drawer();
     setTimeout(() => flash(r.killed_by.map((i) => "eval:" + i)), 120); toast(r.survived ? "SURVIVED: no eval noticed" : "KILLED by " + r.killed_by.length + " eval(s)", r.survived ? "warn" : "pass");
   },
@@ -264,7 +317,7 @@ const ACT = {
     const r = call("auto_mutants", { files: S.files, questions: S.questions }); S.mut = { i: r.total, total: r.total, killed: r.killed, rows: r.mutants.slice().reverse(), done: true, score: r.score };
     drawer(); toast(`added the eval · mutation score ${r.killed}/${r.total}`, "pass");
   },
-  restore() { S.whatif = null; S.explain = null; renderGraph(); drawer(); },
+  restore() { S.whatif = null; S.lastMut = null; S.explain = null; renderGraph(); drawer(); },
   async auto() {
     S.explain = null;
     const r = call("auto_mutants", { files: S.files, questions: S.questions }); S.whatif = null; renderGraph();
@@ -436,6 +489,9 @@ function palPick(n) { const it = pal.items[n]; palClose(); it?.run(); }
 
 // ---------------- wiring
 function wire() {
+  const lv = () => { $("level").textContent = "level: " + S.level; };
+  $("level").onclick = () => { S.level = S.level === "beginner" ? "experienced" : "beginner"; localStorage.setItem("lab.level", S.level); lv(); drawer(); };
+  lv();
   $("tools").innerHTML = MODES.map(([m, n]) => `<button data-m="${m}" data-tip="${n}" aria-label="${n}"><svg viewBox="0 0 24 24">${ICON[m]}</svg></button>`).join("");
   $("tools").onclick = (e) => { const m = e.target.closest("button")?.dataset.m; if (m) setMode(m); };
   $("find").onclick = palOpen;

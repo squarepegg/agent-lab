@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { extractFunc, annotate, coverage, MODE_CODE } from "../web/codepanel.js";
+import fs from "node:fs";
 import { parseHits, buildGraph, layout, neighbors, gateSteps, encodeGate, decodeGate, GATE_ORDER, clip } from "../web/model.js";
 
 const docs = [{ path: "facts/a.md", kind: "fact", title: "A" }, { path: "facts/b.md", kind: "fact", title: "B" }, { path: "facts/c.md", kind: "fact", title: "C" },
@@ -54,3 +56,21 @@ test("gate hash round-trips", () => {
 });
 
 test("clip", () => { assert.equal(clip("abcdef", 4), "abc…"); assert.equal(clip("abc", 4), "abc"); });
+
+test("codepanel: every mode's functions exist in the vendored source, and the last line of decide is its ADOPT return", () => {
+  for (const spec of Object.values(MODE_CODE)) for (const [file, fn] of spec) {
+    const f = extractFunc(fs.readFileSync(new URL(`../vendor/${file}`, import.meta.url), "utf8"), fn);
+    assert.ok(f && f.rows.length > 1, `${file}:${fn}`);
+    assert.ok(f.rows[0].text.startsWith(`def ${fn}(`));
+  }
+  const d = extractFunc(fs.readFileSync(new URL("../vendor/gate.py", import.meta.url), "utf8"), "decide");
+  assert.match(d.rows.at(-1).text, /ADOPT/);
+});
+
+test("codepanel: annotate marks hit/miss only on code lines; docstrings and defs are none", () => {
+  const f = extractFunc('def f(x):\n    """doc\n    more"""\n    a = 1\n    # c\n    return a\n\nX = 1\n', "f");
+  const rows = annotate(f, { 4: 2 }, [["return", "gives it back"]]);
+  assert.deepEqual(rows.map((r) => r.state), ["none", "none", "none", "hit", "none", "miss"]);
+  assert.equal(rows[5].note, "gives it back");
+  assert.deepEqual(coverage(rows), { ran: 1, total: 2 });
+});
