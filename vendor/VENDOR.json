@@ -8,12 +8,12 @@
   "_fm.py": {
    "path": "scripts/_fm.py",
    "repo": "map",
-   "sha256": "b9e10dd37fa836765f3e148876aade7c35a6aea054b691ab53d733f93b4be71d"
+   "sha256": "eca66e58419ead044d7b8a320b5bcf02b8d69dd945d83b46c2e907e9dd6d397c"
   },
   "brain.py": {
    "path": "scripts/brain.py",
    "repo": "map",
-   "sha256": "08fb14f20a41f3b17af6e82994bd50db9e62ccc8e4d6b6e27f4575316c8be335"
+   "sha256": "a708a6ca9ec1d230cd192c0c4d1da13f8b661a7524381a409dfdc6f3011d52d4"
   },
   "check_skills.py": {
    "path": "scripts/check_skills.py",
@@ -37,7 +37,7 @@
   }
  },
  "upstream_commits": {
-  "map": "57682757a30d8d8a4d7af1449bd2dbac2cdfd1d7",
-  "toolkit": "22289bc78a01bf074837b692bf91892320e6a0a8"
+  "map": "7ca5094b655519a6d20d61d93b1bd5417666bba9",
+  "toolkit": "9f7cb2b1210728fe66cbe902fe027c0bb116667f"
  }
 }
