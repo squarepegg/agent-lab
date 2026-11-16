@@ -1,5 +1,6 @@
 import { bootLab } from "./lab.js";
-import { LESSONS } from "./lessons.js";
+import { LESSONS, checkClaims } from "./lessons.js";
+import { CHALLENGES } from "./challenges.js";
 import { extractFunc, annotate, coverage, MODE_CODE, NOTES, TWEAKS, applyTweak, lineDiff, brief } from "./codepanel.js";
 import { buildGraph, layout, neighbors, gateSteps, clip, encodeGate, decodeGate, FILE_KINDS } from "./model.js";
 
@@ -150,7 +151,7 @@ async function replay(evalId) {
 function drawer() {
   const d = $("drawer"), m = MODES.find((x) => x[0] === S.mode);
   const keep = d.scrollTop;
-  d.innerHTML = lessonCard() + `<h2>${m[1]}</h2><p class="lead">${m[3]}</p>` + (S.lesson ? "" : beginnerIntro()) + (DRAW[S.mode]?.() ?? "") + (S.mode === "learn" ? "" : codePanel() + editCell());
+  d.innerHTML = lessonCard() + chalCard() + `<h2>${m[1]}</h2><p class="lead">${m[3]}</p>` + (S.lesson || S.chal ? "" : beginnerIntro()) + (DRAW[S.mode]?.() ?? "") + (S.mode === "learn" ? "" : codePanel() + editCell());
   d.scrollTop = keep; bindDrawer();
   const s = S.summary; $("st1").textContent = s ? `evals ${s.must_pass}/${s.must_total} must pass${s.skipped ? ` · ${s.skipped} skipped` : ""}` : "";
   $("st2").textContent = `${Object.keys(S.files).length} files · deterministic · no model calls`;
@@ -288,7 +289,7 @@ const LA = {   // actions a lesson step may name
 const runActs = (acts = []) => { for (const [a, ...args] of acts) { if (!LA[a]) throw new Error("unknown lesson action " + a); LA[a](...args); } };
 const lstep = () => { const L = LESSONS.find((l) => l.id === S.lesson.id); return [L, L.steps[S.lesson.i]]; };
 function startLesson(id) {
-  guard(() => { resetAll(); S.lesson = { id, i: 0, picked: null, correct: null, right: 0, total: 0, answered: {} }; enterStep(); });
+  guard(() => { resetAll(); S.chal = null; S.lesson = { id, i: 0, picked: null, correct: null, right: 0, total: 0, answered: {} }; enterStep(); });
 }
 function enterStep() {
   const [, st] = lstep(); S.lesson.picked = S.lesson.answered[S.lesson.i]?.picked ?? null; S.lesson.correct = S.lesson.answered[S.lesson.i]?.correct ?? null;
@@ -327,17 +328,59 @@ function lessonCard() {
     h += `<div class="lq"><b>Predict.</b> ${mdi(pr.q)}</div>`;
     if (beg && st.hint && !picked) h += `<div class="mut">Hint: ${mdi(st.hint)}</div>`;
     h += `<div class="row">${pr.choices.map((c, i) => `<button class="btn alt ${picked && c === L.correct ? "right" : picked && c === L.picked ? "wrong" : ""}" data-act="lpick" data-i="${i}" ${picked ? "disabled" : ""}>${esc(c)}</button>`).join("")}</div>`;
-    if (picked) h += `<div class="big ${L.picked === L.correct ? "ok" : "warn"}">${L.picked === L.correct ? "Correct" : "Not quite"}</div><div class="lt">Answer: <b>${esc(L.correct)}</b>. ${mdi(pr.why(ctx()))}</div>`;
+    if (picked) {
+      const bad = checkClaims(pr, ctx()); if (bad.length) console.warn("lesson explanation out of date:", Lz.id, bad);
+      h += `<div class="big ${L.picked === L.correct ? "ok" : "warn"}">${L.picked === L.correct ? "Correct" : "Not quite"}</div><div class="lt">Answer: <b>${esc(L.correct)}</b>. ` +
+        (bad.length ? `<span class="warn">⚠ The explanation no longer matches what the code did (${esc(bad.join("; "))}). The answer is still computed from the real run.</span>` : mdi(pr.why(ctx()))) + `</div>`;
+    }
   }
   const last = L.i === n - 1, can = !pr || picked;
   h += `<div class="row"><button class="btn alt" data-act="lback" ${L.i ? "" : "disabled"}>← Back</button><button class="btn" data-act="lnext" ${can ? "" : "disabled"}>${last ? "Finish" : "Next →"}</button></div></div>`;
+  return h;
+}
+// ---------------- challenges: do something, press Check, the real code judges
+const md = (t) => t.split("```").map((seg, i) => (i % 2 ? `<pre>${esc(seg.replace(/^\n/, ""))}</pre>` : mdi(seg))).join("");
+const chalDef = () => CHALLENGES.find((c) => c.id === S.chal.id);
+function startChal(id) {
+  guard(() => {
+    const c = CHALLENGES.find((x) => x.id === id); resetAll(); S.lesson = null;
+    S.chal = { id, hints: 0, result: null, solved: false, src: null };
+    if (c.code) { const f = extractFunc(bundle.py["vendor/" + c.code.file], c.code.fn); S.chal.src = f.rows.map((r) => r.text).join("\n"); }
+    setMode(c.mode, true); runActs(c.setup); drawer(); $("drawer").scrollTop = 0;
+  });
+}
+function chalCheck() {
+  const c = chalDef(), C = S.chal; let crit;
+  if (c.code) {
+    const r = lab.call("check_fn", { file: c.code.file, fn: c.code.fn, src: C.src, cases: c.cases.map(({ args, expect }) => ({ args, expect })) });
+    crit = r.error ? [{ label: "your source runs", ok: false, detail: r.error }] : c.cases.map((k, i) => ({ label: k.name, ok: r.results[i].ok, detail: r.results[i].ok ? "" : r.results[i].error || "got " + JSON.stringify(r.results[i].got) }));
+  } else {
+    let qs = S.questions;
+    if ($("qs")) { qs = $("qs").value; try { S.questions = qs; refresh(); renderGraph(); } catch (e) { crit = [{ label: "questions.yaml parses", ok: false, detail: e.message }]; } }
+    crit ||= c.check({ S, call, qs, gpa: $("gpa")?.value, base: bundle.questions });
+  }
+  C.result = crit; C.solved = crit.every((x) => x.ok);
+  if (C.solved) { const p = prog(); p["chal:" + c.id] = { done: true }; localStorage.setItem("lab.progress", JSON.stringify(p)); }
+  toast(C.solved ? "solved" : `${crit.filter((x) => x.ok).length}/${crit.length} checks pass`, C.solved ? "pass" : "warn"); drawer();
+}
+function chalCard() {
+  if (!S.chal) return "";
+  const c = chalDef(), C = S.chal;
+  let h = `<div class="lesson"><div class="lh"><b>Challenge · ${esc(c.title)}</b><button class="chip" data-act="cexit">exit</button></div><div class="lt">${md(c.goal)}</div>`;
+  if (c.code) h += `<textarea id="chsrc" spellcheck="false" style="min-height:${Math.min(300, 40 + C.src.split("\n").length * 15)}px;white-space:pre;overflow:auto;font-size:10.5px">${esc(C.src)}</textarea>`;
+  if (c.cases && !C.result) h += `<div class="mut">Tests:</div>` + c.cases.map((k) => `<div class="chk in">○ ${esc(k.name)}</div>`).join("");
+  if (C.result) h += C.result.map((x) => `<div class="chk in ${x.ok ? "ok" : "bad"}">${x.ok ? "✔" : "✘"} ${mdi(x.label)}${x.detail ? ` <span class="mut">${esc(x.detail)}</span>` : ""}</div>`).join("") + (C.solved ? `<div class="big ok">Solved</div>` : "");
+  if (C.hints) h += c.hints.slice(0, C.hints).map((t, i) => `<div class="note"><b>Hint ${i + 1}.</b> ${md(t)}</div>`).join("");
+  h += `<div class="row"><button class="btn" data-act="ccheck">Check</button>${C.hints < c.hints.length ? `<button class="btn alt" data-act="chint">Hint (${C.hints}/${c.hints.length})</button>` : ""}</div></div>`;
   return h;
 }
 const DRAW = {
   learn() {
     const p = prog();
     return `<div class="mut">Each lesson asks you to <b>predict</b> before it runs the real upstream code. Answers are computed from that code, not written in advance. Your level (${S.level}) changes the wording and the hints.</div>` +
-      LESSONS.map((l, i) => { const q = p[l.id]; return `<div class="card"><div><b>${i + 1}. ${esc(l.title)}</b> ${q?.done ? `<span class="ok">✔ ${q.total ? `${q.right}/${q.total}` : ""}</span>` : ""}</div><div class="mut">${esc(l.blurb)} · ${l.steps.length} steps</div><button class="btn" data-act="lstart" data-id="${l.id}">${q?.done ? "Redo" : "Start"}</button></div>`; }).join("");
+      LESSONS.map((l, i) => { const q = p[l.id]; return `<div class="card"><div><b>${i + 1}. ${esc(l.title)}</b> ${q?.done ? `<span class="ok">✔ ${q.total ? `${q.right}/${q.total}` : ""}</span>` : ""}</div><div class="mut">${esc(l.blurb)} · ${l.steps.length} steps</div><button class="btn" data-act="lstart" data-id="${l.id}">${q?.done ? "Redo" : "Start"}</button></div>`; }).join("") +
+      `<h3>Challenges</h3><div class="mut">Do the thing, press Check: the real code judges your result.</div>` +
+      CHALLENGES.map((c) => `<div class="card"><div><b>${esc(c.title)}</b> ${p["chal:" + c.id]?.done ? '<span class="ok">✔ solved</span>' : ""}</div><div class="mut">${c.code ? "edit code" : "in the " + MODES.find((m) => m[0] === c.mode)[1] + " mode"}</div><button class="btn" data-act="cstart" data-id="${c.id}">${p["chal:" + c.id]?.done ? "Again" : "Start"}</button></div>`).join("");
   },
   explore() {
     return `<div class="row"><input id="qin" placeholder="search the brain (real ranking)…"><button class="btn" data-act="search">Search</button></div>
@@ -395,13 +438,13 @@ const DRAW = {
 function bindDrawer() {
   const d = $("drawer");
   d.onclick = (e) => { const a = e.target.closest("[data-act]")?.dataset.act; if (a) guard(() => ACT[a]?.(e.target.closest("[data-act]"))); const c = e.target.closest("[data-gc]"); if (c) gateCell(c.dataset); const l = e.target.closest("[data-hit]"); if (l) { S.sel = l.dataset.hit; paintOverlay(); drawer(); } };
-  d.oninput = (e) => { if (e.target.id === "edsrc") { const c = editCtx(); if (c) c.E.src = e.target.value; return; } if (e.target.dataset.gp) gateParam(e.target); if (e.target.id === "gpa") gateGrade(); if (e.target.id === "gpg") { S.gate.pg = +e.target.value; drawer(); } };
+  d.oninput = (e) => { if (e.target.id === "chsrc" && S.chal) { S.chal.src = e.target.value; return; } if (e.target.id === "edsrc") { const c = editCtx(); if (c) c.E.src = e.target.value; return; } if (e.target.dataset.gp) gateParam(e.target); if (e.target.id === "gpa") gateGrade(); if (e.target.id === "gpg") { S.gate.pg = +e.target.value; drawer(); } };
   d.onchange = (e) => { if (e.target.id === "gpg") { S.gate.pg = +e.target.value; drawer(); } };
-  d.onkeydown = (e) => { if (e.target.id === "edsrc" && e.key === "Tab") { e.preventDefault(); const t = e.target, a = t.selectionStart; t.setRangeText("    ", a, t.selectionEnd, "end"); t.dispatchEvent(new Event("input", { bubbles: true })); return; } if (e.key === "Enter" && e.target.id === "qin") ACT.search(); };
+  d.onkeydown = (e) => { if ((e.target.id === "edsrc" || e.target.id === "chsrc") && e.key === "Tab") { e.preventDefault(); const t = e.target, a = t.selectionStart; t.setRangeText("    ", a, t.selectionEnd, "end"); t.dispatchEvent(new Event("input", { bubbles: true })); return; } if (e.key === "Enter" && e.target.id === "qin") ACT.search(); };
 }
 const addQ = (y) => { S.questions = S.questions.trimEnd() + "\n" + y + "\n"; refresh(); renderGraph(); drawer(); const bad = S.results.at(-1); S.sel = "eval:" + bad.id; paintOverlay(); flash([S.sel]); replay(bad.id); };
 const ACT = {
-  edtweak(t) { const c = editCtx(); const tw = c.tweaks[+t.dataset.i]; c.E.tweak = tw; c.E.src = applyTweak(c.orig, tw); ACT.edrun(); },
+  edtweak(t) { const c = editCtx(); const tw = c.tweaks[+t.dataset.i]; c.E.tweak = tw; c.E.src = applyTweak(c.orig, tw); drawer(); /* refresh the editor first: edrun reads it */ ACT.edrun(); },
   edrun() {
     const c = editCtx(), ts = traceSpec(); if (!ts) return; if ($("edsrc")) c.E.src = $("edsrc").value;
     const r = lab.call("run_edit", { target: ts.target, file: c.file, fn: c.fn, src: c.E.src ?? c.orig, args: ts.args });
@@ -412,6 +455,10 @@ const ACT = {
   lstart(t) { startLesson(t.dataset.id); },
   lpick(t) { lessonPick(+t.dataset.i); },
   lnext() { lessonNav(1); }, lback() { lessonNav(-1); },
+  cstart(t) { startChal(t.dataset.id); },
+  ccheck() { chalCheck(); },
+  chint() { S.chal.hints++; drawer(); },
+  cexit() { S.chal = null; drawer(); },
   lexit() { S.lesson = null; drawer(); },
   ctab(t) { S.tab[S.mode] = +t.dataset.i; drawer(); },
   save() { S.files[S.sel] = $("fbody").value; refresh(); renderGraph(); toast("saved to this tab", ""); drawer(); },

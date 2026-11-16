@@ -351,3 +351,36 @@ class RunEdit(unittest.TestCase):
         r = self._run("def rank(docs, terms, limit=30):\n    return []\n", fn="rank", file="brain.py", target="search",
                       args={"files": BRAIN, "query": "order_date UTC"})
         self.assertTrue(r["base"]); self.assertEqual(r["edited"], [])
+
+
+class CheckFn(unittest.TestCase):
+    """check_fn judges a learner's function against cases without touching the real module."""
+
+    K = {"expect": [["known bug"]]}
+    CASES = [{"args": [K, "It is a known-bug test"], "expect": []}, {"args": [K, "an unknown bug appeared"], "expect": ["known bug"]},
+             {"args": [{"expect": [["a"], ["b"]]}, "a only"], "expect": ["b"]}]
+    FIX = ('def missing(probe, text):\n    import re\n    norm = lambda s: re.sub(r"[\\W_]+", " ", s.lower()).strip()\n'
+           '    low = " " + norm(text) + " "\n    return [g[0] for g in probe["expect"] if not any(" " + norm(a) + " " in low for a in g)]\n')
+
+    def _run(self, src):
+        import api, json
+        return json.loads(api.call("check_fn", json.dumps({"file": "skill_ab.py", "fn": "missing", "src": src, "cases": self.CASES})))
+
+    def test_upstream_fails_the_new_behaviour_and_keeps_the_old(self):
+        import skill_ab, inspect
+        self.assertEqual([r["ok"] for r in self._run(inspect.getsource(skill_ab.missing))["results"]], [False, False, True])
+
+    def test_reference_fix_passes_and_real_module_is_untouched(self):
+        import skill_ab
+        before = skill_ab.missing
+        self.assertTrue(all(r["ok"] for r in self._run(self.FIX)["results"]))
+        self.assertIs(skill_ab.missing, before)
+        self.assertEqual(skill_ab.missing(self.K, "known-bug"), ["known bug"])
+
+    def test_bad_sources_are_reported(self):
+        self.assertIn("SyntaxError", self._run("def missing(:")["error"])
+        self.assertIn("must define", self._run("x = 1")["error"])
+        r = self._run("def missing(probe, text):\n    while True: pass\n")
+        self.assertIn("endless loop", r["results"][0]["error"]); self.assertEqual(len(r["results"]), 3)
+        r = self._run("def missing(probe, text):\n    raise KeyError('k')\n")
+        self.assertFalse(any(x["ok"] for x in r["results"]))

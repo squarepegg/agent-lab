@@ -29,6 +29,10 @@ restored; syntax errors and endless loops (400k-line budget) are reported in the
 runs the real code. The answer is computed from that run, never written in advance, and the page refuses a lesson whose answer is not one of its choices.
 Lessons live in `web/lessons.js`; progress is in localStorage.
 
+**Challenges** (below the lessons): six tasks (catch a surviving mutant, lift the mutation score, make the gate say TOO_COSTLY, find the regression the gate tolerates, fool the grader,
+fix `skill_ab.missing` against unit tests). Press **Check** and the real code judges your result; each has a 3-step hint ladder.
+Lesson explanations are claim-checked: every causal sentence has predicates evaluated on the real run, and the page shows a warning instead of the sentence if one stops holding.
+
 ## What is and is not real
 Real: ranking, eval checking, grading, gate verdicts, skill lint. **Not real:** model answers. Gate demos use fixtures; the skill A/B is a
 text-coverage proxy ("the skill states the answer"), not evidence a model behaves better. Behaviour needs recorded runs from

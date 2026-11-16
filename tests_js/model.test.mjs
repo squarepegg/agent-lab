@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { extractFunc, annotate, coverage, MODE_CODE, TWEAKS, applyTweak, lineDiff, brief } from "../web/codepanel.js";
 import fs from "node:fs";
+import { LESSONS, checkClaims } from "../web/lessons.js";
+import { CHALLENGES } from "../web/challenges.js";
 import { parseHits, buildGraph, layout, neighbors, gateSteps, encodeGate, decodeGate, GATE_ORDER, clip } from "../web/model.js";
 
 const docs = [{ path: "facts/a.md", kind: "fact", title: "A" }, { path: "facts/b.md", kind: "fact", title: "B" }, { path: "facts/c.md", kind: "fact", title: "C" },
@@ -92,4 +94,22 @@ test("brief: one comparable line per target", () => {
   assert.equal(brief("gate", { verdict: "ADOPT", reason: "r" }), "ADOPT: r");
   assert.equal(brief("mutate", { survived: true }), "SURVIVED: no eval noticed");
   assert.deepEqual(lineDiff("a\nb", "a\nc").map((x) => x.kind), ["del", "add"]);
+});
+
+test("lessons: every predict step has a why, 2+ choices, and claims that can fail", () => {
+  const ps = LESSONS.flatMap((l) => l.steps).filter((s) => s.predict).map((s) => s.predict);
+  assert.ok(ps.length >= 12);
+  for (const p of ps) { assert.equal(typeof p.why, "function"); assert.ok(p.choices.length >= 2 && new Set(p.choices).size === p.choices.length); }
+  assert.ok(ps.filter((p) => (p.claims || []).length).length >= 11, "nearly every explanation is claim-checked");
+});
+
+test("checkClaims reports exactly the claims that do not hold (and treats a throwing claim as failed)", () => {
+  const p = { claims: [["true one", () => true], ["false one", () => false], ["throws", () => { throw new Error("x"); }]] };
+  assert.deepEqual(checkClaims(p, {}), ["false one", "throws"]);
+  assert.deepEqual(checkClaims({}, {}), []);
+});
+
+test("challenges: unique ids, goals, 3 hints for graded ones, code challenges have cases", () => {
+  assert.equal(new Set(CHALLENGES.map((c) => c.id)).size, CHALLENGES.length);
+  for (const c of CHALLENGES) { assert.ok(c.goal && c.hints.length >= 3 && c.title, c.id); assert.ok(c.code ? c.cases.length >= 4 : typeof c.check === "function", c.id); }
 });

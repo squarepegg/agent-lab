@@ -106,6 +106,50 @@ def _run_edit(a):
 FNS["run_edit"] = _run_edit
 
 
+def _check_fn(a):
+    """Run the learner's source for `file`:`fn` against test cases, WITHOUT touching the real module.
+    cases = [{"args": [...], "expect": <json>}] -> {"results": [{"ok", "got", "error"}]} or {"error"} when the source itself is unusable."""
+    mod = MODS.get(a["file"])
+    if mod is None or not callable(getattr(mod, a["fn"], None)):
+        raise ValueError(f"cannot check {a['file']}:{a['fn']}")
+    try:
+        ns = dict(vars(mod))
+        ns.pop(a["fn"])
+        exec(compile(a["src"], "<edit>", "exec"), ns)
+        new = ns.get(a["fn"])
+        if not callable(new):
+            return {"error": f"your source must define `def {a['fn']}(...)`"}
+    except SyntaxError as e:
+        return {"error": f"SyntaxError on line {e.lineno}: {e.msg}"}
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+    count, old_trace, out = [0], sys.gettrace(), []
+
+    def local(frame, event, arg):
+        count[0] += 1
+        if count[0] > EDIT_BUDGET:
+            raise TimeoutError(f"ran more than {EDIT_BUDGET:,} lines: is there an endless loop?")
+        return local
+
+    sys.settrace(lambda frame, event, arg: local if frame.f_code.co_filename == "<edit>" else None)
+    try:
+        for c in a["cases"]:
+            try:
+                got = json.loads(json.dumps(new(*json.loads(json.dumps(c["args"])))))
+                out.append({"ok": got == c["expect"], "got": got, "error": ""})
+            except Exception as e:
+                out.append({"ok": False, "got": None, "error": f"{type(e).__name__}: {e}"})
+                if isinstance(e, TimeoutError):
+                    break
+    finally:
+        sys.settrace(old_trace)
+    out += [{"ok": False, "got": None, "error": "not run"}] * (len(a["cases"]) - len(out))
+    return {"results": out}
+
+
+FNS["check_fn"] = _check_fn
+
+
 def call(name, args_json):
     try:
         if name not in FNS:

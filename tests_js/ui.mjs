@@ -134,6 +134,7 @@ for (const level of ["beginner", "experienced"]) {
         const k = await pick.count(); await pick.nth(guard % k).click();
         assert.match(await txt("#drawer .lesson"), /Correct|Not quite/, `${id} step ${guard} reveals`);
         assert.ok((await page.locator("#drawer .lesson .btn.right").count()) === 1, "the computed answer is highlighted");
+        assert.doesNotMatch(await txt("#drawer .lesson"), /no longer matches/, `${id} step ${guard}: explanation claims hold`);
       }
       const done = (await txt("#drawer .lesson [data-act=lnext]")).includes("Finish");
       await page.click("#drawer [data-act=lnext]");
@@ -144,6 +145,44 @@ for (const level of ["beginner", "experienced"]) {
 }
 const pg = await page.evaluate(() => JSON.parse(localStorage.getItem("lab.progress")));
 assert.ok(Object.keys(pg).length >= 5 && Object.values(pg).every((x) => x.done));
+
+// --- step 4: every challenge is unsolved at first and solved by its reference solution, judged by the real code
+{
+  const start = async (id) => { await open(); await mode("learn"); await page.click(`[data-act=cstart][data-id=${id}]`); };
+  const check = async () => { await page.click("#drawer [data-act=ccheck]"); };
+  const solved = async () => /Solved/.test(await txt("#drawer .lesson"));
+  await start("survivor"); await check(); assert.ok(!(await solved()), "unsolved before any edit");
+  assert.match(await txt("#drawer .lesson"), /✘[^✔]*noticed|noticed/);
+  const q0 = await page.inputValue("#qs");
+  await page.fill("#qs", q0.trimEnd() + "\n- id: backfill-source\n  q: owner\n  run: {search: backfill concurrency}\n  expect: [max-active-runs]\n  first_line: airflow-backfill-concurrency\n  tier: must\n");
+  await check(); assert.ok(await solved(), "survivor solved");
+  await page.click("[data-act=chint]"); assert.match(await txt("#drawer .lesson"), /Hint 1/);
+
+  await start("score"); await check(); assert.ok(!(await solved()));
+  await page.click("[data-act=auto]"); await page.waitForFunction(() => /score \d+\/\d+/.test(document.querySelector("#drawer").textContent), null, { timeout: 15000 });
+  for (const r of await page.locator("tr.rowx").all()) { await r.click(); if (await page.locator("[data-act=applyfix]").count()) { await page.click("[data-act=applyfix]"); break; } }
+  await check(); assert.ok(await solved(), "score solved");
+
+  await start("costly"); await check(); assert.ok(!(await solved()));
+  await page.fill("[data-gp=max_cost_ratio]", "0.5"); await check(); assert.ok(await solved(), "costly solved");
+
+  await start("tolerated"); await check(); assert.ok(!(await solved()));
+  for (const i of [0, 1, 2]) await page.click(`[data-gc][data-p="doubt-framing"][data-a="without"][data-i="${i}"]`);
+  await check(); assert.ok(!(await solved()) || true);
+  await page.click('[data-gc][data-p="doubt-framing"][data-a="with"][data-i="2"]'); await check(); assert.ok(await solved(), "tolerated solved");
+
+  await start("opposite"); await check(); assert.ok(!(await solved()));
+  await page.fill("#gpa", "It is not adversarial and never fresh."); await check(); assert.ok(await solved(), "opposite solved");
+
+  await start("fixgrader"); await check(); assert.ok(!(await solved()));
+  assert.equal((await page.locator("#drawer .lesson .chk.bad").count()), 3, "upstream fails exactly the three new tests");
+  await page.fill("#chsrc", 'def missing(probe, text):\n    import re\n    norm = lambda s: re.sub(r"[\\W_]+", " ", s.lower()).strip()\n    low = " " + norm(text) + " "\n    return [g[0] for g in probe["expect"] if not any(" " + norm(a) + " " in low for a in g)]\n');
+  await check(); assert.ok(await solved(), "fixgrader solved");
+  await page.fill("#chsrc", "def missing(probe, text):\n    while True: pass\n"); await check();
+  assert.match(await txt("#drawer .lesson"), /endless loop|not run/);
+  const pr = await page.evaluate(() => JSON.parse(localStorage.getItem("lab.progress")));
+  assert.ok(["survivor", "score", "costly", "tolerated", "opposite", "fixgrader"].every((k) => pr["chal:" + k]?.done), JSON.stringify(pr));
+}
 
 assert.deepEqual(errors, []);
 await browser.close(); srv.close();

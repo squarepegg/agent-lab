@@ -101,3 +101,5 @@ tr.rowx{cursor:pointer}tr.rowx:hover{background:var(--canvas)}
 .lh{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:6px}.lh b{flex:1}
 .lt{margin:6px 0}.lq{margin:8px 0 4px}.btn.alt.right{border-color:var(--pass);color:var(--pass)}.btn.alt.wrong{border-color:var(--fail);color:var(--fail)}
 .btn.alt:disabled{opacity:.7;cursor:default}
+
+.lesson .chk{margin:3px 0}.lesson pre{white-space:pre-wrap}
