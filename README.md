@@ -25,6 +25,10 @@ and **experienced** (no notes, per-line execution counts). Choice is remembered 
 function. The same input runs through the real function and your edit, and the result is compared. The edit is swapped in for one call and
 restored; syntax errors and endless loops (400k-line budget) are reported in the cell, never break the page.
 
+**Learn** (first toolbar icon): 5 guided lessons (what is an eval, ranking, mutation testing, the gate, skill A/B). Each asks you to **predict** before it
+runs the real code. The answer is computed from that run, never written in advance, and the page refuses a lesson whose answer is not one of its choices.
+Lessons live in `web/lessons.js`; progress is in localStorage.
+
 ## What is and is not real
 Real: ranking, eval checking, grading, gate verdicts, skill lint. **Not real:** model answers. Gate demos use fixtures; the skill A/B is a
 text-coverage proxy ("the skill states the answer"), not evidence a model behaves better. Behaviour needs recorded runs from

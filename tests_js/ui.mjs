@@ -122,6 +122,29 @@ assert.match(await txt("#drawer"), /pii-hashed-email|Email is only available has
 await page.click("#theme"); assert.equal(await page.getAttribute("html", "data-theme"), "light");
 await mode("about"); assert.match(await txt("#drawer"), /Not real here/);
 
+// --- step 3: walk every lesson at both levels; every prediction reveals a computed answer that is one of the choices
+for (const level of ["beginner", "experienced"]) {
+  await open(); if ((await txt("#level")).includes(level)) {} else await page.click("#level");
+  assert.match(await txt("#level"), new RegExp(level));
+  for (const id of await page.evaluate(() => [...document.querySelectorAll("#tools")].length && window.__lab.lessons)) {
+    await mode("learn"); await page.click(`[data-act=lstart][data-id=${id}]`);
+    for (let guard = 0; guard < 12; guard++) {
+      const pick = page.locator("#drawer [data-act=lpick]");
+      if (await pick.count()) {
+        const k = await pick.count(); await pick.nth(guard % k).click();
+        assert.match(await txt("#drawer .lesson"), /Correct|Not quite/, `${id} step ${guard} reveals`);
+        assert.ok((await page.locator("#drawer .lesson .btn.right").count()) === 1, "the computed answer is highlighted");
+      }
+      const done = (await txt("#drawer .lesson [data-act=lnext]")).includes("Finish");
+      await page.click("#drawer [data-act=lnext]");
+      if (done) break;
+    }
+    assert.equal(await page.locator("#drawer .lesson").count(), 0, `${id} finished`);
+  }
+}
+const pg = await page.evaluate(() => JSON.parse(localStorage.getItem("lab.progress")));
+assert.ok(Object.keys(pg).length >= 5 && Object.values(pg).every((x) => x.done));
+
 assert.deepEqual(errors, []);
 await browser.close(); srv.close();
 console.log("ui ok");

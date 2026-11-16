@@ -1,4 +1,5 @@
 import { bootLab } from "./lab.js";
+import { LESSONS } from "./lessons.js";
 import { extractFunc, annotate, coverage, MODE_CODE, NOTES, TWEAKS, applyTweak, lineDiff, brief } from "./codepanel.js";
 import { buildGraph, layout, neighbors, gateSteps, clip, encodeGate, decodeGate, FILE_KINDS } from "./model.js";
 
@@ -16,9 +17,11 @@ const ICON = {
   gate: '<path d="M4 5h16l-6 8v6l-4-2v-4z"/>',
   abfact: '<path d="M12 5v14M5 12h14"/><rect x="3" y="3" width="18" height="18" rx="4"/>',
   abskill: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+  learn: '<path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v15H5.5C4.7 19 4 18.3 4 17.5zM20 5.5c0-.8-.7-1.5-1.5-1.5H13v15h5.5c.8 0 1.5-.7 1.5-1.5z"/>',
   about: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>',
 };
 const MODES = [
+  ["learn", "Learn", "scene-graph", "Guided lessons: predict what happens, then run the real code and see."],
   ["explore", "Map", "scene-graph", "The map: facts, workstreams, decisions and the evals that read them. Hover to trace, click to open and edit."],
   ["evals", "Evals", "scene-graph", "Replay one eval step by step, or add a bad one and watch it fail."],
   ["break", "Break it", "scene-graph", "Break the knowledge on purpose; see which evals notice and which don't."],
@@ -147,7 +150,7 @@ async function replay(evalId) {
 function drawer() {
   const d = $("drawer"), m = MODES.find((x) => x[0] === S.mode);
   const keep = d.scrollTop;
-  d.innerHTML = `<h2>${m[1]}</h2><p class="lead">${m[3]}</p>` + beginnerIntro() + (DRAW[S.mode]?.() ?? "") + codePanel() + editCell();
+  d.innerHTML = lessonCard() + `<h2>${m[1]}</h2><p class="lead">${m[3]}</p>` + (S.lesson ? "" : beginnerIntro()) + (DRAW[S.mode]?.() ?? "") + (S.mode === "learn" ? "" : codePanel() + editCell());
   d.scrollTop = keep; bindDrawer();
   const s = S.summary; $("st1").textContent = s ? `evals ${s.must_pass}/${s.must_total} must pass${s.skipped ? ` · ${s.skipped} skipped` : ""}` : "";
   $("st2").textContent = `${Object.keys(S.files).length} files · deterministic · no model calls`;
@@ -257,7 +260,85 @@ function explainCard() {
   }
   return h + "</div>";
 }
+// ---------------- lessons: predict, then run the real code, then compare
+const prog = () => { try { return JSON.parse(localStorage.getItem("lab.progress") || "{}"); } catch { return {}; } };
+const mdi = (t) => esc(t).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
+const ctx = () => ({ S, call });
+function resetAll() {
+  S.files = structuredClone(bundle.brain); S.questions = bundle.questions; S.sel = null; S.whatif = null; S.preview = null; S.ov = {}; S.mut = null; S.explain = null;
+  S.replay = null; S.edits = {}; S.tab = {}; S.lastQ = null; S.lastMut = null; S.ab = null; S.replayTok++; refresh(); initGate(true); initSkill();
+}
+const LA = {   // actions a lesson step may name
+  qreset: () => { S.questions = bundle.questions; refresh(); },
+  sel: (id) => { S.sel = id; },
+  replay: (id) => { S.sel = "eval:" + id; replay(id); },
+  bad: (n) => ACT["bad" + n](),
+  search: (q) => { $("qin").value = q; ACT.search(); },
+  tweak: (i) => ACT.edtweak({ dataset: { i } }),
+  break: (m) => { S.sel = m.path; drawer(); $("mop").value = m.op; $("mtext").value = m.text || ""; $("mwith").value = m.with || ""; ACT.break(); },
+  auto: () => ACT.auto(),
+  preset: (k) => applyPreset(k),
+  param: (k, v) => { S.gate.params[k] = v; computeGate(); renderScene(); },
+  skill: (kind) => {
+    if (kind === "filler") ACT.sfill();
+    else if (kind === "stuffed") { const ps = bundle.probes.filter((p) => p.skill === S.skill.name); S.skill.text = "---\nname: stuffed\ndescription: Use when stuffing keywords.\n---\n" + ps.flatMap((p) => p.expect.map((g) => g[0])).join(" ") + "\n"; drawer(); }
+    ACT.sgo();
+  },
+};
+const runActs = (acts = []) => { for (const [a, ...args] of acts) { if (!LA[a]) throw new Error("unknown lesson action " + a); LA[a](...args); } };
+const lstep = () => { const L = LESSONS.find((l) => l.id === S.lesson.id); return [L, L.steps[S.lesson.i]]; };
+function startLesson(id) {
+  guard(() => { resetAll(); S.lesson = { id, i: 0, picked: null, correct: null, right: 0, total: 0, answered: {} }; enterStep(); });
+}
+function enterStep() {
+  const [, st] = lstep(); S.lesson.picked = S.lesson.answered[S.lesson.i]?.picked ?? null; S.lesson.correct = S.lesson.answered[S.lesson.i]?.correct ?? null;
+  setMode(st.mode, true); guard(() => runActs(st.setup));
+  if (S.lesson.picked != null) guard(() => runActs(st.predict.run));
+  drawer(); $("drawer").scrollTop = 0;
+}
+function lessonPick(i) {
+  const [, st] = lstep(), L = S.lesson; if (L.picked != null || !st.predict) return;
+  const choice = st.predict.choices[i];
+  try {
+    runActs(st.predict.run);
+    const correct = st.predict.answer(ctx());
+    if (!st.predict.choices.includes(correct)) throw new Error(`lesson bug: answer ${JSON.stringify(correct)} is not one of the choices`);
+    L.picked = choice; L.correct = correct; L.answered[L.i] = { picked: choice, correct }; L.total++; if (choice === correct) L.right++;
+    toast(choice === correct ? "you predicted it" : "not quite", choice === correct ? "pass" : "warn");
+  } catch (e) { toast(e.message, "fail"); console.error(e); }
+  drawer();
+}
+function lessonNav(d) {
+  const [Lz] = lstep(), L = S.lesson, next = L.i + d;
+  if (next < 0) return;
+  if (next >= Lz.steps.length) {
+    const p = prog(), n = L.total; p[L.id] = { done: true, right: L.right, total: n }; localStorage.setItem("lab.progress", JSON.stringify(p));
+    const msg = n ? `${L.right}/${n} predicted` : "done"; S.lesson = null; setMode("learn"); toast(`lesson complete · ${msg}`, "pass"); return;
+  }
+  L.i = next; enterStep();
+}
+function lessonCard() {
+  if (!S.lesson) return "";
+  const [Lz, st] = lstep(), L = S.lesson, beg = S.level === "beginner", n = Lz.steps.length, pr = st.predict, picked = L.picked != null;
+  let h = `<div class="lesson"><div class="lh"><b>${esc(Lz.title)}</b><span class="mut">step ${L.i + 1}/${n}</span><button class="chip" data-act="lexit">exit</button></div>`;
+  if (st.text) h += `<div class="lt">${mdi(!beg && st.exp ? st.exp : st.text)}</div>`;
+  if (!beg && st.deeper) h += `<div class="mut">${mdi(st.deeper)}</div>`;
+  if (pr) {
+    h += `<div class="lq"><b>Predict.</b> ${mdi(pr.q)}</div>`;
+    if (beg && st.hint && !picked) h += `<div class="mut">Hint: ${mdi(st.hint)}</div>`;
+    h += `<div class="row">${pr.choices.map((c, i) => `<button class="btn alt ${picked && c === L.correct ? "right" : picked && c === L.picked ? "wrong" : ""}" data-act="lpick" data-i="${i}" ${picked ? "disabled" : ""}>${esc(c)}</button>`).join("")}</div>`;
+    if (picked) h += `<div class="big ${L.picked === L.correct ? "ok" : "warn"}">${L.picked === L.correct ? "Correct" : "Not quite"}</div><div class="lt">Answer: <b>${esc(L.correct)}</b>. ${mdi(pr.why(ctx()))}</div>`;
+  }
+  const last = L.i === n - 1, can = !pr || picked;
+  h += `<div class="row"><button class="btn alt" data-act="lback" ${L.i ? "" : "disabled"}>← Back</button><button class="btn" data-act="lnext" ${can ? "" : "disabled"}>${last ? "Finish" : "Next →"}</button></div></div>`;
+  return h;
+}
 const DRAW = {
+  learn() {
+    const p = prog();
+    return `<div class="mut">Each lesson asks you to <b>predict</b> before it runs the real upstream code. Answers are computed from that code, not written in advance. Your level (${S.level}) changes the wording and the hints.</div>` +
+      LESSONS.map((l, i) => { const q = p[l.id]; return `<div class="card"><div><b>${i + 1}. ${esc(l.title)}</b> ${q?.done ? `<span class="ok">✔ ${q.total ? `${q.right}/${q.total}` : ""}</span>` : ""}</div><div class="mut">${esc(l.blurb)} · ${l.steps.length} steps</div><button class="btn" data-act="lstart" data-id="${l.id}">${q?.done ? "Redo" : "Start"}</button></div>`; }).join("");
+  },
   explore() {
     return `<div class="row"><input id="qin" placeholder="search the brain (real ranking)…"><button class="btn" data-act="search">Search</button></div>
       <div id="hits">${S.ov.hits || ""}</div>${evalInfo()}${fileEditor()}`;
@@ -328,6 +409,10 @@ const ACT = {
     c.E.out = { ...r, target: ts.target }; drawer(); $("drawer").querySelector(".card:last-of-type")?.scrollIntoView({ block: "nearest" });
   },
   edreset() { const c = editCtx(); delete S.edits[c.key]; drawer(); },
+  lstart(t) { startLesson(t.dataset.id); },
+  lpick(t) { lessonPick(+t.dataset.i); },
+  lnext() { lessonNav(1); }, lback() { lessonNav(-1); },
+  lexit() { S.lesson = null; drawer(); },
   ctab(t) { S.tab[S.mode] = +t.dataset.i; drawer(); },
   save() { S.files[S.sel] = $("fbody").value; refresh(); renderGraph(); toast("saved to this tab", ""); drawer(); },
   reset() { S.files = structuredClone(bundle.brain); S.questions = bundle.questions; S.sel = null; S.whatif = null; S.preview = null; S.ov = {}; refresh(); renderGraph(); drawer(); },
@@ -394,10 +479,10 @@ const PRESETS = {
   "Already good (ceiling)": (p) => p.map(() => [[1, 1, 1], [1, 1, 1]]),
   "Helps dev, hurts one": (p) => p.map((x, i) => (i === 0 ? [[1, 1, 1], [0, 0, 0]] : [[0, 0, 0], [1, 1, 1]])),
 };
-function initGate() {
+function initGate(fresh) {
   const probes = bundle.probes.filter((p) => ["dst", "doubt"].includes(p.skill)).slice(0, 8);
   S.gate = { probes, params: { min_gain: 2, ceiling: 0.9, regress_by: 2, max_cost_ratio: 1.5, _cand_cost: 0.01 }, grid: {}, pg: 0, res: null };
-  const h = HASH0.match(/g=([^&]+)/);
+  const h = !fresh && HASH0.match(/g=([^&]+)/);
   if (h) { try { const d = decodeGate(decodeURIComponent(h[1])); S.gate.params = { ...S.gate.params, ...d.params }; S.gate.grid = d.grid; } catch { /* ignore bad link */ } }
   if (!Object.keys(S.gate.grid).length) applyPreset("Skill clearly helps", true);
   computeGate();
@@ -559,6 +644,6 @@ async function boot() {
   refresh(); initGate(); initSkill(); wire();
   const m = HASH0.match(/m=(\w+)/)?.[1]; const start = HASH0.includes("g=") ? "gate" : MODES.some((x) => x[0] === m) ? m : "explore";
   $("boot").remove(); setMode(start, true);
-  window.__lab = { call: lab.call, ready: true, S };
+  window.__lab = { call: lab.call, ready: true, S, lessons: LESSONS.map((l) => l.id) };
 }
 boot().catch((e) => { $("boot").innerHTML = `<span class="bad">Failed to start: ${esc(e.message)}</span>`; console.error(e); });

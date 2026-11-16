@@ -95,3 +95,9 @@ tr.rowx{cursor:pointer}tr.rowx:hover{background:var(--canvas)}
 .btn.alt.on{border-color:var(--acc);color:var(--acc)}.btn:disabled{opacity:.4;cursor:not-allowed}
 .diff .cl.del{background:color-mix(in srgb,var(--fail) 16%,transparent)}.diff .cl.add{background:color-mix(in srgb,var(--pass) 16%,transparent)}
 #drawer textarea[id=edsrc]{font-size:10.5px;tab-size:4}
+
+/* lessons */
+.lesson{border:1px solid var(--acc);border-radius:10px;padding:10px 12px;margin:0 0 14px;background:color-mix(in srgb,var(--acc) 7%,var(--canvas))}
+.lh{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:6px}.lh b{flex:1}
+.lt{margin:6px 0}.lq{margin:8px 0 4px}.btn.alt.right{border-color:var(--pass);color:var(--pass)}.btn.alt.wrong{border-color:var(--fail);color:var(--fail)}
+.btn.alt:disabled{opacity:.7;cursor:default}
