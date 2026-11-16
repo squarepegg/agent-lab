@@ -91,3 +91,7 @@ tr.rowx{cursor:pointer}tr.rowx:hover{background:var(--canvas)}
 .cl.miss{opacity:.5}.cl.none{opacity:.8}
 .cn{color:var(--acc);padding:0 8px 0 42px;font-size:10px;white-space:normal;border-left:0}
 .tabs .btn.on{border-color:var(--acc);color:var(--acc)}
+
+.btn.alt.on{border-color:var(--acc);color:var(--acc)}.btn:disabled{opacity:.4;cursor:not-allowed}
+.diff .cl.del{background:color-mix(in srgb,var(--fail) 16%,transparent)}.diff .cl.add{background:color-mix(in srgb,var(--pass) 16%,transparent)}
+#drawer textarea[id=edsrc]{font-size:10.5px;tab-size:4}

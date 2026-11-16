@@ -52,6 +52,59 @@ def _trace(a):
 
 FNS["trace"] = _trace
 
+EDIT_BUDGET = 400_000  # executed lines; stops `while True` in a learner's edit instead of freezing the tab
+MODS = {"brain.py": L._brain, "eval_run.py": L._eval, "gate.py": L._gate, "skill_ab.py": L._ab, "check_skills.py": L._check}
+
+
+def _run_edit(a):
+    """Run FNS[target](args) twice: with the real upstream function and with the learner's edited source of `file`:`fn`.
+    The edit is swapped in for the duration of the call only and always restored, so the page's real results never change.
+    -> {"base": result, "edited": result} or {"base": result, "error": "..."}."""
+    target, file, fn = a["target"], a["file"], a["fn"]
+    if target in ("trace", "run_edit") or target not in FNS:
+        raise ValueError(f"cannot run {target}")
+    mod = MODS.get(file)
+    if mod is None or not callable(getattr(mod, fn, None)):
+        raise ValueError(f"cannot edit {file}:{fn}")
+    args = a.get("args") or {}
+    base = FNS[target](args)
+    try:
+        ns = dict(vars(mod))
+        ns.pop(fn)  # so that source which does not define `fn` is caught, not silently the original
+        exec(compile(a["src"], "<edit>", "exec"), ns)
+        new = ns.get(fn)
+        if not callable(new):
+            return {"base": base, "error": f"your source must define `def {fn}(...)`"}
+    except SyntaxError as e:
+        return {"base": base, "error": f"SyntaxError on line {e.lineno}: {e.msg}"}
+    except Exception as e:
+        return {"base": base, "error": f"{type(e).__name__}: {e}"}
+    vendor, count, old_fn, old_trace = os.path.realpath(L.VENDOR), [0], getattr(mod, fn), sys.gettrace()
+
+    def local(frame, event, arg):
+        count[0] += 1
+        if count[0] > EDIT_BUDGET:
+            raise TimeoutError(f"your edit ran more than {EDIT_BUDGET:,} lines: is there an endless loop?")
+        return local
+
+    def glob(frame, event, arg):
+        f = frame.f_code.co_filename
+        return local if f == "<edit>" or os.path.dirname(os.path.realpath(f)) == vendor else None
+
+    setattr(mod, fn, new)
+    sys.settrace(glob)
+    try:
+        edited = FNS[target](args)
+    except Exception as e:
+        return {"base": base, "error": f"{type(e).__name__}: {e}"}
+    finally:
+        sys.settrace(old_trace)
+        setattr(mod, fn, old_fn)
+    return {"base": base, "edited": edited}
+
+
+FNS["run_edit"] = _run_edit
+
 
 def call(name, args_json):
     try:

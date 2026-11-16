@@ -37,6 +37,22 @@ assert.match(await txt("#drawer .code"), /def rank\(docs, terms/);
 assert.ok((await page.locator("#drawer .cn").count()) >= 3, "beginner sees plain-English notes");
 await page.click("#level"); assert.equal(await page.locator("#drawer .cn").count(), 0, "experienced sees none");
 await page.click("#level");
+// --- step 2: guided tweak re-runs the same search through an edited rank(); real results stay untouched
+await page.click("[data-act=edtweak][data-i='0']");
+assert.match(await txt("#drawer"), /real code[\s\S]*your edit/);
+assert.ok((await page.locator("#drawer .diff .cl.add").count()) === 1, "one-line diff shown");
+await page.click("[data-act=edreset]"); assert.equal(await page.locator("#drawer .diff").count(), 0);
+await page.click("#level");   // experienced: free editor, syntax errors reported, loops stopped
+await page.fill("#edsrc", "def rank(docs, terms, limit=30):\n    while True: pass\n"); await page.click("[data-act=edrun]");
+await page.waitForFunction(() => /endless loop/.test(document.querySelector("#drawer").textContent), null, { timeout: 20000 });
+await page.fill("#edsrc", "def rank(:"); await page.click("[data-act=edrun]");
+assert.match(await txt("#drawer"), /SyntaxError/);
+await page.fill("#edsrc", "def rank(docs, terms, limit=30):\n    return []\n"); await page.click("[data-act=edrun]");
+assert.match(await txt("#drawer"), /no matches/); assert.match(await txt("#drawer"), /RESULT CHANGED/);
+await page.click("[data-act=edreset]");
+await page.fill("#qin", "order_date UTC"); await page.click("[data-act=search]");
+assert.match(await txt("#hits"), /orders-timestamps/, "real search unaffected by the edit");
+await page.click("#level");
 
 // --- evals: replay finishes with PASS; a bad eval fails visibly
 await mode("evals"); await node("eval:midnight-mismatch").click();

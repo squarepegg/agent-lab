@@ -92,3 +92,64 @@ export const NOTES = {
     ["DESC_MAX", "descriptions must stay short, because agents load them all"],
   ],
 };
+
+// ---- step 2: edit and run -------------------------------------------------------------------------------------
+// Guided tweaks for Beginner (also starter edits for Experienced). `find` must occur exactly once in the upstream source
+// (tests_js/model.test.mjs checks that), so a tweak can never silently do nothing after a vendor refresh.
+export const TWEAKS = {
+  "brain.py:rank": [
+    { label: "Flat word weights (no idf)", find: "w = {q: math.log(1 + n / (1 + df[q])) for q in qs}", to: "w = {q: 1.0 for q in qs}",
+      why: "Every word now counts the same, so common words matter as much as rare ones. Watch the order change." },
+    { label: "Ignore titles and tags", find: "HEAD_WEIGHT * sum(", to: "0 * sum(",
+      why: "A file whose title says the word no longer beats one that merely mentions it." },
+  ],
+  "brain.py:query_words": [
+    { label: "Keep stop words", find: "len(t) > 2 and t not in STOP", to: "True",
+      why: "Words like 'the' and 'why' are now search terms. Rare-word weighting hides most of the damage, but not all of it." },
+  ],
+  "eval_run.py:check": [
+    { label: "Forget `forbid`", find: 'hit = [s for s in q.get("forbid", []) if s in out]', to: "hit = []",
+      why: "Forbidden strings are never looked for. If nothing changes, no eval was guarding that rule: a blind spot (see Break it)." },
+    { label: "Case-insensitive expect", find: "missing = [s for s in q.get(\"expect\", []) if s not in out]", to: 'missing = [s for s in q.get("expect", []) if s.lower() not in out.lower()]',
+      why: "A looser check: more evals can pass. Looser checks are how an eval suite quietly stops catching things." },
+    { label: "Always pass", find: "return (not missing and first_ok and not hit), missing, first_ok, hit", to: "return True, missing, first_ok, hit",
+      why: "The dumbest grader that passes everything. A good eval suite should notice this; does yours?" },
+  ],
+  "gate.py:decide": [
+    { label: "Skip the CEILING rule", find: 'if f["dev_without"] / f["dev_n"] >= p["ceiling"]:', to: "if False:",
+      why: "Without it a skill can 'win' on probes the model already aces. Try the 'Already good' preset." },
+    { label: "Ignore regressions", find: 'if f["regressed"] or f["heldout_without"] - f["heldout_with"] >= p["regress_by"]:', to: "if False:",
+      why: "A skill that helps one probe and breaks another now gets through. Try 'Helps dev, hurts one'." },
+    { label: "Demand a gain of 99", find: 'if f["gain"] < p["min_gain"]:', to: 'if f["gain"] < 99:',
+      why: "Nothing can pass now. Thresholds are part of the decision, which is why the real gate registers them before the run." },
+  ],
+  "skill_ab.py:missing": [
+    { label: "Accept ANY expected phrase", find: 'return [g[0] for g in probe["expect"] if not any(a.lower() in low for a in g)]',
+      to: 'return [] if any(a.lower() in low for g in probe["expect"] for a in g) else [g[0] for g in probe["expect"]]',
+      why: "Now one matching group is enough. A weaker grader flatters the skill; watch the A/B verdict." },
+  ],
+};
+
+// Pairwise line diff for same-length sources (tweaks never change the line count); falls back to "changed" for the rest.
+export function lineDiff(a, b) {
+  const x = a.split("\n"), y = b.split("\n"), out = [];
+  if (x.length !== y.length) return [{ kind: "note", text: `${x.length} lines → ${y.length} lines` }];
+  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) out.push({ kind: "del", text: x[i], i }, { kind: "add", text: y[i], i });
+  return out;
+}
+
+// One short, comparable line per result of the call a mode traces.
+export function brief(target, r) {
+  if (!r) return "";
+  if (target === "search") return r.length ? [...new Set(r.map((x) => x.path))].slice(0, 5).map((p, i) => `${i + 1} ${p.split("/").pop()}`).join(" · ") : "no matches";
+  if (target === "run_evals") { const bad = r.results.filter((x) => !x.pass && x.tier !== "skip").map((x) => x.id); return `must ${r.summary.must_pass}/${r.summary.must_total}${bad.length ? " · failing: " + bad.join(", ") : ""}`; }
+  if (target === "mutate") return r.survived ? "SURVIVED: no eval noticed" : "KILLED by " + r.killed_by.join(", ");
+  if (target === "gate") return `${r.verdict}: ${r.reason}`;
+  if (target === "ab_skill") return `${r.gate.verdict}: ${r.gate.reason}`;
+  return JSON.stringify(r).slice(0, 120);
+}
+
+export function applyTweak(src, t) {
+  if (src.split(t.find).length !== 2) throw new Error(`tweak "${t.label}" no longer matches the upstream source`);
+  return src.replace(t.find, () => t.to);
+}

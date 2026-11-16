@@ -1,5 +1,5 @@
 import { bootLab } from "./lab.js";
-import { extractFunc, annotate, coverage, MODE_CODE, NOTES } from "./codepanel.js";
+import { extractFunc, annotate, coverage, MODE_CODE, NOTES, TWEAKS, applyTweak, lineDiff, brief } from "./codepanel.js";
 import { buildGraph, layout, neighbors, gateSteps, clip, encodeGate, decodeGate, FILE_KINDS } from "./model.js";
 
 const PYODIDE = "https://cdn.jsdelivr.net/pyodide/v0.27.7/full/";
@@ -32,7 +32,7 @@ const MODES = [
 const HASH0 = location.hash;
 let lab, bundle;
 const S = { mode: "explore", files: {}, questions: "", docs: [], results: [], graph: null, sel: null, ov: {}, whatif: null, preview: null,
-  view: { x: 0, y: 0, k: 1 }, level: localStorage.getItem("lab.level") || "beginner", tab: {}, trace: new Map(), gate: null, skill: {}, replayTok: 0, ref: {} };
+  view: { x: 0, y: 0, k: 1 }, level: localStorage.getItem("lab.level") || "beginner", tab: {}, trace: new Map(), edits: {}, gate: null, skill: {}, replayTok: 0, ref: {} };
 const call = (n, a) => { const r = lab.call(n, a); if (r && r.error) throw new Error(r.error); return r; };
 const guard = (fn) => { try { return fn(); } catch (e) { toast(e.message, "fail"); console.error(e); } };
 
@@ -147,7 +147,7 @@ async function replay(evalId) {
 function drawer() {
   const d = $("drawer"), m = MODES.find((x) => x[0] === S.mode);
   const keep = d.scrollTop;
-  d.innerHTML = `<h2>${m[1]}</h2><p class="lead">${m[3]}</p>` + beginnerIntro() + (DRAW[S.mode]?.() ?? "") + codePanel();
+  d.innerHTML = `<h2>${m[1]}</h2><p class="lead">${m[3]}</p>` + beginnerIntro() + (DRAW[S.mode]?.() ?? "") + codePanel() + editCell();
   d.scrollTop = keep; bindDrawer();
   const s = S.summary; $("st1").textContent = s ? `evals ${s.must_pass}/${s.must_total} must pass${s.skipped ? ` · ${s.skipped} skipped` : ""}` : "";
   $("st2").textContent = `${Object.keys(S.files).length} files · deterministic · no model calls`;
@@ -202,6 +202,35 @@ function codePanel() {
   const legend = !ts ? `<div class="mut">Do something on the left and the lines that ran will light up.</div>`
     : `<div class="mut"><span class="ok">green</span> lines ran for ${TRACE_WHAT[S.mode]}${cov.total ? ` · ${cov.ran}/${cov.total} lines` : ""}. ${beg ? "Grey lines did not run this time." : "Counts show loop iterations."}</div>`;
   return `<h3>the real code · ${file}</h3>${tabs}${legend}<div class="code">${body}</div><div class="mut">unmodified upstream <code>${esc(bundle.vendor.files[file]?.path ?? file)}</code> (${esc(bundle.vendor.files[file]?.repo ?? "")}), line numbers match the file.</div>`;
+}
+// ---------------- step 2: edit the real function and re-run the same input
+function editCtx() {
+  const spec = MODE_CODE[S.mode]; if (!spec) return null;
+  const [file, fn] = spec[Math.min(S.tab[S.mode] || 0, spec.length - 1)];
+  const f = bundle.py["vendor/" + file] && extractFunc(bundle.py["vendor/" + file], fn); if (!f) return null;
+  const key = `${S.mode}:${file}:${fn}`;
+  return { file, fn, key, orig: f.rows.map((r) => r.text).join("\n"), E: (S.edits[key] ||= { src: null, out: null, tweak: null }), tweaks: TWEAKS[`${file}:${fn}`] || [] };
+}
+function editCell() {
+  const c = editCtx(); if (!c) return ""; const { E, orig } = c, beg = S.level === "beginner", ts = traceSpec();
+  const src = E.src ?? orig, o = E.out;
+  let h = `<h3>try it · change the real code</h3><div class="mut">${beg ? "Pick a tweak. The same input runs through your changed function and we compare with the real one." : "Edit the function and run the same input through it. Only this cell sees your edit; the canvas stays on the real code."}</div>`;
+  if (c.tweaks.length) h += `<div class="row">${c.tweaks.map((t, i) => `<button class="btn alt ${E.tweak === t ? "on" : ""}" data-act="edtweak" data-i="${i}">${esc(t.label)}</button>`).join("")}</div>`;
+  else if (beg) h += `<div class="mut">No guided tweaks for <code>${esc(c.fn)}</code>. Switch level to <b>experienced</b> to edit it freely.</div>`;
+  if (!beg) h += `<textarea id="edsrc" spellcheck="false" style="min-height:${Math.min(360, 30 + orig.split("\n").length * 15)}px;white-space:pre;overflow:auto">${esc(src)}</textarea>`;
+  h += `<div class="row"><button class="btn" data-act="edrun" ${ts ? "" : "disabled"}>Run with my edit</button><button class="btn alt" data-act="edreset">Reset to upstream</button></div>`;
+  if (!ts) h += `<div class="mut">Do something on the left first (search, pick an eval, press A/B) so there is an input to run.</div>`;
+  if (E.src != null && E.src !== orig) {
+    const d = lineDiff(orig, E.src);
+    h += `<div class="code diff">${d.map((x) => `<div class="cl ${x.kind}"><span class="ln">${x.kind === "del" ? "−" : x.kind === "add" ? "+" : ""}</span><span class="cx">${esc(x.text)}</span></div>`).join("")}</div>`;
+  }
+  if (o) {
+    const changed = !o.error && JSON.stringify(o.base) !== JSON.stringify(o.edited);
+    h += `<div class="card"><div class="mut">real code</div><div>${esc(brief(o.target, o.base))}</div><div class="mut" style="margin-top:6px">your edit</div>` +
+      (o.error ? `<div class="bad">${esc(o.error)}</div>` : `<div class="${changed ? "warn" : ""}">${esc(brief(o.target, o.edited))}</div><div class="big ${changed ? "warn" : "ok"}">${changed ? "RESULT CHANGED" : "no visible change"}</div>`) +
+      (E.tweak && !o.error ? `<div class="note" style="margin-top:8px">${esc(E.tweak.why)}</div>` : "") + `</div>`;
+  }
+  return h;
 }
 const fileEditor = () => {
   const p = S.sel && S.files[S.sel] != null ? S.sel : null;
@@ -285,12 +314,20 @@ const DRAW = {
 function bindDrawer() {
   const d = $("drawer");
   d.onclick = (e) => { const a = e.target.closest("[data-act]")?.dataset.act; if (a) guard(() => ACT[a]?.(e.target.closest("[data-act]"))); const c = e.target.closest("[data-gc]"); if (c) gateCell(c.dataset); const l = e.target.closest("[data-hit]"); if (l) { S.sel = l.dataset.hit; paintOverlay(); drawer(); } };
-  d.oninput = (e) => { if (e.target.dataset.gp) gateParam(e.target); if (e.target.id === "gpa") gateGrade(); if (e.target.id === "gpg") { S.gate.pg = +e.target.value; drawer(); } };
+  d.oninput = (e) => { if (e.target.id === "edsrc") { const c = editCtx(); if (c) c.E.src = e.target.value; return; } if (e.target.dataset.gp) gateParam(e.target); if (e.target.id === "gpa") gateGrade(); if (e.target.id === "gpg") { S.gate.pg = +e.target.value; drawer(); } };
   d.onchange = (e) => { if (e.target.id === "gpg") { S.gate.pg = +e.target.value; drawer(); } };
-  d.onkeydown = (e) => { if (e.key === "Enter" && e.target.id === "qin") ACT.search(); };
+  d.onkeydown = (e) => { if (e.target.id === "edsrc" && e.key === "Tab") { e.preventDefault(); const t = e.target, a = t.selectionStart; t.setRangeText("    ", a, t.selectionEnd, "end"); t.dispatchEvent(new Event("input", { bubbles: true })); return; } if (e.key === "Enter" && e.target.id === "qin") ACT.search(); };
 }
 const addQ = (y) => { S.questions = S.questions.trimEnd() + "\n" + y + "\n"; refresh(); renderGraph(); drawer(); const bad = S.results.at(-1); S.sel = "eval:" + bad.id; paintOverlay(); flash([S.sel]); replay(bad.id); };
 const ACT = {
+  edtweak(t) { const c = editCtx(); const tw = c.tweaks[+t.dataset.i]; c.E.tweak = tw; c.E.src = applyTweak(c.orig, tw); ACT.edrun(); },
+  edrun() {
+    const c = editCtx(), ts = traceSpec(); if (!ts) return; if ($("edsrc")) c.E.src = $("edsrc").value;
+    const r = lab.call("run_edit", { target: ts.target, file: c.file, fn: c.fn, src: c.E.src ?? c.orig, args: ts.args });
+    if (r.error && !r.base) throw new Error(r.error);   // a failing EDIT comes back as {base, error} and is shown in the cell
+    c.E.out = { ...r, target: ts.target }; drawer(); $("drawer").querySelector(".card:last-of-type")?.scrollIntoView({ block: "nearest" });
+  },
+  edreset() { const c = editCtx(); delete S.edits[c.key]; drawer(); },
   ctab(t) { S.tab[S.mode] = +t.dataset.i; drawer(); },
   save() { S.files[S.sel] = $("fbody").value; refresh(); renderGraph(); toast("saved to this tab", ""); drawer(); },
   reset() { S.files = structuredClone(bundle.brain); S.questions = bundle.questions; S.sel = null; S.whatif = null; S.preview = null; S.ov = {}; refresh(); renderGraph(); drawer(); },

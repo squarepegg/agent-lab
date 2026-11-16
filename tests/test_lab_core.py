@@ -304,3 +304,50 @@ class Trace(unittest.TestCase):
         grid = {"p": {"without": [False] * 3, "with": [False] * 3}}
         r = json.loads(api.call("trace", json.dumps({"target": "gate", "args": {"probes": probes, "grid": grid, "params": {"min_gain": 2}}})))
         self.assertIn("gate.py", r["hits"])
+
+
+class RunEdit(unittest.TestCase):
+    """Editing an upstream function in the lab: swapped in for one call, always restored, errors reported not thrown."""
+
+    ARGS = {"probes": [{"id": "p", "q": "?", "expect": [["x"]]}], "grid": {"p": {"without": [False] * 3, "with": [True] * 3}}, "params": {"min_gain": 2}}
+
+    def _run(self, src, fn="decide", file="gate.py", target="gate", args=None):
+        import api, json
+        return json.loads(api.call("run_edit", json.dumps({"file": file, "fn": fn, "src": src, "target": target, "args": args or self.ARGS})))
+
+    def _src(self):
+        import gate, inspect
+        return inspect.getsource(gate.decide)
+
+    def test_unchanged_source_gives_the_same_result(self):
+        r = self._run(self._src())
+        self.assertEqual(r["base"], r["edited"])
+
+    def test_edit_changes_result_and_is_restored(self):
+        import gate
+        before = gate.decide
+        r = self._run(self._src().replace('if f["gain"] < p["min_gain"]:', 'if f["gain"] < 99:'))
+        self.assertEqual((r["base"]["verdict"], r["edited"]["verdict"]), ("ADOPT", "NO_DELTA"))
+        self.assertIs(gate.decide, before)
+        self.assertEqual(self._run(self._src())["edited"]["verdict"], "ADOPT")
+
+    def test_errors_are_reported_and_restore_still_happens(self):
+        import gate
+        before = gate.decide
+        for src, msg in (("def decide(:", "SyntaxError"), ("x = 1", "must define"), ("def decide(c, res):\n    while True: pass\n", "endless loop"),
+                         ("def decide(c, res):\n    raise ValueError('boom')\n", "boom")):
+            r = self._run(src)
+            self.assertIn(msg, r["error"])
+            self.assertIn("base", r)
+            self.assertIs(gate.decide, before)
+
+    def test_only_known_functions_and_targets(self):
+        import api, json
+        for bad in ({"file": "gate.py", "fn": "nope"}, {"file": "os.py", "fn": "decide"}, {"file": "gate.py", "fn": "decide", "target": "run_edit"}):
+            a = {"src": "", "target": "gate", "args": self.ARGS, **bad}
+            self.assertIn("error", json.loads(api.call("run_edit", json.dumps(a))))
+
+    def test_edited_search_ranking_reaches_the_evals(self):
+        r = self._run("def rank(docs, terms, limit=30):\n    return []\n", fn="rank", file="brain.py", target="search",
+                      args={"files": BRAIN, "query": "order_date UTC"})
+        self.assertTrue(r["base"]); self.assertEqual(r["edited"], [])

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { extractFunc, annotate, coverage, MODE_CODE } from "../web/codepanel.js";
+import { extractFunc, annotate, coverage, MODE_CODE, TWEAKS, applyTweak, lineDiff, brief } from "../web/codepanel.js";
 import fs from "node:fs";
 import { parseHits, buildGraph, layout, neighbors, gateSteps, encodeGate, decodeGate, GATE_ORDER, clip } from "../web/model.js";
 
@@ -73,4 +73,23 @@ test("codepanel: annotate marks hit/miss only on code lines; docstrings and defs
   assert.deepEqual(rows.map((r) => r.state), ["none", "none", "none", "hit", "none", "miss"]);
   assert.equal(rows[5].note, "gives it back");
   assert.deepEqual(coverage(rows), { ran: 1, total: 2 });
+});
+
+test("tweaks: every one applies exactly once to the upstream function and changes one line", () => {
+  let n = 0;
+  for (const [key, list] of Object.entries(TWEAKS)) {
+    const [file, fn] = key.split(":");
+    const f = extractFunc(fs.readFileSync(new URL(`../vendor/${file}`, import.meta.url), "utf8"), fn);
+    const src = f.rows.map((r) => r.text).join("\n");
+    for (const t of list) { n++; const d = lineDiff(src, applyTweak(src, t)); assert.equal(d.length, 2, key + " " + t.label); assert.equal(d[0].kind, "del"); }
+  }
+  assert.ok(n >= 8);
+});
+
+test("brief: one comparable line per target", () => {
+  assert.equal(brief("search", [{ path: "facts/a.md" }, { path: "facts/a.md" }, { path: "x/b.md" }]), "1 a.md · 2 b.md");
+  assert.equal(brief("search", []), "no matches");
+  assert.equal(brief("gate", { verdict: "ADOPT", reason: "r" }), "ADOPT: r");
+  assert.equal(brief("mutate", { survived: true }), "SURVIVED: no eval noticed");
+  assert.deepEqual(lineDiff("a\nb", "a\nc").map((x) => x.kind), ["del", "add"]);
 });

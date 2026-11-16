@@ -21,6 +21,10 @@ Every mode ends with **the real code**: the upstream function behind what you ju
 (a `sys.settrace` of the vendored files in Pyodide). The `level` chip switches **beginner** (plain-English margin notes, a "what am I looking at" box)
 and **experienced** (no notes, per-line execution counts). Choice is remembered in localStorage.
 
+**Try it · change the real code** (under the code panel): beginners pick a guided tweak ("Skip the CEILING rule"), experienced users edit the whole
+function. The same input runs through the real function and your edit, and the result is compared. The edit is swapped in for one call and
+restored; syntax errors and endless loops (400k-line budget) are reported in the cell, never break the page.
+
 ## What is and is not real
 Real: ranking, eval checking, grading, gate verdicts, skill lint. **Not real:** model answers. Gate demos use fixtures; the skill A/B is a
 text-coverage proxy ("the skill states the answer"), not evidence a model behaves better. Behaviour needs recorded runs from
