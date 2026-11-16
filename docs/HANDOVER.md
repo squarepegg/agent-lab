@@ -2,7 +2,7 @@
 
 Repo: `~/projects/me/agent-lab` (github.com/squarepegg/agent-lab, branch `main`, deployed by the `pages` workflow).
 Goal: make the site truly interactive for learning the Python behind agent evals, for **beginners and experienced** engineers.
-State at handover (`cd3257b`): steps 1 to 4 done and pushed; CI, pages and upstream-drift all green. Step 5 and one lesson remain.
+State at handover (`cd3257b`): steps 1 to 4 done and pushed; CI, pages and upstream-drift all green. Step 5 was dropped; step 6 is done (uncommitted at time of writing).
 
 ## What it is
 Static site. Pyodide runs the **real, unmodified** upstream Python (`vendor/`: `brain.py`, `eval_run.py`, `gate.py`, `skill_ab.py`, `check_skills.py`, helpers)
@@ -16,14 +16,8 @@ from `squarepegg/agent-knowledge-map` and `squarepegg/agent-toolkit`. No server,
 | 3 | Guided lessons, predict-then-reveal, answers computed from the real run, progress in localStorage | done | `web/lessons.js` (5 lessons, 14 steps), `lessonCard()` etc. in `app.js` |
 | 3b | Claim-checked explanations: each `why` has `claims` predicates; page shows a warning instead of the sentence if one fails | done | `checkClaims` in `lessons.js` |
 | 4 | Six auto-checked challenges with 3-hint ladders; code challenge judged by `check_fn` | done | `web/challenges.js`, `check_fn` in `lab/api.py`, `chalCard()` |
-| 5 | **Bring-your-own-key live model cell** | **not started** | see below |
-| 6 | Lesson "why one run isn't enough" (pass@k, variance) using upstream `vendor/_attempts.py` | not started | |
-
-## Step 5 design (decided with the user)
-- The user's own key must never be in the site. A learner pastes **their own** provider API key; keep it in memory only (never localStorage, never in the URL/share link), calls go browser to provider.
-- Optional, clearly labelled; offline fixtures stay the default so the lab is reproducible and safe.
-- Purpose: run the same grader (`skill_ab.missing`) on a real model's answer, show variance across N samples, feed the gate.
-- Open questions to settle first: which provider(s) allow browser CORS calls (Anthropic needs `anthropic-dangerous-direct-browser-access`), cost cap / sample limit, and how a recorded run is fed to `gate_from_grid`.
+| 5 | Bring-your-own-key live model cell | **dropped** (user: pasting an API key into a page feels like phishing) | |
+| 6 | Lesson "why one run isn't enough": seeded simulated re-runs through the real gate (`vendor/_attempts.py` is a resume log with no pass@k, so it is not used) | done | `noise_sweep` in `lab/lab_core.py`, `noise` in `lab/api.py`, lesson `noise` in `web/lessons.js` |
 
 ## Key design rules (do not break)
 - `vendor/` is byte-identical upstream, hash-checked (`scripts/check_vendor.py`; weekly `upstream-drift` workflow). Never edit it. Refresh with

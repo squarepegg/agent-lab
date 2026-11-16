@@ -215,6 +215,16 @@ class Gate(unittest.TestCase):
     def decide(self, grid, **params):
         return L.gate_from_grid(self.P, grid, {"min_gain": 2, "ceiling": 0.9, "regress_by": 2, "max_cost_ratio": 1.5, **params})
 
+    def test_noise_sweep_is_reproducible_and_a_null_skill_is_sometimes_adopted(self):
+        params = {"min_gain": 2, "ceiling": 0.9, "regress_by": 2, "max_cost_ratio": 1.5}
+        P = [{"id": f"q{i}", "split": "dev"} for i in range(8)]
+        a, b = (L.noise_sweep(P, 0.5, 0.5, 3, params) for _ in range(2))
+        self.assertEqual(a, b)
+        self.assertEqual(sum(a["verdicts"].values()), a["trials"])
+        self.assertGreater(a["adopt_rate"], 0)      # no real effect, yet some runs are ADOPT
+        self.assertGreater(len(a["verdicts"]), 1)   # and the verdict is not stable across runs
+        self.assertGreater(L.noise_sweep(P, 0.5, 0.9, 3, params)["adopt_rate"], a["adopt_rate"])
+
     def test_every_verdict_reachable(self):
         F, T = [False] * 3, [True] * 3
         self.assertEqual(self.decide(self.grid([F, F, F], [T, T, F]))["verdict"], "ADOPT")

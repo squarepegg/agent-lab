@@ -12,6 +12,13 @@ const head = (S, path) => (S.files[path] || "").split("\n").slice(0, 8).join("\n
 const heading = (S, path) => head(S, path).split("\n").filter((l) => /^\s*(title|name|description|tags|aliases)\s*:|^#\s/.test(l)).join("\n");
 const hitPaths = (call, S, q) => [...new Set(call("search", { files: S.files, query: q }).map((x) => x.path))];
 const nFiles = (S, w) => Object.values(S.files).filter((t) => new RegExp(w, "i").test(t)).length;
+// simulated re-runs through the real gate (see lab_core.noise_sweep); the lesson uses the Gate scene's 8 probes and thresholds
+const noiseCache = new Map();  // answer(), claims and why() all ask for the same sweep; it is deterministic, so compute it once
+const noise = ({ call, S }, rw, rs, n) => {
+  const args = { probes: S.gate.probes, rate_without: rw, rate_with: rs, samples: n, params: S.gate.params }, k = JSON.stringify(args);
+  if (!noiseCache.has(k)) noiseCache.set(k, call("noise", args));
+  return noiseCache.get(k);
+};
 const BACKFILL = "facts/airflow-backfill-concurrency.md";
 
 export const LESSONS = [
@@ -127,6 +134,36 @@ export const LESSONS = [
                    ["every probe is nevertheless covered", ({ S }) => S.skill.res.coverage.every((c) => c.covered)]],
           why: ({ S }) => `${S.skill.res.gate.verdict}: ${S.skill.res.gate.reason}. Substring grading cannot tell understanding from keyword stuffing. This is why a grader needs its own tests (try “Accept ANY expected phrase” in the Try-it cell), and why a model-written answer should also be judged by something stronger.` },
         hint: "The grader looks for phrases in text. What if the text is only phrases?" },
+    ],
+  },
+  {
+    id: "noise", title: "Why one run isn't enough", blurb: "Model answers are noisy. Re-run the same experiment and watch the verdict move.",
+    steps: [
+      { mode: "gate", setup: [["preset", "No effect"]],
+        text: "Real model answers vary from run to run. Here a **seeded coin** stands in for the model: every answer passes with a fixed probability, so we know the true effect. We re-run the *same* experiment 200 times and hand each run to the **real gate**. No model is involved; the point is how the gate behaves when answers are noisy.",
+        exp: "`lab_core.noise_sweep`: trial t draws every sample from `random.Random(t)`, builds the `skill_ab`-shaped results and calls the real `gate.decide`. Same seeds, same numbers, every time.",
+        deeper: "A real run is one trial of this. You never see the other 199, which is why a single verdict can mislead." },
+      { mode: "gate",
+        predict: { q: "A skill that does **nothing**: each answer passes 50% of the time with or without it. 8 probes, 3 samples each, 200 re-runs. How often does the gate say ADOPT?",
+          choices: ["Never", "Under 5% of runs", "5% to 25% of runs", "Over 25% of runs"], run: [["preset", "No effect"]],
+          answer: (ctx) => { const r = noise(ctx, 0.5, 0.5, 3); const a = r.adopt_rate; return a === 0 ? "Never" : a < 0.05 ? "Under 5% of runs" : a <= 0.25 ? "5% to 25% of runs" : "Over 25% of runs"; },
+          claims: [["the skill really has no effect (average gain is near zero)", (ctx) => Math.abs(noise(ctx, 0.5, 0.5, 3).mean_gain) < 1],
+                   ["the verdict differs between runs", (ctx) => Object.keys(noise(ctx, 0.5, 0.5, 3).verdicts).length > 1]],
+          why: (ctx) => { const r = noise(ctx, 0.5, 0.5, 3); return `ADOPT in ${Math.round(r.adopt_rate * 100)}% of runs (${JSON.stringify(r.verdicts)}). The skill does nothing, yet some runs get lucky: one run cannot tell luck from a real effect.`; } },
+        hint: "Nothing is true here. Is the gate's chance of being fooled zero?" },
+      { mode: "gate",
+        predict: { q: "Same useless skill. Which verdict is the **most common** across the 200 re-runs?", choices: ["ADOPT", "NO_DELTA", "REGRESSION"], run: [["preset", "No effect"]],
+          answer: (ctx) => Object.keys(noise(ctx, 0.5, 0.5, 3).verdicts)[0],
+          claims: [["some probe lost 2+ samples by chance in more runs than the gate adopted", (ctx) => { const v = noise(ctx, 0.5, 0.5, 3).verdicts; return (v.REGRESSION || 0) > (v.ADOPT || 0); }]],
+          why: (ctx) => { const r = noise(ctx, 0.5, 0.5, 3); return `${Object.keys(r.verdicts)[0]} (${JSON.stringify(r.verdicts)}). With 8 probes, by luck at least one loses 2 of its 3 samples in most runs, and a single regressed probe makes the gate reject. More probes means more chances for noise to look like a regression.`; } },
+        hint: "Eight probes, each with its own coin flips. How likely is it that none of them dips?" },
+      { mode: "gate",
+        predict: { q: "Now the skill genuinely helps: 50% to 80% pass rate. How often does the gate say ADOPT with 3 samples per probe?",
+          choices: ["Nearly always (95%+)", "Most of the time (60% to 95%)", "About half (30% to 60%)", "Under 30%"], run: [["preset", "Skill clearly helps"]],
+          answer: (ctx) => { const a = noise(ctx, 0.5, 0.8, 3).adopt_rate; return a >= 0.95 ? "Nearly always (95%+)" : a >= 0.6 ? "Most of the time (60% to 95%)" : a >= 0.3 ? "About half (30% to 60%)" : "Under 30%"; },
+          claims: [["the skill really helps (average gain is positive)", (ctx) => noise(ctx, 0.5, 0.8, 3).mean_gain > 2]],
+          why: (ctx) => { const r = noise(ctx, 0.5, 0.8, 3), r10 = noise(ctx, 0.5, 0.8, 10); return `ADOPT in ${Math.round(r.adopt_rate * 100)}% of runs at 3 samples (${JSON.stringify(r.verdicts)}), and ${Math.round(r10.adopt_rate * 100)}% at 10 samples. A real effect can be rejected and a null one adopted by the same gate: the fix is more samples and pre-registered thresholds, not trusting one verdict.`; } },
+        hint: "A real effect is still noisy. Could an unlucky run miss it?" },
     ],
   },
 ];

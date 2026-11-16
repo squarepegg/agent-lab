@@ -368,6 +368,23 @@ def gate_from_grid(probes, grid, params, samples=3):
     return gate_decide(cand, res)
 
 
+def noise_sweep(probes, rate_without, rate_with, samples, params, trials=200):
+    """How stable is the gate's verdict? Re-run the SAME experiment `trials` times with simulated answers: each sample passes with a
+    fixed true probability per arm (a seeded coin, no model), and the REAL gate decides each time.
+    -> {"trials", "verdicts": {name: count}, "adopt_rate", "mean_gain"}. Trial t uses Random(t), so the result is reproducible."""
+    import random
+    counts, gains = {}, 0
+    for t in range(trials):
+        r = random.Random(t)
+        grid = {p["id"]: {"without": [r.random() < rate_without for _ in range(samples)],
+                          "with": [r.random() < rate_with for _ in range(samples)]} for p in probes}
+        g = gate_from_grid(probes, grid, params, samples)
+        counts[g["verdict"]] = counts.get(g["verdict"], 0) + 1
+        gains += g["facts"].get("gain", 0)
+    return {"trials": trials, "verdicts": dict(sorted(counts.items(), key=lambda kv: -kv[1])),
+            "adopt_rate": counts.get("ADOPT", 0) / trials, "mean_gain": gains / trials}
+
+
 # ---------- 6. A/B a skill (text-coverage proxy + lint)
 def lint_skill_text(text, name="skill"):
     """Real check_skills.check on a temp repo holding just this SKILL.md (+ the README install line the check requires)."""
