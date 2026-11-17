@@ -174,9 +174,10 @@ function drawer() {
   const body = DRAW[S.mode]?.() ?? "", cp = codePanel(), ec = editCell();
   let h = lessonCard() + chalCard();
   if (!guided) h += `<h2>${m[1]}</h2>` + beginnerIntro();
-  h += lesson ? fold("poke", "Poke at it yourself", body, !!step.hands) : body;
-  if (cp) h += fold("code", cp.title, cp.html, !guided && S.level !== "beginner");
-  if (ec) h += fold("try", ec.title, ec.html, false);
+  const opens = (k) => !!step?.open?.includes(k);   // lessons say which folds a step needs; free explore opens the Python for experienced users
+  h += lesson ? fold("poke", "Poke at it yourself", body, opens("poke")) : body;
+  if (cp) h += fold("code", cp.title, cp.html, lesson ? opens("code") : !guided && S.level !== "beginner");
+  if (ec) h += fold("try", ec.title, ec.html, opens("try"));
   d.innerHTML = h; d.scrollTop = keep; bindDrawer();
 }
 // ---------------- level + real-code panel
@@ -318,7 +319,7 @@ function startLesson(id) {
   guard(() => { resetAll(); S.chal = null; S.lesson = { id, i: 0, picked: null, correct: null, right: 0, total: 0, answered: {} }; enterStep(); });
 }
 function enterStep() {
-  S.fold = {};   // each step starts with its own defaults (step.hands opens “Poke at it yourself”)
+  S.fold = {};   // each step starts with its own defaults (step.open lists the folds a step needs)
   const [, st] = lstep(); S.lesson.picked = S.lesson.answered[S.lesson.i]?.picked ?? null; S.lesson.correct = S.lesson.answered[S.lesson.i]?.correct ?? null;
   setMode(st.mode, true); guard(() => runActs(st.setup));
   if (S.lesson.picked != null) guard(() => runActs(st.predict.run));
@@ -371,6 +372,7 @@ function lessonCard() {
         (bad.length ? `<span class="warn">⚠ The explanation no longer matches what the code did (${esc(bad.join("; "))}). The answer is still computed from the real run.</span>` : mdi(pr.why(ctx()))) + `</div>`;
     }
   }
+  if (picked && MODE_CODE[S.mode] && !foldOpen("code", false)) h += `<div class="row"><button class="btn alt" data-act="showcode">Show the Python that ran</button></div>`;
   if (st.widget === "noise") h += noiseWidget(L);
   const last = L.i === n - 1, can = !pr || picked;
   h += `<div class="row"><button class="btn alt" data-act="lback" ${L.i ? "" : "disabled"}>← Back</button><button class="btn" data-act="lnext" ${can ? "" : "disabled"}>${last ? "Finish" : "Next →"}</button></div></div>`;
@@ -422,13 +424,13 @@ function homeHtml() {
   const p = prog(), next = LESSONS.find((l) => !p[l.id]?.done), done = LESSONS.filter((l) => p[l.id]?.done).length;
   const lessonRow = (l) => { const q = p[l.id], up = next && l.id === next.id;
     return `<div class="lrow ${up ? "next" : ""}"><span class="ck">${q?.done ? "✔" : ""}</span><div class="t"><b>${esc(l.title)}</b><span class="mut">${esc(l.blurb)} · ${l.steps.length} steps${q?.done && q.total ? ` · ${q.right}/${q.total} predicted` : ""}</span></div><button class="btn ${up ? "" : "alt"}" data-act="lstart" data-id="${l.id}">${q?.done ? "Redo" : up ? (done ? "Continue" : "Start") : "Start"}</button></div>`; };
-  const asked = localStorage.getItem("lab.level") != null, beg = S.level === "beginner";
+  const beg = S.level === "beginner";
   let h = `<div class="hm"><h1>Learn how AI agents get tested</h1>
     <p class="hl">Evals, the Python that grades them, and the gate that decides what to trust. Each lesson asks you to <b>predict</b> first, then the real code runs in your browser and shows whether you were right. No model is called, nothing leaves the page.</p>`;
-  h += `<div class="who"><button data-act="lvl" data-l="beginner" class="${asked && beg ? "on" : ""}"><b>New to evals or Python</b><span class="mut">Plain-English notes beside every line of code, hints on each question.</span></button>
-    <button data-act="lvl" data-l="experienced" class="${asked && !beg ? "on" : ""}"><b>I write Python</b><span class="mut">Terse. Line counts, full editor, no hand-holding.</span></button></div>`;
   h += next ? `<div class="cta"><button class="btn lg" data-act="lcont">${done ? "Continue" : "Start"}: ${esc(next.title)}</button><span class="mut">${done}/${LESSONS.length} lessons done</span></div>`
             : `<div class="cta"><span class="ok">✔ all ${LESSONS.length} lessons done.</span><span class="mut">Try the challenges below, or poke around freely.</span></div>`;
+  h += `<div class="who"><span class="mut">Pitched at</span><button data-act="lvl" data-l="beginner" class="chip ${beg ? "on" : ""}">new to evals or Python</button><button data-act="lvl" data-l="experienced" class="chip ${beg ? "" : "on"}">I write Python</button>
+    <span class="mut">${beg ? "Plain-English notes beside the code and a hint on each question." : "Terse: line counts, a full editor, no hand-holding."}</span></div>`;
   h += `<h2>The path</h2>` + STAGES.map(([t, why, ids], i) => {
     const ls = ids.map((id) => LESSONS.find((l) => l.id === id)).filter(Boolean), all = ls.every((l) => p[l.id]?.done);
     return `<div class="stage ${all ? "done" : ""}"><div class="n">${all ? "✔" : i + 1}</div><div class="box"><b>${esc(t)}</b><div class="mut">${esc(why)}</div>${ls.map(lessonRow).join("")}</div></div>`; }).join("");
@@ -525,6 +527,7 @@ const ACT = {
   cexit() { setMode("start"); },
   lexit() { setMode("start"); },
   go(t) { setMode(t.dataset.m); },
+  showcode() { S.fold.code = true; drawer(); $("drawer").querySelector('summary[data-fold="code"]')?.scrollIntoView({ block: "nearest" }); },
   lcont() { const n = LESSONS.find((l) => !prog()[l.id]?.done); if (n) startLesson(n.id); },
   lvl(t) { S.level = t.dataset.l; localStorage.setItem("lab.level", S.level); $("level").textContent = "level: " + S.level; drawer(); },
   ctab(t) { S.tab[S.mode] = +t.dataset.i; drawer(); },
@@ -689,7 +692,8 @@ function renderAbout() {
   entries.forEach(([k, f], i) => { const n = nodeEl({ id: k, kind: f.repo === "map" ? "fact" : "skill", title: k, path: `${f.repo} · sha256 ${f.sha256.slice(0, 10)}`, tier: "" }, { x: 30, y: 50 + i * 50, w: 300, h: 38 }); root.append(n);
     root.insertBefore(el("path", { class: "edge hot", d: `M330 ${69 + i * 50} C445 ${69 + i * 50},445 ${50 + entries.length * 25 + 10},560 ${50 + entries.length * 25 + 10}` }), root.firstChild); });
   const mid = 50 + entries.length * 25 - 9;
-  root.append(nodeEl({ id: "py", kind: "eval", title: "Pyodide (WebAssembly Python)", path: "no server · no model · no secrets", tier: "" }, { x: 560, y: mid, w: 300, h: 38 }));
+  root.append(nodeEl({ id: "py", kind: "eval", title: "Pyodide (WebAssembly Python)", path: "no server · no model · no secrets", tier: "", pass: true }, { x: 560, y: mid, w: 300, h: 38 }));
+  root.querySelector('[data-id="py"] .s').textContent = "no server · no model · no secrets";
   fit(900, 50 + entries.length * 50);
 }
 // ---------------- scene switch

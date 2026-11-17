@@ -113,3 +113,10 @@ test("challenges: unique ids, goals, 3 hints for graded ones, code challenges ha
   assert.equal(new Set(CHALLENGES.map((c) => c.id)).size, CHALLENGES.length);
   for (const c of CHALLENGES) { assert.ok(c.goal && c.hints.length >= 3 && c.title, c.id); assert.ok(c.code ? c.cases.length >= 4 : typeof c.check === "function", c.id); }
 });
+
+test("lessons: every lesson says what to look at, and step.open only names real folds", () => {
+  for (const l of LESSONS) {
+    assert.ok(l.look && l.look.length > 20, `${l.id} has a look caption`);
+    for (const st of l.steps) for (const f of st.open || []) assert.ok(["poke", "code", "try"].includes(f), `${l.id}: unknown fold ${f}`);
+  }
+});

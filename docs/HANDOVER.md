@@ -23,7 +23,7 @@ from `squarepegg/agent-knowledge-map` and `squarepegg/agent-toolkit`. No server,
 - Default landing is the **Start** screen (`homeHtml`: level choice, one Continue button, 3-stage path, Practice fold, free-explore grid). `#m=<mode>` links still open that mode directly.
 - `drawer()` composes by context: **lesson** = lesson card + `Poke at it yourself` fold (controls) + closed Python folds; **challenge** = card + the controls it needs; **free explore** = controls, Python fold open only for experienced, Try-it fold closed.
 - Fold state lives in `S.fold` (survives re-renders; reset each lesson step); clicks on `summary[data-fold]` record it in `panelClick`.
-- `lesson.look` / `step.look` feed the caption strip over the canvas; `step.hands` opens the Poke fold. `leaveGuided()` resets lesson/challenge state on exit or navigation.
+- `lesson.look` / `step.look` feed the caption strip over the canvas; `step.open` (`poke`/`code`/`try`) opens folds for that step; after a prediction is revealed a “Show the Python that ran” button opens the code fold. `leaveGuided()` resets lesson/challenge state on exit or navigation.
 - `ui.mjs` must open folds (`summary[data-fold=try]`, `practice`) before clicking inside them.
 
 ## Key design rules (do not break)

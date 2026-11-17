@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { extname, join } from "node:path";
 import assert from "node:assert/strict";
+import { LESSONS } from "../web/lessons.js";
 
 const root = new URL("../web/", import.meta.url).pathname;
 const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json" };
@@ -24,6 +25,8 @@ await open();
 assert.match(await txt("#home"), /Learn how AI agents get tested/);
 assert.equal(await page.locator("#home [data-act=lstart]").count(), 6, "every lesson is on the path");
 assert.ok(await page.locator("#home [data-act=lcont]").isVisible(), "one obvious next step");
+assert.ok((await page.locator("#home [data-act=lcont]").boundingBox()).y < (await page.locator("#home [data-act=lvl]").first().boundingBox()).y, "Continue comes before the level choice");
+assert.match(await page.getAttribute("#home [data-act=lvl][data-l=beginner]", "class"), /\bon\b/, "the current level is marked");
 assert.ok(!(await page.locator("#stage").isVisible()) && !(await page.locator("#drawer").isVisible()), "no canvas or drawer on the start screen");
 await page.click("#home [data-act=go][data-m=explore]");
 assert.ok(await page.locator("#stage").isVisible() && !(await page.locator("#home").isVisible()), "free explore opens the map");
@@ -148,7 +151,7 @@ for (const level of ["beginner", "experienced"]) {
   for (const id of await page.evaluate(() => [...document.querySelectorAll("#tools")].length && window.__lab.lessons)) {
     await mode("start"); await page.click(`[data-act=lstart][data-id=${id}]`);
     assert.ok(await page.locator("#caption.on").isVisible(), `${id}: the canvas says what to look at`);
-    assert.equal(await page.locator("#drawer details.fold[open]:not(:has(summary[data-fold=poke]))").count(), 0, `${id}: the Python is folded away during a lesson`);
+    assert.equal(await page.locator("#drawer details.fold[open]").count(), LESSONS.find((l) => l.id === id).steps[0].open?.length ?? 0, `${id}: only the folds step 1 asks for are open`);
     for (let guard = 0; guard < 12; guard++) {
       const pick = page.locator("#drawer [data-act=lpick]");
       if (await pick.count()) {
@@ -156,6 +159,8 @@ for (const level of ["beginner", "experienced"]) {
         assert.match(await txt("#drawer .lesson"), /Correct|Not quite/, `${id} step ${guard} reveals`);
         assert.ok((await page.locator("#drawer .lesson .btn.right").count()) === 1, "the computed answer is highlighted");
         assert.doesNotMatch(await txt("#drawer .lesson"), /no longer matches/, `${id} step ${guard}: explanation claims hold`);
+        const show = page.locator("#drawer [data-act=showcode]");
+        if (await show.count()) { await show.click(); assert.ok(await page.locator("#drawer details.fold[open]:has(summary[data-fold=code])").count(), `${id} step ${guard}: “Show the Python that ran” opens it`); }
       }
       if (await page.locator("#drawer [data-act=lsamples]").count()) {
         const adopt = async () => page.locator("#drawer [data-noise]").allTextContents();

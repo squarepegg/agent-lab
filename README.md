@@ -29,7 +29,7 @@ restored; syntax errors and endless loops (400k-line budget) are reported in the
 
 **Lessons**: 6 guided lessons (what is an eval, ranking, mutation testing, the gate, skill A/B, why one run isn't enough). Each asks you to **predict** before it
 runs the real code. The answer is computed from that run, never written in advance, and the page refuses a lesson whose answer is not one of its choices.
-While a lesson runs, the drawer shows only the lesson card. A strip above the canvas says what to look at (`look` in `web/lessons.js`), the mode's controls sit in a **Poke at it yourself** fold (open on steps flagged `hands`), and the Python folds are closed. Leaving a lesson resets whatever it set up. Progress is in localStorage.
+While a lesson runs, the drawer shows only the lesson card. A strip above the canvas says what to look at (`look` in `web/lessons.js`), the mode's controls sit in a **Poke at it yourself** fold and the Python folds are closed unless a step lists them in `open`. After you answer a prediction, **Show the Python that ran** opens the lines the real code executed. Leaving a lesson resets whatever it set up. Progress is in localStorage.
 
 **Challenges** (on the Start screen under Practice): six tasks (catch a surviving mutant, lift the mutation score, make the gate say TOO_COSTLY, find the regression the gate tolerates, fool the grader,
 fix `skill_ab.missing` against unit tests). Press **Check** and the real code judges your result; each has a 3-step hint ladder.
