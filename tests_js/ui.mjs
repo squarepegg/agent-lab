@@ -19,7 +19,15 @@ const node = (id) => page.locator(`.node[data-id="${id}"]`);
 const txt = (sel) => page.textContent(sel);
 const ORD = "facts/orders-timestamps-utc.md";
 
+// --- start screen: the default landing is a guided path, not the map
 await open();
+assert.match(await txt("#home"), /Learn how AI agents get tested/);
+assert.equal(await page.locator("#home [data-act=lstart]").count(), 6, "every lesson is on the path");
+assert.ok(await page.locator("#home [data-act=lcont]").isVisible(), "one obvious next step");
+assert.ok(!(await page.locator("#stage").isVisible()) && !(await page.locator("#drawer").isVisible()), "no canvas or drawer on the start screen");
+await page.click("#home [data-act=go][data-m=explore]");
+assert.ok(await page.locator("#stage").isVisible() && !(await page.locator("#home").isVisible()), "free explore opens the map");
+await open("#m=explore");
 // --- map: nodes, edges, hover traces neighbours, click opens file, search shows ranks
 assert.ok((await page.locator(".node").count()) >= 15);
 assert.ok((await page.locator(".edge").count()) >= 7);
@@ -38,6 +46,9 @@ assert.ok((await page.locator("#drawer .cn").count()) >= 3, "beginner sees plain
 await page.click("#level"); assert.equal(await page.locator("#drawer .cn").count(), 0, "experienced sees none");
 await page.click("#level");
 // --- step 2: guided tweak re-runs the same search through an edited rank(); real results stay untouched
+const unfold = async (k) => { if (!(await page.locator(`details.fold:has(summary[data-fold=${k}])[open]`).count())) await page.click(`summary[data-fold=${k}]`); };
+assert.equal(await page.locator("details.fold[open]").count(), 0, "beginner: the Python and Try-it are folded until asked for");
+await unfold("try");
 await page.click("[data-act=edtweak][data-i='0']");
 assert.match(await txt("#drawer"), /real code[\s\S]*your edit/);
 assert.ok((await page.locator("#drawer .diff .cl.add").count()) === 1, "one-line diff shown");
@@ -51,7 +62,7 @@ await page.fill("#edsrc", "def rank(docs, terms, limit=30):\n    return []\n"); 
 assert.match(await txt("#drawer"), /no matches/); assert.match(await txt("#drawer"), /RESULT CHANGED/);
 await page.click("[data-act=edreset]");
 // a tweak's "try preset X" nudge appears only while you are NOT already on that preset
-await mode("gate"); await page.click("[data-act=edtweak][data-i='0']");
+await mode("gate"); await unfold("try"); await page.click("[data-act=edtweak][data-i='0']");
 assert.match(await txt("#drawer .note:last-of-type"), /Try the “Already good \(ceiling\)” preset/);
 await page.click("[data-act=preset][data-k='Already good (ceiling)']"); await page.click("[data-act=edtweak][data-i='0']");
 assert.match(await txt("#drawer"), /Without it a skill can 'win'/); assert.doesNotMatch(await txt("#drawer"), /Try the “Already good/);
@@ -135,7 +146,9 @@ for (const level of ["beginner", "experienced"]) {
   await open(); if ((await txt("#level")).includes(level)) {} else await page.click("#level");
   assert.match(await txt("#level"), new RegExp(level));
   for (const id of await page.evaluate(() => [...document.querySelectorAll("#tools")].length && window.__lab.lessons)) {
-    await mode("learn"); await page.click(`[data-act=lstart][data-id=${id}]`);
+    await mode("start"); await page.click(`[data-act=lstart][data-id=${id}]`);
+    assert.ok(await page.locator("#caption.on").isVisible(), `${id}: the canvas says what to look at`);
+    assert.equal(await page.locator("#drawer details.fold[open]:not(:has(summary[data-fold=poke]))").count(), 0, `${id}: the Python is folded away during a lesson`);
     for (let guard = 0; guard < 12; guard++) {
       const pick = page.locator("#drawer [data-act=lpick]");
       if (await pick.count()) {
@@ -155,6 +168,7 @@ for (const level of ["beginner", "experienced"]) {
       if (done) break;
     }
     assert.equal(await page.locator("#drawer .lesson").count(), 0, `${id} finished`);
+    assert.ok(await page.locator("#home").isVisible(), `${id}: finishing returns to the start screen`);
   }
 }
 const pg = await page.evaluate(() => JSON.parse(localStorage.getItem("lab.progress")));
@@ -162,7 +176,7 @@ assert.ok(Object.keys(pg).length >= 5 && Object.values(pg).every((x) => x.done))
 
 // --- step 4: every challenge is unsolved at first and solved by its reference solution, judged by the real code
 {
-  const start = async (id) => { await open(); await mode("learn"); await page.click(`[data-act=cstart][data-id=${id}]`); };
+  const start = async (id) => { await open(); await page.click("summary[data-fold=practice]"); await page.click(`[data-act=cstart][data-id=${id}]`); };
   const check = async () => { await page.click("#drawer [data-act=ccheck]"); };
   const solved = async () => /Solved/.test(await txt("#drawer .lesson"));
   await start("survivor"); await check(); assert.ok(!(await solved()), "unsolved before any edit");

@@ -19,6 +19,13 @@ from `squarepegg/agent-knowledge-map` and `squarepegg/agent-toolkit`. No server,
 | 5 | Bring-your-own-key live model cell | **dropped** (user: pasting an API key into a page feels like phishing) | |
 | 6 | Lesson "why one run isn't enough": seeded simulated re-runs through the real gate (`vendor/_attempts.py` is a resume log with no pass@k, so it is not used) | done | `noise_sweep` in `lab/lab_core.py`, `noise` in `lab/api.py`, lesson `noise` in `web/lessons.js` |
 
+## UI structure (decluttered, `app.js`)
+- Default landing is the **Start** screen (`homeHtml`: level choice, one Continue button, 3-stage path, Practice fold, free-explore grid). `#m=<mode>` links still open that mode directly.
+- `drawer()` composes by context: **lesson** = lesson card + `Poke at it yourself` fold (controls) + closed Python folds; **challenge** = card + the controls it needs; **free explore** = controls, Python fold open only for experienced, Try-it fold closed.
+- Fold state lives in `S.fold` (survives re-renders; reset each lesson step); clicks on `summary[data-fold]` record it in `panelClick`.
+- `lesson.look` / `step.look` feed the caption strip over the canvas; `step.hands` opens the Poke fold. `leaveGuided()` resets lesson/challenge state on exit or navigation.
+- `ui.mjs` must open folds (`summary[data-fold=try]`, `practice`) before clicking inside them.
+
 ## Key design rules (do not break)
 - `vendor/` is byte-identical upstream, hash-checked (`scripts/check_vendor.py`; weekly `upstream-drift` workflow). Never edit it. Refresh with
   `python3 scripts/vendor.py --map <clean clone of agent-knowledge-map> --toolkit <clean clone of agent-toolkit>`.

@@ -1,6 +1,7 @@
 // Guided lessons. Data, not UI: app.js walks these steps.
 //
-// step = { mode, text, exp?, hint?, deeper?, setup?: [[action, ...args]], 
+// lesson.look = one line shown over the canvas: what to look at. step.look overrides it; step.hands opens the "Poke at it yourself" fold.
+// step = { mode, text, exp?, hint?, deeper?, hands?, look?, setup?: [[action, ...args]], 
 //          predict?: { q, choices: [string], run: [[action, ...]], answer(ctx) -> one of choices, why(ctx) -> string } }
 // Answers are COMPUTED from the real upstream code's output after the run, never hard-coded, so a vendor refresh can
 // change a result without leaving a lesson that lies. The UI throws if answer() is not one of the choices.
@@ -24,6 +25,7 @@ const BACKFILL = "facts/airflow-backfill-concurrency.md";
 export const LESSONS = [
   {
     id: "eval", title: "What is an eval?", blurb: "A question plus a pass/fail check. No model involved.",
+    look: "Left: the evals (a green dot means the check passed). Right: the files they search. Lit files are what the search found, numbered by rank.",
     steps: [
       { mode: "evals", setup: [["replay", "midnight-mismatch"]],
         text: "An **eval** is a question plus a rule for what a good answer contains. Here the \"agent\" is just a search over a small knowledge base, so the result never varies. Watch the replay: the search runs, files light up in rank order, then each check ticks.",
@@ -51,6 +53,7 @@ export const LESSONS = [
   },
   {
     id: "rank", title: "Why does this file rank first?", blurb: "The ranking function, and what each part of it buys.",
+    look: "The numbered badges are the real ranking. #1 is the file the agent would read first.",
     steps: [
       { mode: "explore", text: "A search has to decide which file answers your question. The real `rank` function scores every line, rewards **rare** words, and rewards files whose **title or tags** contain the word. You will change those rules and watch the order move.",
         exp: "`brain.rank`: stemmed prefix match, idf weights over files, a line scores the sum of the weights of its terms, file score = best line + HEAD_WEIGHT × head-term weight, ties by path. Deterministic by construction.", deeper: "Try the tabs: `query_words` runs before `rank` and drops stop words." },
@@ -76,6 +79,7 @@ export const LESSONS = [
   },
   {
     id: "break", title: "Break it: does anything notice?", blurb: "Mutation testing: the way to test your evals.",
+    look: "A crossed-out file is a deliberate break. Evals that pulse red noticed it; if none pulse, you have found a blind spot.",
     steps: [
       { mode: "break", text: "If you delete a fact and every eval still passes, the evals would not have noticed it vanishing. That is a **blind spot**. Deliberately breaking things (a *mutation*) and counting which evals notice is how you test the evals themselves.",
         exp: "Mutation testing applied to a knowledge base: each mutant (delete file, remove text) is run against the suite; killed = some eval fails. The score is killed/total." },
@@ -95,8 +99,9 @@ export const LESSONS = [
   },
   {
     id: "gate", title: "The gate: from results to a verdict", blurb: "Fixed rules, checked in order, first one to fire wins.",
+    look: "The funnel is the gate: rules run top to bottom and the highlighted one is the verdict.",
     steps: [
-      { mode: "gate", setup: [["preset", "Skill clearly helps"]],
+      { mode: "gate", hands: true, setup: [["preset", "Skill clearly helps"]],
         text: "Suppose you tested a skill (an instruction file) on a set of probe questions, with and without it. A **gate** turns those counts into one verdict using fixed rules, in a fixed order. The same inputs always give the same verdict. Click cells to flip outcomes; edit thresholds.",
         exp: "`gate.decide(candidate, results) -> (verdict, facts)`: pure. Rules in order: INCONCLUSIVE, REGRESSION, CEILING, NO_DELTA, TOO_COSTLY, else ADOPT. Thresholds come from a candidate file registered before the run." },
       { mode: "gate",
@@ -119,6 +124,7 @@ export const LESSONS = [
   },
   {
     id: "skill", title: "A skill that sounds right but isn't", blurb: "Why text coverage is only a proxy.",
+    look: "Left: the skill. Middle: the probe questions (green means the skill's text holds the answer). Right: the real gate.",
     steps: [
       { mode: "abskill", text: "Skills are judged by probe questions with **substring grading**: the answer must contain certain phrases. Here no model answers; we check whether the skill text even contains the phrases. Real evidence needs recorded model runs, and the gate then judges them identically.",
         exp: "`ab_skill`: lint (`check_skills`), then per-probe text coverage via `skill_ab.missing`, then `gate.decide` on a fixture. Coverage is a necessary-not-sufficient proxy." },
@@ -138,6 +144,7 @@ export const LESSONS = [
   },
   {
     id: "noise", title: "Why one run isn't enough", blurb: "Model answers are noisy. Re-run the same experiment and watch the verdict move.",
+    look: "The funnel shows one hand-set run. The lesson re-runs the same experiment 200 times and reports how often each verdict appears.",
     steps: [
       { mode: "gate", setup: [["preset", "No effect"]],
         text: "Real model answers vary from run to run. Here a **seeded coin** stands in for the model: every answer passes with a fixed probability, so we know the true effect. We re-run the *same* experiment 200 times and hand each run to the **real gate**. No model is involved; the point is how the gate behaves when answers are noisy.",
