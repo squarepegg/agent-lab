@@ -11,7 +11,7 @@
 // miss = { wrongChoice: text }: what makes that wrong answer tempting. It is shown only while the computed answer is still
 // `expects` (the answer the texts were written for) and every claim holds.
 // ctx = { S, call }.
-import { PLAIN_VERDICT, plainReason, runGrid, modelName } from "./model.js";
+import { PLAIN_VERDICT, plainReason, runGrid, traceStats, modelName } from "./model.js";
 
 const top = (r) => (r && r[0] ? r[0].path.split("/").pop().replace(/\.md$/, "") : "(nothing)");
 const edit = (ctx, mode) => Object.entries(ctx.S.edits).find(([k]) => k.startsWith(mode + ":"))?.[1]?.out;
@@ -37,6 +37,9 @@ const Q_ZONE = (search) => `- id: order-timezone\n  q: Which time zone are order
 // recorded model runs (web/runs.json): pick by skill, variant and model family, so a re-recording under new model ids still works
 const run = (S, skill, variant, family) => Object.entries(S.runs?.meta.files || {}).find(([, m]) => m.skill === skill && (m.variant || null) === variant && m.model.includes(family))?.[0];
 const runRes = (S, name) => S.runs.runs[name];
+const dollars = (x) => `$${x.toFixed(3)}`;
+const dstTrace = (S, family) => traceStats(runRes(S, run(S, "dst", null, family)));   // by name, not S.gate.run: q() is drawn before the step's setup has run
+const modelOf = (S, name) => modelName(runRes(S, name).pi_args[1]);
 const armScore = (res, probe, arm) => res.rows.filter((r) => r.probe === probe && r.arm === arm && r.correct && r.finished !== false).length;
 
 export const LESSONS = [
@@ -243,6 +246,51 @@ export const LESSONS = [
                   NO_DELTA: ({ S }) => `The skill did add answers (${S.gate.res.facts.dev_without} right without it, ${S.gate.res.facts.dev_with} with it), so the gain rule passes. The rule that fires is the cost one.`,
                   CEILING: ({ S }) => `CEILING means the model already got nearly everything right without the skill. It got ${S.gate.res.facts.dev_without} of ${S.gate.res.facts.dev_n}.` } },
         hint: "The gate has one more rule after the gain is big enough." },
+    ],
+  },
+  {
+    id: "trace", title: "What happened in each answer?", blurb: "A score says how often. A trace says what happened.",
+    look: "Each row is one recorded answer: did it pass, did the model open the skill file, how many tool calls, what it cost. Open “What happened in each answer” under “Poke at it yourself”.",
+    learned: "A score says how often something passes. A trace says what happened inside each answer: what the model opened, how many tool calls it made, what it cost. You need the trace to explain a score, and the score to know how often.",
+    needs: (S) => !!S.runs && !!run(S, "dst", null, "sonnet") && !!run(S, "dst", null, "haiku"),
+    steps: [
+      { mode: "gate", open: ["poke", "trace"], setup: [["grun", "dst", null, "sonnet"]],
+        text: "The gate gave you a verdict and a number. It did not say what happened inside each answer. The same recorded run also holds a **trace** for every answer: whether the model opened the skill file, how many tool calls it made, and what the answer cost.",
+        exp: "Each row of a `skill_ab.py` results file carries `skill_read`, `tools` and `cost_usd`. `gate.decide` reads only `correct`, `finished` and the cost totals; the rest is the trace.",
+        predict: { q: (ctx) => { const T = dstTrace(ctx.S, "sonnet"); return `The \`dst\` skill on ${modelOf(ctx.S, run(ctx.S, "dst", null, "sonnet"))}: with the skill, the ${T.withRead.n + T.withSkip.n} answers cost ${T.ratio.toFixed(1)} times as much as the ${T.without.n} without it. Where did the extra money go?`; },
+          choices: ["Spread evenly: every answer cost a bit more", "Mostly the answers where the model opened the skill file", "Mostly the answers where it did not open it"],
+          run: [["grun", "dst", null, "sonnet"]],
+          answer: ({ S }) => { const T = dstTrace(S, "sonnet"); return T.withRead.cost >= 2 * T.withSkip.cost ? "Mostly the answers where the model opened the skill file" : T.withSkip.cost >= 2 * T.withRead.cost ? "Mostly the answers where it did not open it" : "Spread evenly: every answer cost a bit more"; },
+          claims: [["there are answers where the model opened the skill file and answers where it did not", ({ S }) => { const T = dstTrace(S, "sonnet"); return T.withRead.n > 0 && T.withSkip.n > 0; }],
+                   ["answers that opened the file made more tool calls on average", ({ S }) => { const T = dstTrace(S, "sonnet"); return T.withRead.tools > T.withSkip.tools; }],
+                   ["answers that did not open it cost less than 1.5 times an answer without the skill", ({ S }) => { const T = dstTrace(S, "sonnet"); return T.withSkip.cost < 1.5 * T.without.cost; }]],
+          why: ({ S }) => { const T = dstTrace(S, "sonnet"); return `Answers where the model opened the skill file cost ${dollars(T.withRead.cost)} on average, with ${T.withRead.tools.toFixed(1)} tool calls. Answers where it did not cost ${dollars(T.withSkip.cost)}, with ${T.withSkip.tools.toFixed(1)}, close to the ${dollars(T.without.cost)} of an answer with no skill at all. The gate's cost number could not tell you that. The per-answer record can.`; },
+          expects: "Mostly the answers where the model opened the skill file",
+          miss: { "Spread evenly: every answer cost a bit more": ({ S }) => { const T = dstTrace(S, "sonnet"); return `You expected an even spread. The record shows ${dollars(T.withRead.cost)} for answers that opened the file and ${dollars(T.withSkip.cost)} for those that did not.`; },
+                  "Mostly the answers where it did not open it": ({ S }) => { const T = dstTrace(S, "sonnet"); return `Not opening the file costs almost nothing extra (${dollars(T.withSkip.cost)} against ${dollars(T.without.cost)} with no skill). The extra money is in the answers that did open it.`; } } },
+        hint: "Which answers made extra tool calls?" },
+      { mode: "gate", open: ["poke", "trace"], setup: [["grun", "dst", null, "sonnet"]],
+        predict: { q: (ctx) => { const T = dstTrace(ctx.S, "sonnet"); return `In ${T.withSkip.n} of the ${T.withRead.n + T.withSkip.n} answers with the skill, the model never opened the skill file. Without the skill, ${T.without.correct} of ${T.without.n} answers passed the check. How many of those ${T.withSkip.n} answers passed?`; },
+          choices: ["Few: it needs the file", "About half", "Nearly all"],
+          run: [["grun", "dst", null, "sonnet"]],
+          answer: ({ S }) => { const T = dstTrace(S, "sonnet"), p = T.withSkip.correct / T.withSkip.n; return p < 0.34 ? "Few: it needs the file" : p < 0.75 ? "About half" : "Nearly all"; },
+          claims: [["some answers with the skill did not open the file", ({ S }) => dstTrace(S, "sonnet").withSkip.n > 0],
+                   ["they passed more often than the answers without the skill", ({ S }) => { const T = dstTrace(S, "sonnet"); return T.withSkip.correct / T.withSkip.n > T.without.correct / T.without.n; }]],
+          why: ({ S }) => { const T = dstTrace(S, "sonnet"), all = T.withRead.correct + T.withSkip.correct, n = T.withRead.n + T.withSkip.n; return `${T.withSkip.correct} of ${T.withSkip.n} passed. So opening the file was not what made those answers pass. The score says the skill helped (${T.without.correct} of ${T.without.n} without it, ${all} of ${n} with it). The trace shows the help did not always come through the file. It does not say why: the record has tool calls, not what was in the model's context.`; },
+          expects: "Nearly all",
+          miss: { "Few: it needs the file": ({ S }) => { const T = dstTrace(S, "sonnet"); return `You expected the file to be needed. ${T.withSkip.correct} of ${T.withSkip.n} answers passed without opening it.`; },
+                  "About half": ({ S }) => { const T = dstTrace(S, "sonnet"); return `Closer, but ${T.withSkip.correct} of ${T.withSkip.n} passed, more than half.`; } } } },
+      { mode: "gate", open: ["poke", "trace"], setup: [["grun", "dst", null, "haiku"]],
+        predict: { q: (ctx) => { const S = ctx.S, T = traceStats(runRes(S, run(S, "dst", null, "sonnet"))), n = T.withRead.n + T.withSkip.n; return `The same skill and the same questions, now on ${modelOf(S, run(S, "dst", null, "haiku"))}. On ${modelOf(S, run(S, "dst", null, "sonnet"))} the model opened the skill file in ${T.withRead.n} of ${n} answers. How often did ${modelOf(S, run(S, "dst", null, "haiku"))} open it?`; },
+          choices: ["Less often", "About as often", "More often"],
+          run: [["grun", "dst", null, "haiku"]],
+          answer: ({ S }) => { const f = (T) => T.withRead.n / (T.withRead.n + T.withSkip.n), d = f(dstTrace(S, "haiku")) - f(traceStats(runRes(S, run(S, "dst", null, "sonnet")))); return d > 0.15 ? "More often" : d < -0.15 ? "Less often" : "About as often"; },
+          claims: [["both runs have answers with the skill", ({ S }) => { const a = dstTrace(S, "haiku"), b = traceStats(runRes(S, run(S, "dst", null, "sonnet"))); return a.withRead.n + a.withSkip.n > 0 && b.withRead.n + b.withSkip.n > 0; }],
+                   ["both models passed more often with the skill", ({ S }) => { const a = dstTrace(S, "haiku"), b = traceStats(runRes(S, run(S, "dst", null, "sonnet"))), all = (T) => T.withRead.correct + T.withSkip.correct; return all(a) > a.without.correct && all(b) > b.without.correct; }]],
+          why: ({ S }) => { const a = dstTrace(S, "haiku"), b = traceStats(runRes(S, run(S, "dst", null, "sonnet"))), n = (T) => T.withRead.n + T.withSkip.n; return `${modelOf(S, run(S, "dst", null, "haiku"))} opened it in ${a.withRead.n} of ${n(a)} answers, ${modelOf(S, run(S, "dst", null, "sonnet"))} in ${b.withRead.n} of ${n(b)}. Both passed more often with the skill, but they got there differently. A pass rate would show two similar scores. Only the trace shows two different behaviours.`; },
+          expects: "More often",
+          miss: { "Less often": ({ S }) => { const a = dstTrace(S, "haiku"); return `${modelOf(S, run(S, "dst", null, "haiku"))} opened the file in ${a.withRead.n} of ${a.withRead.n + a.withSkip.n} answers, which is not less.`; },
+                  "About as often": ({ S }) => { const a = dstTrace(S, "haiku"); return `${modelOf(S, run(S, "dst", null, "haiku"))} opened it in ${a.withRead.n} of ${a.withRead.n + a.withSkip.n} answers. That is a clear difference, not about the same.`; } } } },
     ],
   },
   {

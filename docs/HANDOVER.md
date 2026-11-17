@@ -13,7 +13,7 @@ from `squarepegg/agent-knowledge-map` and `squarepegg/agent-toolkit`. No server,
 |---|---|---|---|
 | 1 | Code panel: real function per mode, executed lines highlighted (`sys.settrace`), beginner/experienced **level** chip | done | `web/codepanel.js`, `lab/api.py` `trace`, `codePanel()` in `web/app.js` |
 | 2 | Edit-and-run cell: guided tweaks (beginner) / full editor (experienced), compare real vs edited, always restored, 400k-line loop budget | done | `run_edit` in `lab/api.py`, `TWEAKS`/`brief`/`lineDiff` in `codepanel.js`, `editCell()` |
-| 3 | Guided lessons, predict-then-reveal, answers computed from the real run, progress in localStorage | done | `web/lessons.js` (7 lessons), `lessonCard()` etc. in `app.js` |
+| 3 | Guided lessons, predict-then-reveal, answers computed from the real run, progress in localStorage | done | `web/lessons.js` (8 lessons; `trace` and `recorded` need the recorded runs), `lessonCard()` etc. in `app.js` |
 | 3b | Claim-checked explanations: each `why` has `claims` predicates; page shows a warning instead of the sentence if one fails | done | `checkClaims` in `lessons.js` |
 | 4 | Six auto-checked challenges with 3-hint ladders; code challenge judged by `check_fn` | done | `web/challenges.js`, `check_fn` in `lab/api.py`, `chalCard()` |
 | 5 | Bring-your-own-key live model cell | **dropped** (user: pasting an API key into a page feels like phishing) | |
@@ -27,7 +27,7 @@ from `squarepegg/agent-knowledge-map` and `squarepegg/agent-toolkit`. No server,
 - Fold state lives in `S.fold`; reset each lesson step. In a lesson only the folds `step.open` lists are open (the Gate's grader fold and the skill text fold are open by default only outside lessons).
 - `lesson.look` / `step.look` feed the caption strip. `predict.expects` is the answer the lesson's `why` is written for, `predict.miss` the text for each wrong pick (a function `(ctx, correct) => string` is allowed), `lesson.learned` the last step's summary. `model.test.mjs` requires a `miss` for every wrong choice of the recorded lesson; `ui_modes.mjs` checks every `expects` against the computed answer and that no wrong pick falls back to "You picked X".
 - If Python failed to load and a step was not recorded, the lesson card shows the failure (`L.error`), not a fading toast.
-- **Gate**: beginners see plain verdicts (`PLAIN_VERDICT`, `plainReason`, `gateSteps(g, true)` in `model.js`): no upstream parameter name in any beginner label. The verdict card (`#gverdict`) sits first in the drawer. Recorded runs (`runs.json` from `recorded/`) appear in the "results to judge" menu; their cells are read-only and open the model's answer (`peekCard`). Skill A/B stays on the proxy, with a "recorded behaviour" table beside it.
+- **Gate**: beginners see plain verdicts (`PLAIN_VERDICT`, `plainReason`, `gateSteps(g, true)` in `model.js`): no upstream parameter name in any beginner label. The verdict card (`#gverdict`) sits first in the drawer. Recorded runs (`runs.json` from `recorded/`) appear in the "results to judge" menu, with a `trace` fold (`traceHtml`, numbers from `traceStats` in `model.js`); their cells are read-only and open the model's answer (`peekCard`). Skill A/B stays on the proxy, with a "recorded behaviour" table beside it.
 - **Phone (≤720px)**: the canvas is replaced by `#sum`, a text summary of the same state, with the caption above it and a labelled bottom bar.
 - `web/sw.js` is cache-first for app assets and Pyodide; its asset list and a version hash come from the generated `web/sw-manifest.js`.
 

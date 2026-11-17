@@ -27,7 +27,7 @@ const ORD = "facts/orders-timestamps-utc.md";
 // --- start screen: the default landing is a guided path, not the map
 await open();
 assert.match(await txt("#home"), /Your agent passes the demo/);
-assert.equal(await page.locator("#home [data-act=lstart]").count(), 7, "every lesson is on the path");
+assert.equal(await page.locator("#home [data-act=lstart]").count(), 8, "every lesson is on the path");
 assert.ok(await page.locator("#home [data-act=lcont]").isVisible(), "one obvious next step");
 assert.ok((await page.locator("#home [data-act=lcont]").boundingBox()).y < (await page.locator("#home [data-act=lvl]").first().boundingBox()).y, "Continue comes before the level choice");
 assert.match(await page.getAttribute("#home [data-act=lvl][data-l=beginner]", "class"), /\bon\b/, "the current level is marked");

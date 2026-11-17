@@ -16,7 +16,7 @@ const click = async (page, sel) => { await page.click(sel); await idle(page); };
   await page.goto(url);
   const home = await txt(page, "#home");
   assert.match(home, /Your agent passes the demo/);
-  assert.equal(await page.locator("#home .ideas li").count(), 3, "three ideas");
+  assert.equal(await page.locator("#home .ideas li").count(), 4, "four ideas");
   assert.match(home, /time zone/, "the lesson 1 preview question is on the page");
   await page.context().close();
 }
@@ -139,6 +139,7 @@ const click = async (page, sel) => { await page.click(sel); await idle(page); };
     await open(page); await click(page, `[data-act=lstart][data-id=${L.id}]`);
     for (let i = 0; i < L.steps.length; i++) {
       const st = L.steps[i];
+      if (st.setup?.some(([a]) => a === "grun")) assert.match(await txt(page, "#svg"), /recorded run:/, `${L.id} step ${i + 1}: the canvas shows the recorded run, not the hand-set one`);
       if (st.predict) {
         const choices = await page.locator("#drawer [data-act=lpick]").evaluateAll((b) => b.map((x) => x.dataset.c));
         const wrong = choices.find((c) => c !== st.predict.expects) ?? choices[0];

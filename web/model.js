@@ -109,6 +109,19 @@ export function runGrid(res) {
   for (const r of res.rows) ((grid[r.probe] ||= { without: [], with: [] })[r.arm][r.n] = !!(r.correct && r.finished !== false));
   return grid;
 }
+/** What the trace of a recorded run shows, split three ways: answers without the skill, answers with it where the model opened
+ *  the skill file, and answers with it where it did not. Per group: n, correct, mean cost in dollars, mean tool calls.
+ *  `ratio` is the total cost with the skill over the total cost without. An answer that did not finish does not count as correct. */
+export function traceStats(res) {
+  const groups = { without: [], withRead: [], withSkip: [] };
+  for (const r of res.rows) groups[r.arm === "without" ? "without" : r.skill_read ? "withRead" : "withSkip"].push(r);
+  const sum = (rs, f) => rs.reduce((s, r) => s + f(r), 0);
+  const stat = (rs) => ({ n: rs.length, correct: sum(rs, (r) => (r.correct && r.finished !== false ? 1 : 0)), cost: rs.length ? sum(rs, (r) => r.cost_usd) / rs.length : 0, tools: rs.length ? sum(rs, (r) => r.tools.length) / rs.length : 0 });
+  const out = Object.fromEntries(Object.entries(groups).map(([k, rs]) => [k, stat(rs)]));
+  const total = (...ks) => ks.reduce((s, k) => s + out[k].n * out[k].cost, 0);
+  out.ratio = total("without") ? total("withRead", "withSkip") / total("without") : 0;
+  return out;
+}
 /** Only what gate.decide reads from a results file (answers and tool calls stay on the page). */
 export const slimRun = (res) => ({ skill: res.skill, samples: res.samples, pi_args: res.pi_args, date: res.date,
   rows: res.rows.map((r) => ({ probe: r.probe, split: r.split, arm: r.arm, n: r.n, correct: r.correct, finished: r.finished, cost_usd: r.cost_usd })) });

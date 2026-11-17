@@ -2,7 +2,7 @@ import { connectLab } from "./lab.js";
 import { LESSONS, checkClaims, noise } from "./lessons.js";
 import { CHALLENGES } from "./challenges.js";
 import { extractFunc, annotate, coverage, MODE_CODE, NOTES, TWEAKS, applyTweak, lineDiff, brief } from "./codepanel.js";
-import { buildGraph, layout, neighbors, gateSteps, clip, encodeGate, decodeGate, FILE_KINDS, PLAIN_VERDICT, plainReason, costs, runGrid, slimRun, modelName } from "./model.js";
+import { buildGraph, layout, neighbors, gateSteps, clip, encodeGate, decodeGate, FILE_KINDS, PLAIN_VERDICT, plainReason, costs, runGrid, traceStats, slimRun, modelName } from "./model.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -380,7 +380,7 @@ const LA = {   // actions a lesson step may name
   auto: () => ACT.auto(),
   preset: (k) => applyPreset(k),
   param: async (k, v) => { S.gate.params[k] = v; await computeGate(); renderScene(); },
-  grun: (skill, variant, family) => setRun(findRun(skill, variant, family)),
+  grun: async (skill, variant, family) => { await setRun(findRun(skill, variant, family)); renderScene(); },
   gpeek: (p, a, i) => { S.gate.peek = { p, a, i }; },
   skill: async (kind) => {
     if (kind === "filler") await ACT.sfill();
@@ -509,6 +509,7 @@ const IDEAS = [
   ["How do you check an agent's answer?", "An eval is a question plus a pass/fail check. See what the check really looks at.", ["eval", "rank"]],
   ["Can you trust the check?", "A passing suite can still be blind. Break things on purpose and see what notices.", ["break"]],
   ["Can you trust one run?", "One run is not evidence. A gate turns results into a verdict you can defend.", ["gate", "skill", "recorded", "noise"]],
+  ["Can you see what happened?", "A score says how often. A trace says what happened in each answer.", ["trace"]],
 ];
 function homeHtml() {
   const p = prog(), all = lessons(), next = all.find((l) => !p[l.id]?.done), done = all.filter((l) => p[l.id]?.done).length;
@@ -522,7 +523,7 @@ function homeHtml() {
             : `<div class="cta"><span class="ok">✔ all ${all.length} lessons done.</span><span class="mut">Try the challenges below, or poke around freely.</span></div>`) + `<div class="mut" id="homepy">${homePy()}</div>`;
   h += `<div class="who"><span class="mut">Pitched at</span><button data-act="lvl" data-l="beginner" class="chip ${beg ? "on" : ""}">new to evals or Python</button><button data-act="lvl" data-l="experienced" class="chip ${beg ? "" : "on"}">I write Python</button>
     <span class="mut">${beg ? "Plain words, a hint on each question, notes beside the code." : "Terse: upstream names, line counts, a full editor."}</span></div>`;
-  h += `<h2>The path · three ideas, ${all.length} short lessons</h2>` + IDEAS.map(([t, why, ids], i) => {
+  h += `<h2>The path · ${IDEAS.length} ideas, ${all.length} short lessons</h2>` + IDEAS.map(([t, why, ids], i) => {
     const ls = ids.map((id) => all.find((l) => l.id === id)).filter(Boolean), fin = ls.every((l) => p[l.id]?.done);
     return `<div class="stage ${fin ? "done" : ""}"><div class="n">${fin ? "✔" : i + 1}</div><div class="box"><b>${esc(t)}</b><div class="mut">${esc(why)}</div>${ls.map(lessonRow).join("")}</div></div>`; }).join("");
   h += `<h2>Practice</h2><details class="fold" ${foldOpen("practice", false) ? "open" : ""}><summary data-fold="practice" data-def="0">${CHALLENGES.length} challenges · do the thing, press Check, the real code judges <span class="mut">${CHALLENGES.filter((c) => p["chal:" + c.id]?.done).length}/${CHALLENGES.length} solved</span></summary>` +
@@ -775,6 +776,17 @@ function peekCard() {
     <div class="${r.correct ? "ok" : "bad"}">${r.correct ? "✔ passed the check" : `✘ failed the check: missing ${r.missing.map((m) => `“${esc(m)}”`).join(", ") || "nothing, but the run did not finish"}`}</div>
     <div class="mut">${k.a === "with" ? (r.skill_read ? "The model opened the skill file. " : "The model did not open the skill file. ") : ""}${r.tools.length} tool call${r.tools.length === 1 ? "" : "s"} · $${r.cost_usd} · ${r.finished ? "finished" : "did not finish"}</div></div>`;
 }
+// The observability view of a recorded run: what each answer did, not only whether it passed. Click a row to read the answer.
+function traceHtml(res, beg) {
+  const T = traceStats(res), d = (x) => `$${x.toFixed(3)}`, row = (r) => `<tr class="rowx" data-act="gpeek" data-p="${esc(r.probe)}" data-a="${r.arm}" data-i="${r.n}">
+    <td>${esc(r.probe)} <span class="mut">${r.arm === "with" ? "with" : "without"} · try ${r.n + 1}</span></td><td class="${r.correct ? "ok" : "bad"}">${r.correct ? "✔" : "✘"}</td>
+    <td>${r.arm === "with" ? (r.skill_read ? "yes" : "no") : "·"}</td><td>${r.tools.length}</td><td>${d(r.cost_usd)}</td></tr>`;
+  const line = (label, s) => (s.n ? `<tr><td>${label}</td><td>${s.correct}/${s.n}</td><td></td><td>${s.tools.toFixed(1)}</td><td>${d(s.cost)}</td></tr>` : "");
+  return `<div class="mut">Every answer the model gave, as it was recorded, including the ${beg ? "hidden test" : "heldout"} questions the gate counts separately: did it pass the check, did it open the skill file, how many tool calls it made, what it cost. Averages first, then each answer.</div>
+    <table class="tr"><tr><th>${beg ? "group" : "group (mean)"}</th><th>passed</th><th></th><th>tool calls</th><th>cost</th></tr>
+    ${line("without the skill", T.without)}${line("with it, opened the skill file", T.withRead)}${line("with it, did not open it", T.withSkip)}</table>
+    <table class="tr"><tr><th>answer</th><th>passed</th><th>opened skill</th><th>tool calls</th><th>cost</th></tr>${res.rows.map(row).join("")}</table>`;
+}
 function gateDrawer() {
   const G = S.gate, g = G.res, p = G.probes[G.pg], beg = S.level === "beginner", res = gateRun(), meta = res && S.runs.meta.files[G.run], R = S.runs;
   const grid = res ? runGrid(res) : G.grid, split = (q) => (q.split === "heldout" ? (beg ? "hidden test" : "heldout") : beg ? "" : "dev");
@@ -786,6 +798,7 @@ function gateDrawer() {
   h += `<h3>${res ? "recorded answers (3 tries each, click one to read it)" : "outcomes (3 tries each, click to flip)"}</h3><table class="grid"><tr><th>${beg ? "question" : "probe"}</th><th>without${beg ? " the skill" : ""}</th><th>with${beg ? " the skill" : ""}</th></tr>${gateProbes().map((q) => `<tr><td title="${esc(q.q)}">${esc(q.id)} <span class="mut">${split(q)}</span></td>` + ["without", "with"].map((a) => `<td>${(grid[q.id]?.[a] || []).map((b, i) => { const on = res && G.peek && G.peek.p === q.id && G.peek.a === a && G.peek.i === i;
       return `<span class="cell ${b ? "t" : "f"} ${on ? "on" : ""}" ${res ? `data-act="gpeek"` : "data-gc"} data-p="${esc(q.id)}" data-a="${a}" data-i="${i}">${b ? "✔" : "✘"}</span>`; }).join("")}</td>`).join("") + "</tr>").join("")}</table>`;
   h += peekCard();
+  if (res) h += fold("trace", beg ? "What happened in each answer?" : "trace: one row per recorded answer", traceHtml(res, beg), !!(S.lesson && lstep()[1].open?.includes("trace")));
   h += `<h3>${beg ? "the bar the skill must clear" : "thresholds"}</h3><div class="params">${Object.entries(G.params).filter(([k]) => !(k.startsWith("_") && (beg || res))).map(([k, v]) => `<label class="fld">${beg ? esc(PARAM_PLAIN[k] ?? k) : `<code>${k}</code>`}<input data-gp="${k}" value="${v}" inputmode="decimal"></label>`).join("")}</div>
     ${beg ? `<div class="mut">These are set before the run. Moving them afterwards would be choosing the verdict.</div>` : ""}`;
   if (!res) h += fold("grader", beg ? "How is one answer marked right or wrong?" : "probe grader", `<div class="row"><select id="gpg">${G.probes.map((q, i) => `<option value="${i}" ${i === G.pg ? "selected" : ""}>${esc(q.id)}</option>`).join("")}</select></div>

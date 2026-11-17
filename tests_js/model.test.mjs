@@ -4,7 +4,7 @@ import { extractFunc, annotate, coverage, MODE_CODE, TWEAKS, applyTweak, lineDif
 import fs from "node:fs";
 import { LESSONS, checkClaims } from "../web/lessons.js";
 import { CHALLENGES } from "../web/challenges.js";
-import { parseHits, buildGraph, layout, neighbors, gateSteps, plainReason, runGrid, PLAIN_VERDICT, encodeGate, decodeGate, GATE_ORDER, clip } from "../web/model.js";
+import { parseHits, buildGraph, layout, neighbors, gateSteps, plainReason, runGrid, traceStats, PLAIN_VERDICT, encodeGate, decodeGate, GATE_ORDER, clip } from "../web/model.js";
 import { PYODIDE, callKey } from "../web/lab.js";
 
 const docs = [{ path: "facts/a.md", kind: "fact", title: "A" }, { path: "facts/b.md", kind: "fact", title: "B" }, { path: "facts/c.md", kind: "fact", title: "C" },
@@ -119,7 +119,7 @@ test("challenges: unique ids, goals, 3 hints for graded ones, code challenges ha
 test("lessons: every lesson says what to look at, and step.open only names real folds", () => {
   for (const l of LESSONS) {
     assert.ok(l.look && l.look.length > 20, `${l.id} has a look caption`);
-    for (const st of l.steps) for (const f of st.open || []) assert.ok(["poke", "code", "try"].includes(f), `${l.id}: unknown fold ${f}`);
+    for (const st of l.steps) for (const f of st.open || []) assert.ok(["poke", "code", "try", "trace"].includes(f), `${l.id}: unknown fold ${f}`);
   }
 });
 
@@ -148,10 +148,10 @@ test("runGrid turns a recorded results file into the hand-set grid shape; an unf
   assert.deepEqual(runGrid({ rows }), { a: { without: [true], with: [false, true] } });
 });
 
-test("lessons: seven, unique ids, and the three recorded steps have expected answers and a written miss for every other choice", () => {
-  assert.equal(LESSONS.length, 7);
-  assert.equal(new Set(LESSONS.map((l) => l.id)).size, 7);
-  for (const st of LESSONS.find((l) => l.id === "recorded").steps) {
+test("lessons: eight, unique ids, and the steps built on recorded runs have expected answers and a written miss for every other choice", () => {
+  assert.equal(LESSONS.length, 8);
+  assert.equal(new Set(LESSONS.map((l) => l.id)).size, 8);
+  for (const st of ["recorded", "trace"].flatMap((id) => LESSONS.find((l) => l.id === id).steps)) {
     const p = st.predict; assert.ok(p.choices.includes(p.expects));
     for (const c of p.choices.filter((x) => x !== p.expects)) assert.ok(p.miss[c], `${p.expects}: no miss for ${c}`);
   }
@@ -177,4 +177,14 @@ test("index.html: the static shell says what lesson 1 step 1 says, and every pre
   const urls = [...html.matchAll(/<link rel="(?:module)?preload"[^>]*href="(https?:[^"]+)"/g)].map((m) => m[1]);
   assert.ok(urls.length >= 3);
   for (const u of urls) assert.ok(u.startsWith(PYODIDE), u);
+});
+
+test("traceStats splits a run by arm and by whether the skill file was opened; unfinished answers are not correct", () => {
+  const r = (arm, skill_read, correct, cost, tools, finished = true) => ({ arm, skill_read, correct, cost_usd: cost, tools: Array(tools).fill(["read", "{}"]), finished });
+  const T = traceStats({ rows: [r("without", false, false, 0.01, 0), r("without", false, true, 0.01, 2), r("with", true, true, 0.04, 1), r("with", true, true, 0.02, 1, false), r("with", false, true, 0.02, 0)] });
+  assert.deepEqual(T.without, { n: 2, correct: 1, cost: 0.01, tools: 1 });
+  assert.deepEqual(T.withRead, { n: 2, correct: 1, cost: 0.03, tools: 1 });
+  assert.equal(T.withSkip.n, 1);
+  assert.ok(Math.abs(T.ratio - 4) < 1e-9, "total with (0.08) over total without (0.02)");
+  assert.equal(traceStats({ rows: [] }).ratio, 0);
 });

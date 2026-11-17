@@ -27,7 +27,7 @@ restored; syntax errors and endless loops (400k-line budget) are reported in the
 
 **Start** (the landing page): pick your level, then follow the path: see how an agent is graded, test the tests, decide what to trust. One button continues where you left off; free-explore modes and the challenges are below the path.
 
-**Lessons**: 7 guided lessons (what is an eval, ranking, mutation testing, the gate, skill A/B, real models recorded, why one run isn't enough). Each asks you to **predict** before it
+**Lessons**: 8 guided lessons (what is an eval, ranking, mutation testing, the gate, skill A/B, real models recorded, what happened in each answer, why one run isn't enough). The trace lesson is the observability one: in the Gate, a recorded run has a fold with one row per answer (passed, opened the skill file, tool calls, cost) and the lesson asks where the extra cost came from. It is built only from the recorded runs; guardrails are not covered because upstream has no runnable guardrail code. Each asks you to **predict** before it
 runs the real code. The answer is computed from that run, never written in advance, and the page refuses a lesson whose answer is not one of its choices.
 While a lesson runs, the drawer shows only the lesson card. A strip above the canvas says what to look at (`look` in `web/lessons.js`), the mode's controls sit in a **Poke at it yourself** fold and the Python folds are closed unless a step lists them in `open`. After you answer a prediction, **Show the Python that ran** opens the lines the real code executed. Leaving a lesson resets whatever it set up. Progress is in localStorage.
 
