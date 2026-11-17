@@ -177,3 +177,33 @@ def attacks(policy):
     calls = [{"name": n, "args": ({"path": t} if n == "read" else {"command": t})} for t, n in ATTACKS]
     r = run(calls, policy)
     return r if "error" in r else {"rows": [{**row, "text": t, "tool": n} for row, (t, n) in zip(r["rows"], ATTACKS)], "counts": r["counts"]}
+
+
+def live_summary(text, cap=2000):
+    """A decision log written by scripts/guard_hook.py (one JSON object per line: ts, tool, action, rule, text for ask/deny) -> what the page shows.
+    Counts cover every valid line; `rows` keeps the last `cap` of them (one square each). Lines that are not such an object count as `bad`."""
+    rows, bad, rules, top = [], 0, {}, {}
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        try:
+            x = json.loads(line)
+        except ValueError:
+            bad += 1
+            continue
+        if not isinstance(x, dict) or x.get("action") not in ("allow", "ask", "deny"):
+            bad += 1
+            continue
+        rows.append({k: str(x.get(k) or "") for k in ("ts", "tool", "action", "rule", "text")})
+        if x["action"] != "allow":
+            r = str(x.get("rule") or "")
+            rules[r] = rules.get(r, 0) + 1
+            key = (r, x["action"], " ".join(str(x.get("text") or "").split()[:2]))
+            top[key] = top.get(key, 0) + 1
+    k = {"total": len(rows), "allow": 0, "ask": 0, "deny": 0, "bad": bad}
+    for r in rows:
+        k[r["action"]] += 1
+    ranked = sorted(top.items(), key=lambda kv: (-kv[1], kv[0]))[:10]
+    return {"counts": k, "rules": rules, "top": [{"rule": a, "action": b, "head": c, "n": n} for (a, b, c), n in ranked],
+            "first": rows[0]["ts"] if rows else None, "last": rows[-1]["ts"] if rows else None,
+            "rows": rows[-cap:], "dropped": max(0, len(rows) - cap)}

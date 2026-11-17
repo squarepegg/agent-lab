@@ -1,0 +1,45 @@
+{"action": "allow", "rule": "", "tool": "Read", "ts": "2025-11-17T17:20:00Z"}
+{"action": "allow", "rule": "", "tool": "Grep", "ts": "2025-11-17T17:20:47Z"}
+{"action": "allow", "rule": "", "tool": "Read", "ts": "2025-11-17T17:21:34Z"}
+{"action": "allow", "rule": "", "tool": "Read", "ts": "2025-11-17T17:22:21Z"}
+{"action": "allow", "rule": "", "tool": "Bash", "ts": "2025-11-17T17:23:08Z"}
+{"action": "deny", "rule": "secrets", "text": "/Users/sam/.aws/credentials", "tool": "Read", "ts": "2025-11-17T17:23:55Z"}
+{"action": "allow", "rule": "", "tool": "Bash", "ts": "2025-11-17T17:24:42Z"}
+{"action": "allow", "rule": "", "tool": "Read", "ts": "2025-11-17T17:25:29Z"}
+{"action": "allow", "rule": "", "tool": "Edit", "ts": "2025-11-17T17:26:16Z"}
+{"action": "ask", "rule": "destructive", "text": "git reset --hard HEAD~1", "tool": "Bash", "ts": "2025-11-17T17:27:03Z"}
+{"action": "ask", "rule": "outside_workdir", "text": "cat /etc/hosts", "tool": "Bash", "ts": "2025-11-17T17:27:50Z"}
+{"action": "ask", "rule": "destructive", "text": "rm -rf node_modules", "tool": "Bash", "ts": "2025-11-17T17:28:37Z"}
+{"action": "allow", "rule": "", "tool": "Edit", "ts": "2025-11-17T17:29:24Z"}
+{"action": "allow", "rule": "", "tool": "Bash", "ts": "2025-11-17T17:30:11Z"}
+{"action": "allow", "rule": "", "tool": "Bash", "ts": "2025-11-17T17:30:58Z"}
+{"action": "deny", "rule": "secrets", "text": "cat .env", "tool": "Bash", "ts": "2025-11-17T17:31:45Z"}
+{"action": "allow", "rule": "", "tool": "Read", "ts": "2025-11-17T17:32:32Z"}
+{"action": "allow", "rule": "", "tool": "Bash", "ts": "2025-11-17T17:33:19Z"}
+{"action": "ask", "rule": "outside_workdir", "text": "cat /etc/hosts", "tool": "Bash", "ts": "2025-11-17T17:34:06Z"}
+{"action": "allow", "rule": "", "tool": "Read", "ts": "2025-11-17T17:34:53Z"}
+{"action": "allow", "rule": "", "tool": "Edit", "ts": "2025-11-17T17:35:40Z"}
+{"action": "ask", "rule": "outside_workdir", "text": "cd ~/projects/other-repo", "tool": "Bash", "ts": "2025-11-17T17:36:27Z"}
+{"action": "allow", "rule": "", "tool": "Read", "ts": "2025-11-17T17:37:14Z"}
+{"action": "allow", "rule": "", "tool": "Bash", "ts": "2025-11-17T17:38:01Z"}
+{"action": "allow", "rule": "", "tool": "Grep", "ts": "2025-11-17T17:38:48Z"}
+{"action": "allow", "rule": "", "tool": "Read", "ts": "2025-11-17T17:39:35Z"}
+{"action": "allow", "rule": "", "tool": "Edit", "ts": "2025-11-17T17:40:22Z"}
+{"action": "allow", "rule": "", "tool": "Bash", "ts": "2025-11-17T17:41:09Z"}
+{"action": "ask", "rule": "outside_workdir", "text": "/Users/sam/Downloads/notes.txt", "tool": "Read", "ts": "2025-11-17T17:41:56Z"}
+{"action": "allow", "rule": "", "tool": "Grep", "ts": "2025-11-17T17:42:43Z"}
+{"action": "ask", "rule": "outside_workdir", "text": "cd ~/projects/other-repo", "tool": "Bash", "ts": "2025-11-17T17:43:30Z"}
+{"action": "allow", "rule": "", "tool": "Bash", "ts": "2025-11-17T17:44:17Z"}
+{"action": "allow", "rule": "", "tool": "Bash", "ts": "2025-11-17T17:45:04Z"}
+{"action": "allow", "rule": "", "tool": "Bash", "ts": "2025-11-17T17:45:51Z"}
+{"action": "allow", "rule": "", "tool": "Grep", "ts": "2025-11-17T17:46:38Z"}
+{"action": "ask", "rule": "destructive", "text": "rm -rf node_modules", "tool": "Bash", "ts": "2025-11-17T17:47:25Z"}
+{"action": "allow", "rule": "", "tool": "Edit", "ts": "2025-11-17T17:48:12Z"}
+{"action": "allow", "rule": "", "tool": "Bash", "ts": "2025-11-17T17:48:59Z"}
+{"action": "ask", "rule": "outside_workdir", "text": "cd ~/projects/other-repo", "tool": "Bash", "ts": "2025-11-17T17:49:46Z"}
+{"action": "allow", "rule": "", "tool": "Bash", "ts": "2025-11-17T17:50:33Z"}
+{"action": "allow", "rule": "", "tool": "Bash", "ts": "2025-11-17T17:51:20Z"}
+{"action": "ask", "rule": "destructive", "text": "git stash", "tool": "Bash", "ts": "2025-11-17T17:52:07Z"}
+{"action": "allow", "rule": "", "tool": "Edit", "ts": "2025-11-17T17:52:54Z"}
+{"action": "allow", "rule": "", "tool": "Bash", "ts": "2025-11-17T17:53:41Z"}
+{"action": "allow", "rule": "", "tool": "Read", "ts": "2025-11-17T17:54:28Z"}

@@ -632,6 +632,7 @@ function bindDrawer() {
     if (t.dataset.gp) act(() => gateParam(t)); if (t.id === "gpa") act(gateGrade); };
   d.onchange = (e) => { const t = e.target;
     if (t.id === "gpg") act(() => { S.gate.pg = +t.value; return drawer(); });
+    if (t.id === "glog") act(async () => { const f = t.files[0]; if (f) await loadLive(f.name, await f.text()); });
     if (t.id === "grun") act(async () => { await setRun(t.value || null); renderScene(); await drawer(); });
     if (t.id === "mop") act(() => { S.mop = t.value; return drawer(); }); };
   d.onkeydown = (e) => { if (e.target.id === "gtext" && e.key === "Enter") { e.preventDefault(); act(() => ACT.gtry()); return; }
@@ -727,6 +728,7 @@ const ACT = {
   async dumb() { const p = S.gate.probes[S.gate.pg]; $("gpa").value = await call("trivial_pass", { probe: p }); await gateGrade(); },
   gpeek(t) { const d = t.dataset; S.gate.peek = { p: d.p, a: d.a, i: +d.i }; return drawer(); },
   async gtab(t) { S.guard.tab = t.dataset.t; await computeGuardTab(); renderScene(); await drawer(); },
+  async glive() { await loadLive("an example log (made up)", bundle.guardlog); },
   sopt(t) { const O = S.guard.out, id = t.dataset.o; O.try = null; O.opts = O.opts.includes(id) ? O.opts.filter((x) => x !== id) : [...O.opts, id]; return guardRefresh(); },
   suser(t) { const O = S.guard.out; O.user = t.dataset.u; O.try = null; return guardRefresh(); },
   spreset(t) { const O = S.guard.out; O.opts = t.dataset.p === "real" ? [...O.meta.base] : []; O.try = null; return guardRefresh(); },
@@ -867,7 +869,7 @@ function initGuard() {
     let a; try { a = JSON.parse(args); } catch { a = {}; }
     calls.push({ name: tool, args: a, run: name, probe: r.probe, arm: r.arm, n: r.n });
   }
-  S.guard = { calls, rules: [], code: S.guard?.code ?? null, meta: S.guard?.meta ?? null, useCode: false, res: null, att: null, sel: null, err: null, text: "", tool: "bash", try: null,
+  S.guard = { calls, rules: [], code: S.guard?.code ?? null, meta: S.guard?.meta ?? null, useCode: false, res: null, att: null, sel: null, err: null, text: "", tool: "bash", try: null, live: S.guard?.live ?? null,
     tab: "calls", out: { opts: [], user: "sam", meta: null, res: null, att: null, sel: null, selOut: null, text: "", try: null, texts: scrubTexts() } };
 }
 // every recorded model answer and tool call, as recorded (already scrubbed): the corpus the output scrubber is tested on
@@ -895,6 +897,40 @@ async function computeScrub() {
   if (O.sel != null) O.selOut = await call("scrub_one", { text: O.texts[O.sel].text, opts: O.opts, user: O.user, rebuild: true });
 }
 const computeGuardTab = () => (S.guard.tab === "output" ? computeScrub() : computeGuard());
+// "Your log": a decision log written by scripts/guard_hook.py, read in the browser (never uploaded) and only counted: the lab does not judge it
+async function loadLive(name, text) {
+  const r = await raw("guard_live", { text });
+  S.guard.live = { name, res: r.error ? null : r, err: r.error || null, sel: null };
+  renderScene(); await drawer();
+}
+function renderLive(root) {
+  const L = S.guard.live, cols = 24, step = 22;
+  if (!L?.res) { root.append(el("text", { class: "col", x: 0, y: 20 }, "load a decision log, or the made-up example, to see what a policy decided")); fit(520, 40); return; }
+  root.append(el("text", { class: "col", x: 0, y: 10 }, `each square is one judged tool call, oldest first${L.res.dropped ? ` (the last ${L.res.rows.length} of ${L.res.counts.total})` : ""}`));
+  L.res.rows.forEach((r, i) => {
+    const g = el("rect", { class: `gc ${r.action === "allow" ? "fine" : r.action} ${L.sel === i ? "sel" : ""}`, x: (i % cols) * step, y: 24 + Math.floor(i / cols) * step, width: 18, height: 18, rx: 4 }, el("title", {}, `${r.action} ${r.rule} ${r.text}`.slice(0, 120)));
+    g.addEventListener("click", (e) => { e.stopPropagation(); act(() => { L.sel = i; renderScene(); return drawer(); }); });
+    root.append(g);
+  });
+  fit(cols * step, 24 + Math.ceil(L.res.rows.length / cols) * step + 10);
+}
+function liveDrawer() {
+  const L = S.guard.live, beg = S.level === "beginner", r = L?.res, k = r?.counts;
+  let h = `<div class="mut">${beg ? "When the guard hook is on, it writes one line per tool call to a file. Pick that file to see what it decided." : "Pick <code>$BRAIN_DIR/metrics/guard.jsonl</code> (or <code>$GUARD_LOG</code>). The file is read in your browser, nothing is uploaded."}</div>
+    <div class="row"><input type="file" id="glog" accept=".jsonl,.json,.txt,application/json" aria-label="a guard decision log"><button class="btn alt" data-act="glive">Try a made-up log</button></div>`;
+  if (L?.err) h += `<div class="note bad">${esc(L.err)}</div>`;
+  if (!k) return h + `<div class="note"><b>What this is.</b> The log comes from <code>scripts/guard_hook.py</code> in agent-knowledge-map: one JSON line per judged call (<code>ts, tool, action, rule</code>, and <code>text</code> for what was not allowed). The lab only counts it. It does not say whether a decision was right: that is what replaying recorded sessions against a policy is for.</div>`;
+  const stopped = k.ask + k.deny;
+  h += `<div class="verdict good" id="gscore"><div class="vl">${esc(L.name)}</div><div class="big">${stopped} of ${k.total} calls were not simply allowed</div>
+    <div class="vw">${k.allow} allowed, ${k.ask} asked, ${k.deny} denied${r.first ? `, from ${esc(r.first)} to ${esc(r.last)}` : ""}.${k.bad ? ` ${k.bad} lines were not decisions and were skipped.` : ""}</div></div>`;
+  const sel = L.sel != null ? r.rows[L.sel] : null;
+  h += sel ? `<div class="card gcall"><div class="mut">${esc(sel.tool)} · ${esc(sel.ts)}</div><div><b>${esc(sel.action)}</b>${sel.rule ? ` by “${esc(sel.rule)}”` : ""}</div>${sel.text ? `<pre>${esc(sel.text)}</pre>` : ""}</div>` : `<div class="mut">Click a square to read that decision.</div>`;
+  const rules = Object.entries(r.rules).sort((a, b) => b[1] - a[1]);
+  if (rules.length) h += `<h3>which rule stopped them</h3><table class="tr">${rules.map(([id, n]) => `<tr><td>${esc(id || "(none)")}</td><td>${n}</td></tr>`).join("")}</table>`;
+  if (r.top.length) h += fold("glt", beg ? "The commands asked about most" : "most frequent non-allowed", `<div class="mut">Grouped by rule, action and the first two words. A line that keeps coming back is a candidate for <code>allow_paths</code> or <code>allow_commands</code>.</div><table class="tr"><tr><th>rule</th><th>action</th><th>command</th><th>times</th></tr>${r.top.map((t) => `<tr><td>${esc(t.rule)}</td><td>${esc(t.action)}</td><td><code>${esc(t.head)}</code></td><td>${t.n}</td></tr>`).join("")}</table>`, true);
+  h += `<div class="note"><b>What this is.</b> Counts only. The guard is a set of text rules, not a sandbox, and an allowed call is not proof the call was safe. Nothing here is uploaded.</div>`;
+  return h;
+}
 async function guardRefresh() { await computeGuardTab(); renderScene(); await drawer(); }
 async function guardTry() {
   const G = S.guard, r = await raw("guard_attack", { policy: guardPolicy(), tool: G.tool, text: G.text });
@@ -904,6 +940,7 @@ function renderGuard() {
   const root = vp(); root.replaceChildren(); S.ref = { nodes: new Map(), edges: [] }; S.graph = null;
   const G = S.guard, cols = 24, step = 22;
   if (G.tab === "output") return renderScrub(root);
+  if (G.tab === "log") return renderLive(root);
   if (!G.calls.length) { root.append(el("text", { class: "col", x: 0, y: 20 }, "the recorded runs did not load")); fit(400, 40); return; }
   let y = 10;
   root.append(el("text", { class: "col", x: 0, y }, "each square is one real tool call a model made"));
@@ -959,8 +996,9 @@ function scrubDrawer() {
   return h;
 }
 function guardDrawer() {
-  const tabs = `<div class="row"><button class="btn alt ${S.guard.tab === "calls" ? "on" : ""}" data-act="gtab" data-t="calls">What it may do</button><button class="btn alt ${S.guard.tab === "output" ? "on" : ""}" data-act="gtab" data-t="output">What it may say</button></div>`;
-  return tabs + (S.guard.tab === "output" ? scrubDrawer() : callsDrawer());
+  const tab = (id, label) => `<button class="btn alt ${S.guard.tab === id ? "on" : ""}" data-act="gtab" data-t="${id}">${label}</button>`;
+  const tabs = `<div class="row">${tab("calls", "What it may do")}${tab("output", "What it may say")}${tab("log", "Your log")}</div>`;
+  return tabs + (S.guard.tab === "output" ? scrubDrawer() : S.guard.tab === "log" ? liveDrawer() : callsDrawer());
 }
 function callsDrawer() {
   const G = S.guard, beg = S.level === "beginner", k = G.res?.counts, meta = G.meta;
@@ -1055,6 +1093,9 @@ function summary() {
   } else if (sc === "scene-gate" && S.gate?.res) {
     const f = S.gate.res.facts || {};
     h = `<h4>The gate <span>${S.gate.run ? "recorded: " + esc(runLabel(S.gate.run)) : "hand-set results"} · correct ${f.dev_without ?? "?"}/${f.dev_n ?? "?"} → ${f.dev_with ?? "?"}/${f.dev_n ?? "?"}</span></h4>${steps(S.gate.res)}`;
+  } else if (sc === "scene-guard" && S.guard?.tab === "log") {
+    const k = S.guard.live?.res?.counts;
+    h = k ? `<h4>Your log <span>${k.total} judged calls</span></h4><div class="chips"><span class="sc eval"><i></i>allowed · ${k.allow}</span><span class="sc eval"><i></i>asked · ${k.ask}</span><span class="sc eval ${k.deny ? "fail" : ""}"><i></i>denied · ${k.deny}</span></div>` : "";
   } else if (sc === "scene-guard" && S.guard?.tab === "output" && S.guard.out.res) {
     const k = S.guard.out.res.counts;
     h = `<h4>Your scrubber <span>${k.total} real texts</span></h4><div class="chips"><span class="sc eval fail"><i></i>still leak · ${k.leaks}</span><span class="sc eval pass"><i></i>cleaned · ${k.fixed}</span><span class="sc eval ${k.damaged ? "fail" : "pass"}"><i></i>word replaced · ${k.damaged}</span><span class="sc eval"><i></i>nothing to do · ${k.fine}</span></div>`;
@@ -1070,7 +1111,7 @@ function summary() {
 // ---------------- scene switch
 function renderScene() {
   const sc = MODES.find((m) => m[0] === S.mode)[2];
-  const leg = (sc === "scene-guard" && S.guard?.tab === "output") ? [["fail", "still leaks"], ["pass", "cleaned"], ["warn", "word replaced"], ["dim", "nothing to do"]] : { "scene-graph": [["fact", "fact"], ["workstream", "workstream"], ["decision", "decision"], ["catalog", "catalog"], ["pass", "pass"], ["fail", "fail"]], "scene-gate": [["pass", "adopt"], ["fail", "stop"], ["dim", "not reached"]], "scene-skill": [["skill", "skill"], ["pass", "covered"], ["fail", "not covered"]], "scene-about": [["fact", "knowledge map"], ["skill", "toolkit"]], "scene-guard": [["pass", "blocked an escape"], ["fail", "escape got through"], ["warn", "harmless but blocked"], ["dim", "allowed, harmless"]], "scene-home": [] }[sc];
+  const leg = (sc === "scene-guard" && S.guard?.tab === "log") ? [["dim", "allowed"], ["warn", "asked"], ["fail", "denied"]] : (sc === "scene-guard" && S.guard?.tab === "output") ? [["fail", "still leaks"], ["pass", "cleaned"], ["warn", "word replaced"], ["dim", "nothing to do"]] : { "scene-graph": [["fact", "fact"], ["workstream", "workstream"], ["decision", "decision"], ["catalog", "catalog"], ["pass", "pass"], ["fail", "fail"]], "scene-gate": [["pass", "adopt"], ["fail", "stop"], ["dim", "not reached"]], "scene-skill": [["skill", "skill"], ["pass", "covered"], ["fail", "not covered"]], "scene-about": [["fact", "knowledge map"], ["skill", "toolkit"]], "scene-guard": [["pass", "blocked an escape"], ["fail", "escape got through"], ["warn", "harmless but blocked"], ["dim", "allowed, harmless"]], "scene-home": [] }[sc];
   $("hud").innerHTML = leg.map(([c, t]) => `<span><i style="background:var(--${c})"></i>${t}</span>`).join("");
   if (sc === "scene-home") return;
   if (sc === "scene-graph") renderGraph(); else if (sc === "scene-gate") renderGate(); else if (sc === "scene-skill") renderSkill(); else if (sc === "scene-guard") renderGuard(); else renderAbout();

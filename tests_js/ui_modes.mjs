@@ -162,6 +162,27 @@ const click = async (page, sel) => { await page.click(sel); await idle(page); };
   assert.match(await txt(page, "#drawer .note.bad"), /endless loop/);
   await page.context().close();
 }
+// --- Guardrails, your log: the bundled made-up log and a file picked from disk are counted, a bad line is skipped, nothing is judged
+{
+  const page = await newPage();
+  await open(page, "#m=guard"); await ready(page); await idle(page);
+  await click(page, "[data-act=gtab][data-t=log]");
+  assert.equal(await page.locator(".gc").count(), 0, "no squares before a log is loaded");
+  await click(page, "[data-act=glive]");
+  assert.match(await txt(page, "#gscore"), /12 of 45 calls were not simply allowed/);
+  assert.match(await txt(page, "#gscore"), /33 allowed, 10 asked, 2 denied/);
+  assert.equal(await page.locator(".gc").count(), 45, "one square per judged call");
+  assert.equal(await page.locator(".gc.ask").count(), 10); assert.equal(await page.locator(".gc.deny").count(), 2);
+  await page.locator(".gc.deny").first().click(); await idle(page);
+  assert.match(await txt(page, ".gcall"), /deny by “secrets”/);
+  assert.match(await txt(page, "#drawer"), /outside_workdir/, "the rule table names the rules");
+  const log = ['{"action":"ask","rule":"destructive","text":"rm -rf <b>x</b>","tool":"Bash","ts":"2026-11-17T10:00:00Z"}', "garbage", '{"action":"allow","rule":"","tool":"Read","ts":"2026-11-17T10:01:00Z"}'].join("\n");
+  await page.setInputFiles("#glog", { name: "mine.jsonl", mimeType: "application/json", buffer: Buffer.from(log) }); await idle(page);
+  assert.match(await txt(page, "#gscore"), /mine\.jsonl/); assert.match(await txt(page, "#gscore"), /1 of 2 calls/); assert.match(await txt(page, "#gscore"), /1 lines were not decisions/);
+  await page.locator(".gc.ask").first().click(); await idle(page);
+  assert.equal(await page.locator(".gcall b").count(), 1, "log text is escaped, not rendered as HTML");
+  await page.context().close();
+}
 // --- Guardrails, output side: the scrubber on real texts, a typed leak, the username trade-off
 {
   const page = await newPage();

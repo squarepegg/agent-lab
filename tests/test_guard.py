@@ -100,5 +100,41 @@ class YourOwnFunction(unittest.TestCase):
         self.assertEqual((r["blocked"], r["outside"]), (True, True))
 
 
+LOG = "\n".join([
+    '{"action": "allow", "rule": "", "tool": "Bash", "ts": "2026-11-17T10:00:00Z"}',
+    '{"action": "ask", "rule": "destructive", "text": "rm -rf build", "tool": "Bash", "ts": "2026-11-17T10:01:00Z"}',
+    '{"action": "ask", "rule": "destructive", "text": "rm -rf dist", "tool": "Bash", "ts": "2026-11-17T10:02:00Z"}',
+    '{"action": "deny", "rule": "secrets", "text": "cat .env", "tool": "Bash", "ts": "2026-11-17T10:03:00Z"}',
+    "not json", "[1]", '{"action": "maybe"}', "", '{"x": 1}'])
+
+
+class LiveLog(unittest.TestCase):
+    """live_summary reads the decision log scripts/guard_hook.py writes (JSONL: ts, tool, action, rule, text for ask/deny)."""
+
+    def test_counts_rules_and_time_span(self):
+        r = G.live_summary(LOG)
+        self.assertEqual(r["counts"], {"total": 4, "allow": 1, "ask": 2, "deny": 1, "bad": 4})
+        self.assertEqual(r["rules"], {"destructive": 2, "secrets": 1})
+        self.assertEqual((r["first"], r["last"]), ("2026-11-17T10:00:00Z", "2026-11-17T10:03:00Z"))
+        self.assertEqual([x["action"] for x in r["rows"]], ["allow", "ask", "ask", "deny"])
+
+    def test_top_groups_by_rule_action_and_first_two_words(self):
+        self.assertEqual(G.live_summary(LOG)["top"], [{"rule": "destructive", "action": "ask", "head": "rm -rf", "n": 2}, {"rule": "secrets", "action": "deny", "head": "cat .env", "n": 1}])
+
+    def test_the_square_rows_are_capped_but_the_counts_are_not(self):
+        big = "\n".join('{"action": "allow", "rule": "", "tool": "Bash", "ts": "2026-11-17T10:00:00Z"}' for _ in range(2500))
+        r = G.live_summary(big)
+        self.assertEqual((r["counts"]["total"], len(r["rows"]), r["dropped"]), (2500, 2000, 500))
+
+    def test_empty_and_garbage_do_not_raise(self):
+        for t in ("", "\n\n", "garbage"):
+            r = G.live_summary(t); self.assertEqual(r["counts"]["total"], 0); self.assertEqual((r["first"], r["last"], r["top"]), (None, None, []))
+
+    def test_the_bundled_example_log_is_a_real_looking_log(self):
+        r = G.live_summary(open(os.path.join(ROOT, "sample", "guard.jsonl")).read())
+        self.assertEqual(r["counts"]["bad"], 0); self.assertGreater(r["counts"]["allow"], r["counts"]["ask"]); self.assertGreater(r["counts"]["deny"], 0)
+        self.assertEqual(set(r["rules"]), {"outside_workdir", "destructive", "secrets"})
+
+
 if __name__ == "__main__":
     unittest.main()

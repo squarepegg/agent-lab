@@ -28,6 +28,7 @@ FNS = {
     "guard_run": lambda a: G.run(a["calls"], a["policy"]),
     "guard_attack": lambda a: G.attack(a["policy"], a["tool"], a["text"]),
     "guard_attacks": lambda a: G.attacks(a["policy"]),
+    "guard_live": lambda a: G.live_summary(a["text"]),
     "scrub_meta": lambda a: {"base": SC.BASE, "extra": SC.EXTRA, "labels": SC.LABELS, "machine": SC.machine(a.get("user", "sam")), "attacks": [{"text": t, "note": n} for t, n in SC.attacks(a.get("user", "sam"))]},
     "scrub_run": lambda a: SC.run(a["texts"], a["opts"], a.get("user", "sam")),
     "scrub_one": lambda a: SC.one(a["text"], a["opts"], a.get("user", "sam"), a.get("rebuild", False)),

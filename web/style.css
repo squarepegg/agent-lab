@@ -196,6 +196,6 @@ button.sc{cursor:pointer}.sc i{width:8px;height:8px;border-radius:50%;background
 }
 
 /* guardrails: one square per real tool call */
-.gc{cursor:pointer;stroke:transparent;stroke-width:2}.gc.fine{fill:var(--dim);opacity:.4}.gc.caught{fill:var(--pass)}.gc.miss{fill:var(--fail)}.gc.fp{fill:var(--warn)}.gc.sel{stroke:var(--acc)}
+.gc{cursor:pointer;stroke:transparent;stroke-width:2}.gc.fine{fill:var(--dim);opacity:.4}.gc.caught{fill:var(--pass)}.gc.miss{fill:var(--fail)}.gc.fp,.gc.ask{fill:var(--warn)}.gc.deny{fill:var(--fail)}.gc.sel{stroke:var(--acc)}
 .rules{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.rules .btn{text-align:left}input.wide{width:100%;margin:6px 0}
 table.tr{width:100%;border-collapse:collapse;font-size:11.5px;margin:6px 0}table.tr th{text-align:left;color:var(--muted);font-weight:600;padding:3px 6px 3px 0}table.tr td{padding:3px 6px 3px 0;border-top:1px solid var(--border);vertical-align:top}table.tr tr.rowx{cursor:pointer}

@@ -42,6 +42,7 @@ def main():
         "skills": skills,
         "variants": {n: open(os.path.join(ROOT, "sample", "variants", n, "SKILL.md"), encoding="utf-8").read()
                      for n in sorted(os.listdir(os.path.join(ROOT, "sample", "variants")))},
+        "guardlog": open(os.path.join(ROOT, "sample", "guard.jsonl"), encoding="utf-8").read(),
         "vendor": json.load(open(os.path.join(ROOT, "vendor", "VENDOR.json"))),
     })
     rec = os.path.join(ROOT, "recorded")
