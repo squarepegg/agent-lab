@@ -18,7 +18,7 @@ const idle = () => page.evaluate(() => window.__lab?.idle?.()).catch(() => {});
 for (const [obj, names] of [[page, ["click", "fill", "selectOption", "dblclick"]], [page.locator("body").constructor.prototype, ["click", "fill", "selectOption", "hover", "dblclick"]]])
   for (const n of names) { const orig = obj[n]; obj[n] = async function (...a) { const r = await orig.apply(this, a); await idle(); return r; }; }
 const errors = []; page.on("pageerror", (e) => errors.push(e.message)); page.on("console", (m) => m.type() === "error" && !/404/.test(m.text()) && errors.push(m.text()));
-const open = async (hash = "") => { await page.goto("about:blank"); await page.goto(url + hash); await page.waitForFunction(() => window.__lab?.ready, null, { timeout: 120000 }); };
+const open = async (hash = "") => { await page.goto("about:blank"); await page.goto(url + hash); await page.waitForFunction(() => window.__lab?.ready && window.__lab.interactive, null, { timeout: 120000 }); await idle(); };
 const mode = (m) => page.click(`#tools button[data-m=${m}]`);
 const node = (id) => page.locator(`.node[data-id="${id}"]`);
 const txt = (sel) => page.textContent(sel);
