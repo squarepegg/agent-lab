@@ -201,7 +201,7 @@ function pyState() {
   }
 }
 const homePy = () => (lab.failed ? `<span class="bad">Python could not load, so only lesson 1 works. Reload to try again.</span>`
-  : lab.ready ? `Python is ready: everything on this page now runs live.`
+  : lab.ready ? ""   // the header chip already says so
   : `Lesson 1 works right now, from results recorded from the real code. Python is loading in the background (${Math.round(lab.pct * 100)}%); the other lessons start when it is ready.`);
 
 // ---------------- drawer
@@ -518,13 +518,8 @@ function homeHtml() {
   const beg = S.level === "beginner";
   let h = `<div class="hm"><h1>Learn how AI agents get tested</h1>
     <p class="hl">You <b>predict</b> what will happen. Then the real code runs in your browser and shows whether you were right. No model is called and nothing leaves the page.</p>`;
-  if (first) h += `<ol class="ideas">${IDEAS.map(([t, s]) => `<li><b>${esc(t)}</b><span>${esc(s)}</span></li>`).join("")}</ol>`;
   h += (next ? `<div class="cta"><button class="btn lg" data-act="lcont">${done || at ? "Continue" : "Start"}: ${esc(next.title)}${at ? ` · step ${at + 1} of ${next.steps.length}` : ""}</button><span class="mut">${first ? `${all.length} short lessons, about 3 minutes each` : `${done}/${all.length} lessons done`}</span></div>`
             : `<div class="cta"><span class="ok">✔ all ${all.length} lessons done.</span><span class="mut">Try the challenges below, or poke around freely.</span></div>`) + `<div class="mut" id="homepy">${homePy()}</div>`;
-  const l1 = LESSONS[0], pr = l1.steps[0].predict;
-  if (first) h += `<div class="lesson preview"><div class="lh"><b>Or start right here · lesson 1, first prediction</b></div>
-    <div class="lt">${mdi(l1.steps[0].text)}</div><div class="lq"><b>Predict.</b> ${mdi(pr.q)}</div>
-    <div class="choices two">${pr.choices.map((c, i) => `<button class="btn alt" data-act="lprev" data-i="${i}">${esc(c)}</button>`).join("")}</div></div>`;
   h += `<div class="who"><span class="mut">Pitched at</span><button data-act="lvl" data-l="beginner" class="chip ${beg ? "on" : ""}">new to evals or Python</button><button data-act="lvl" data-l="experienced" class="chip ${beg ? "" : "on"}">I write Python</button>
     <span class="mut">${beg ? "Plain words, a hint on each question, notes beside the code." : "Terse: upstream names, line counts, a full editor."}</span></div>`;
   h += `<h2>The path · three ideas, ${all.length} short lessons</h2>` + IDEAS.map(([t, why, ids], i) => {
@@ -647,7 +642,6 @@ const ACT = {
   edreset() { const c = editCtx(); delete S.edits[c.key]; return drawer(); },
   lstart(t) { const r = store.json("lab.resume"); return startLesson(t.dataset.id, r && r.id === t.dataset.id && !prog()[r.id]?.done ? r.i : 0); },
   lpick(t) { return lessonPick(+t.dataset.i); },
-  async lprev(t) { await startLesson(LESSONS[0].id); await lessonPick(+t.dataset.i); },   // the preview on the Start screen is lesson 1's first question
   lsamples(t) { S.lesson.samples = +t.dataset.n; return drawer(); },
   lnext() { return lessonNav(1); }, lback() { return lessonNav(-1); },
   cstart(t) { return startChal(t.dataset.id); },

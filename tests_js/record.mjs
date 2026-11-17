@@ -39,7 +39,6 @@ const id = await (async () => { await fresh(); return page.evaluate(() => __lab.
 await grab();
 for (const pick of [0, 1]) {
   await play(() => page.click(`[data-act=lstart][data-id=${id}]`), pick); await grab();
-  await play(() => page.click(`#home [data-act=lprev][data-i="${pick}"]`), pick); await grab();
 }
 const bundle = JSON.parse(readFileSync(join(root, "bundle.json"), "utf8"));
 const vendor = createHash("sha256").update(Object.values(bundle.vendor.files).map((f) => f.sha256).sort().join("\n")).digest("hex");

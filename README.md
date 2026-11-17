@@ -36,7 +36,7 @@ fix `skill_ab.missing` against unit tests). Press **Check** and the real code ju
 Each prediction has a plain explanation of a wrong pick (`miss`), and the last step says what you learned. Lesson explanations are claim-checked: every causal sentence has predicates evaluated on the real run, and the page shows a warning instead of the sentence if one stops holding.
 
 ## How it loads
-The page works before Python does. `index.html` holds a static shell (headline, three ideas, lesson 1's first question) and starts `web/pyworker.js` first.
+The page works before Python does. `index.html` holds a static shell (headline, three ideas, lesson 1's first question, so it reads on its own with JavaScript off) and starts `web/pyworker.js` first. Once the app boots, the Start screen replaces it with the headline, one Start button and the path (which carries the three ideas as its headings).
 The worker downloads Pyodide 0.27.7 from jsDelivr and boots the vendored Python off the main thread, so a chip shows real progress. Lesson 1 runs from
 `web/recorded.json` until Python is ready: results recorded from this same code in headless Chrome, labelled "recorded from the real code" on the page. Once Python is ready every result is computed live.
 `node tests_js/record.mjs` regenerates that file; `--check` fails CI on any byte difference. `web/sw.js` caches the app and Pyodide, so a repeat visit works offline (it registers off localhost, or with `?sw=1`).

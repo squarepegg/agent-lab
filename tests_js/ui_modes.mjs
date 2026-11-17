@@ -54,7 +54,7 @@ const click = async (page, sel) => { await page.click(sel); await idle(page); };
   await open(page);
   assert.equal(await page.evaluate(() => __lab.ready), false);
   assert.match(await txt(page, "#py"), /\d+\s*%|loading|Python/i, "a progress chip is visible");
-  await page.click("#home [data-act=lprev][data-i='0']"); await idle(page);
+  await click(page, "#home [data-act=lcont]"); await click(page, "#drawer [data-act=lpick] >> nth=0");
   assert.equal(await page.evaluate(() => __lab.ready), false, "answered before Python was ready");
   assert.match(await txt(page, "#drawer"), /Correct|Not quite/);
   await page.context().close();

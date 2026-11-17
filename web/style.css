@@ -142,9 +142,9 @@ body.home #home{display:block}body.home #stage,body.home #drawer{display:none}
 @keyframes shim{from{background-position:-40px 0}to{background-position:64px 0}}
 .py.need{border-color:var(--warn);color:var(--warn)}.py.ready{color:var(--pass);border-color:color-mix(in srgb,var(--pass) 40%,var(--border))}.py.ready .bar{display:none}.py.fail{color:var(--fail);border-color:var(--fail)}.py.fail .bar{display:none}
 /* start screen: three ideas and the first question */
-.ideas{list-style:none;counter-reset:idea;padding:0;margin:0 0 18px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.ideas li{counter-increment:idea;border:1px solid var(--border);background:var(--mask);border-radius:12px;padding:12px 14px 12px 44px;position:relative}
-.ideas li::before{content:counter(idea);position:absolute;left:12px;top:12px;width:22px;height:22px;border-radius:50%;border:1px solid var(--acc);color:var(--acc);display:grid;place-items:center;font-weight:800;font-size:11px}
+.ideas{list-style:none;counter-reset:idea;padding:0;margin:0 0 20px;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.ideas li{counter-increment:idea;padding:0 0 0 32px;position:relative}   /* plain text, not cards: nothing here can be clicked */
+.ideas li::before{content:counter(idea);position:absolute;left:0;top:0;width:22px;height:22px;border-radius:50%;border:1px solid var(--acc);color:var(--acc);display:grid;place-items:center;font-weight:800;font-size:11px}
 .ideas b{display:block;font-size:12.5px;line-height:1.35}.ideas span{color:var(--muted);display:block;margin-top:4px}
 .lesson .lnav{position:sticky;bottom:0;padding:8px 0 2px;margin-top:6px;background:color-mix(in srgb,var(--acc) 7%,var(--mask));box-shadow:0 -8px 8px -4px color-mix(in srgb,var(--acc) 7%,var(--mask))}
 .lesson.preview{margin:16px 0 18px;max-width:64ch}.choices.two{flex-direction:row}.choices.two .btn{text-align:center;font-size:13px}
