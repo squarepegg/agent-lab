@@ -1,5 +1,5 @@
 import { bootLab } from "./lab.js";
-import { LESSONS, checkClaims } from "./lessons.js";
+import { LESSONS, checkClaims, noise } from "./lessons.js";
 import { CHALLENGES } from "./challenges.js";
 import { extractFunc, annotate, coverage, MODE_CODE, NOTES, TWEAKS, applyTweak, lineDiff, brief } from "./codepanel.js";
 import { buildGraph, layout, neighbors, gateSteps, clip, encodeGate, decodeGate, FILE_KINDS } from "./model.js";
@@ -232,7 +232,7 @@ function editCell() {
     const changed = !o.error && JSON.stringify(o.base) !== JSON.stringify(o.edited);
     h += `<div class="card"><div class="mut">real code</div><div>${esc(brief(o.target, o.base))}</div><div class="mut" style="margin-top:6px">your edit</div>` +
       (o.error ? `<div class="bad">${esc(o.error)}</div>` : `<div class="${changed ? "warn" : ""}">${esc(brief(o.target, o.edited))}</div><div class="big ${changed ? "warn" : "ok"}">${changed ? "RESULT CHANGED" : "no visible change"}</div>`) +
-      (E.tweak && !o.error ? `<div class="note" style="margin-top:8px">${esc(E.tweak.why)}</div>` : "") + `</div>`;
+      (E.tweak && !o.error ? `<div class="note" style="margin-top:8px">${esc(E.tweak.why)}${E.tweak.preset && !presetActive(E.tweak.preset) ? ` Try the “${esc(E.tweak.preset)}” preset.` : ""}</div>` : "") + `</div>`;
   }
   return h;
 }
@@ -318,6 +318,16 @@ function lessonNav(d) {
   }
   L.i = next; enterStep();
 }
+const NOISE_SAMPLES = [1, 3, 5, 10, 20];
+function noiseWidget(L) {
+  const n = L.samples ?? 3, c = ctx();
+  const rows = [["No effect (50% → 50%)", 0.5, 0.5, "false ADOPT"], ["Real effect (50% → 80%)", 0.5, 0.8, "true ADOPT"]].map(([name, rw, rs, kind]) => {
+    const r = noise(c, rw, rs, n);
+    return `<tr><td>${esc(name)}</td><td>${Object.entries(r.verdicts).map(([v, k]) => `${esc(v)} ${k}`).join(" · ")}</td><td data-noise="${esc(kind)}"><b>${Math.round(r.adopt_rate * 100)}%</b> <span class="mut">${kind}</span></td></tr>`;
+  }).join("");
+  return `<div class="row"><span class="mut">samples per probe</span>${NOISE_SAMPLES.map((k) => `<button class="btn alt ${k === n ? "on" : ""}" data-act="lsamples" data-n="${k}">${k}</button>`).join("")}</div>
+    <table><tr><th>skill</th><th>verdicts over 200 re-runs</th><th>ADOPT</th></tr>${rows}</table>`;
+}
 function lessonCard() {
   if (!S.lesson) return "";
   const [Lz, st] = lstep(), L = S.lesson, beg = S.level === "beginner", n = Lz.steps.length, pr = st.predict, picked = L.picked != null;
@@ -334,6 +344,7 @@ function lessonCard() {
         (bad.length ? `<span class="warn">⚠ The explanation no longer matches what the code did (${esc(bad.join("; "))}). The answer is still computed from the real run.</span>` : mdi(pr.why(ctx()))) + `</div>`;
     }
   }
+  if (st.widget === "noise") h += noiseWidget(L);
   const last = L.i === n - 1, can = !pr || picked;
   h += `<div class="row"><button class="btn alt" data-act="lback" ${L.i ? "" : "disabled"}>← Back</button><button class="btn" data-act="lnext" ${can ? "" : "disabled"}>${last ? "Finish" : "Next →"}</button></div></div>`;
   return h;
@@ -454,6 +465,7 @@ const ACT = {
   edreset() { const c = editCtx(); delete S.edits[c.key]; drawer(); },
   lstart(t) { startLesson(t.dataset.id); },
   lpick(t) { lessonPick(+t.dataset.i); },
+  lsamples(t) { S.lesson.samples = +t.dataset.n; drawer(); },
   lnext() { lessonNav(1); }, lback() { lessonNav(-1); },
   cstart(t) { startChal(t.dataset.id); },
   ccheck() { chalCheck(); },
@@ -534,6 +546,7 @@ function initGate(fresh) {
   if (!Object.keys(S.gate.grid).length) applyPreset("Skill clearly helps", true);
   computeGate();
 }
+function presetActive(k) { const G = S.gate, v = PRESETS[k](G.probes); return G.probes.every((p, i) => JSON.stringify(G.grid[p.id]) === JSON.stringify({ without: v[i][0].map(Boolean), with: v[i][1].map(Boolean) })); }
 function applyPreset(k, quiet) { const v = PRESETS[k](S.gate.probes); S.gate.grid = {}; S.gate.probes.forEach((p, i) => (S.gate.grid[p.id] = { without: v[i][0].map(Boolean), with: v[i][1].map(Boolean) })); if (!quiet) { computeGate(); renderScene(); drawer(); } }
 function computeGate() { S.gate.res = call("gate", { probes: S.gate.probes, grid: S.gate.grid, params: S.gate.params, samples: 3 }); if (S.mode === "gate") history.replaceState(null, "", `#m=gate&g=${encodeURIComponent(encodeGate(S.gate.grid, S.gate.params))}`); }
 function gateCell(d) { const c = S.gate.grid[d.p][d.a]; c[+d.i] = !c[+d.i]; computeGate(); renderScene(); drawer(); }

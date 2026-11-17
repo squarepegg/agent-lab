@@ -14,7 +14,7 @@ const hitPaths = (call, S, q) => [...new Set(call("search", { files: S.files, qu
 const nFiles = (S, w) => Object.values(S.files).filter((t) => new RegExp(w, "i").test(t)).length;
 // simulated re-runs through the real gate (see lab_core.noise_sweep); the lesson uses the Gate scene's 8 probes and thresholds
 const noiseCache = new Map();  // answer(), claims and why() all ask for the same sweep; it is deterministic, so compute it once
-const noise = ({ call, S }, rw, rs, n) => {
+export const noise = ({ call, S }, rw, rs, n) => {
   const args = { probes: S.gate.probes, rate_without: rw, rate_with: rs, samples: n, params: S.gate.params }, k = JSON.stringify(args);
   if (!noiseCache.has(k)) noiseCache.set(k, call("noise", args));
   return noiseCache.get(k);
@@ -164,6 +164,10 @@ export const LESSONS = [
           claims: [["the skill really helps (average gain is positive)", (ctx) => noise(ctx, 0.5, 0.8, 3).mean_gain > 2]],
           why: (ctx) => { const r = noise(ctx, 0.5, 0.8, 3), r10 = noise(ctx, 0.5, 0.8, 10); return `ADOPT in ${Math.round(r.adopt_rate * 100)}% of runs at 3 samples (${JSON.stringify(r.verdicts)}), and ${Math.round(r10.adopt_rate * 100)}% at 10 samples. A real effect can be rejected and a null one adopted by the same gate: the fix is more samples and pre-registered thresholds, not trusting one verdict.`; } },
         hint: "A real effect is still noisy. Could an unlucky run miss it?" },
+      { mode: "gate", widget: "noise",
+        text: "Your turn. Pick how many samples each probe gets and compare the two skills: one that does nothing and one that really helps. Watch how the share of runs that say ADOPT moves for each.",
+        exp: "`noise_sweep` for (0.5, 0.5) and (0.5, 0.8) at the chosen `samples`; thresholds are the Gate scene's. ADOPT on the first row is a false positive, on the second a true positive.",
+        deeper: "More samples shrink the luck, but the gate's absolute `min_gain` does not scale with them, so the thresholds are part of the experiment design too." },
     ],
   },
 ];

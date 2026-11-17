@@ -38,7 +38,6 @@ python3 scripts/check_vendor.py [--upstream squarepegg/agent-knowledge-map squar
 `ui.mjs` locally uses `/Applications/Google Chrome.app`; CI uses Playwright chromium. It takes ~20s.
 
 ## Known gaps / ideas
-- Tweak "why" notes sometimes say "try preset X" when you are already on it.
 - No guided tweaks for `answer`, `tally`, lint tabs (beginners are pointed to experienced level).
 - Edits only affect the Try-it cell; the canvas stays on real code (redrawing from an edit was deliberately not built).
 - `sed -i` is broken in this shell environment (BSD sed); use python for in-place edits.

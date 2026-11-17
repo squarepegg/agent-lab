@@ -117,9 +117,11 @@ export const TWEAKS = {
   ],
   "gate.py:decide": [
     { label: "Skip the CEILING rule", find: 'if f["dev_without"] / f["dev_n"] >= p["ceiling"]:', to: "if False:",
-      why: "Without it a skill can 'win' on probes the model already aces. Try the 'Already good' preset." },
+      preset: "Already good (ceiling)",
+      why: "Without it a skill can 'win' on probes the model already aces." },
     { label: "Ignore regressions", find: 'if f["regressed"] or f["heldout_without"] - f["heldout_with"] >= p["regress_by"]:', to: "if False:",
-      why: "A skill that helps one probe and breaks another now gets through. Try 'Helps dev, hurts one'." },
+      preset: "Helps dev, hurts one",
+      why: "A skill that helps one probe and breaks another now gets through." },
     { label: "Demand a gain of 99", find: 'if f["gain"] < p["min_gain"]:', to: 'if f["gain"] < 99:',
       why: "Nothing can pass now. Thresholds are part of the decision, which is why the real gate registers them before the run." },
   ],

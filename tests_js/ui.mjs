@@ -50,6 +50,14 @@ assert.match(await txt("#drawer"), /SyntaxError/);
 await page.fill("#edsrc", "def rank(docs, terms, limit=30):\n    return []\n"); await page.click("[data-act=edrun]");
 assert.match(await txt("#drawer"), /no matches/); assert.match(await txt("#drawer"), /RESULT CHANGED/);
 await page.click("[data-act=edreset]");
+// a tweak's "try preset X" nudge appears only while you are NOT already on that preset
+await mode("gate"); await page.click("[data-act=edtweak][data-i='0']");
+assert.match(await txt("#drawer .note:last-of-type"), /Try the “Already good \(ceiling\)” preset/);
+await page.click("[data-act=preset][data-k='Already good (ceiling)']"); await page.click("[data-act=edtweak][data-i='0']");
+assert.match(await txt("#drawer"), /Without it a skill can 'win'/); assert.doesNotMatch(await txt("#drawer"), /Try the “Already good/);
+await page.click("[data-act=edreset]");
+await page.click("[data-act=preset][data-k='Skill clearly helps']");
+await mode("explore");
 await page.fill("#qin", "order_date UTC"); await page.click("[data-act=search]");
 assert.match(await txt("#hits"), /orders-timestamps/, "real search unaffected by the edit");
 await page.click("#level");
@@ -135,6 +143,12 @@ for (const level of ["beginner", "experienced"]) {
         assert.match(await txt("#drawer .lesson"), /Correct|Not quite/, `${id} step ${guard} reveals`);
         assert.ok((await page.locator("#drawer .lesson .btn.right").count()) === 1, "the computed answer is highlighted");
         assert.doesNotMatch(await txt("#drawer .lesson"), /no longer matches/, `${id} step ${guard}: explanation claims hold`);
+      }
+      if (await page.locator("#drawer [data-act=lsamples]").count()) {
+        const adopt = async () => page.locator("#drawer [data-noise]").allTextContents();
+        const at3 = await adopt(); await page.click("#drawer [data-act=lsamples][data-n='20']");
+        const at20 = await adopt(); assert.equal(at20.length, 2); assert.notDeepEqual(at20, at3, "changing samples changes the sweep");
+        assert.ok(parseInt(at20[1]) > parseInt(at20[0]), "a real effect is adopted more often than a null one at 20 samples");
       }
       const done = (await txt("#drawer .lesson [data-act=lnext]")).includes("Finish");
       await page.click("#drawer [data-act=lnext]");
