@@ -3,12 +3,16 @@
   - every file matches its sha256 in recorded/RUNS.json, and no unlisted results file exists
   - its probes are the ones in sample/skills (probes_sha256, the rule gate.py itself applies) and the model is pinned
   - re-grading every answer with the vendored skill_ab.missing gives the recorded `correct` (the grader has not drifted)
+  - no file holds the shape of a machine path (/Users/x, /home/x, C:\\Users, /var/folders/xx/yyyy): the scrubber replaces only paths it was told
+    about, so this is the second layer that refuses what it did not expect
 Recorded runs are made by scripts/record_runs.py, the only thing here that calls a model."""
 import glob, hashlib, json, os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "vendor"))
+sys.path.insert(0, os.path.join(ROOT, "lab"))
 import skill_ab  # noqa: E402  (vendored; only its pure missing() is used)
+from scrub import detect  # noqa: E402  (lab-written: the shape of a home or temp path, with no knowledge of any machine)
 
 
 def sha(path):
@@ -32,6 +36,10 @@ def main():
             continue
         if sha(path) != m["sha256"]:
             bad.append(f"{name}: edited after recording (sha256 differs from RUNS.json); re-record with scripts/record_runs.py")
+            continue
+        found = detect(open(path, encoding="utf-8").read())
+        if found:
+            bad.append(f"{name}: holds what looks like a machine path ({found[0]!r}); scripts/record_runs.py's scrub did not cover it")
             continue
         res = json.load(open(path))
         if not m.get("model") or m.get("model") not in res.get("pi_args", []) or not m.get("date"):

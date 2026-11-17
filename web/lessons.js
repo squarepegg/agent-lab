@@ -43,6 +43,9 @@ const modelOf = (S, name) => modelName(runRes(S, name).pi_args[1]);
 const guardTextOf = (c) => (c.name === "read" ? c.args.path : c.args.command) ?? "";
 const gk = (S) => S.guard.res.counts, gat = (S) => S.guard.att.counts;
 const nBash = (S) => S.guard.calls.filter((c) => c.name === "bash").length;
+// q() is drawn once before the step's setup has run, so these tolerate "not computed yet"; the card is redrawn when setup is done
+const sk = (S) => S.guard.out.res?.counts ?? { total: 0, dirty: 0, leaks: 0, fixed: 0, damaged: 0 }, sat = (S) => S.guard.out.att?.rows ?? [];
+const REAL = ["root", "run_home", "cwd", "machine_home", "tmp", "tmp_parent"];
 const armScore = (res, probe, arm) => res.rows.filter((r) => r.probe === probe && r.arm === arm && r.correct && r.finished !== false).length;
 
 export const LESSONS = [
@@ -319,8 +322,8 @@ export const LESSONS = [
           choices: ["All of them", "Most, but not all", "About half or fewer"], run: [["gpolicy", ["no_home"]]],
           answer: ({ S }) => { const k = gk(S), p = k.caught / k.escapes; return k.caught === k.escapes ? "All of them" : p >= 0.6 ? "Most, but not all" : "About half or fewer"; },
           claims: [["no harmless call is blocked", ({ S }) => gk(S).wrongly === 0], ["some escapes get through", ({ S }) => gk(S).missed > 0],
-                   ["every escape that got through reached a temp folder", ({ S }) => S.guard.res.rows.every((r, i) => !(r.outside && !r.blocked) || /<tmp>|\/private\/var/.test(guardTextOf(S.guard.calls[i])))]],
-          why: ({ S }) => { const k = gk(S); return `${k.caught} of ${k.escapes} were caught, and no harmless call was blocked, which is the good half. The ${k.missed} that got through all went to a temp folder (\`<tmp>\` or \`/private/var/…\`) instead of the home folder. A rule blocks only what its author thought of.`; },
+                   ["every escape that got through reached a temp folder", ({ S }) => S.guard.res.rows.every((r, i) => !(r.outside && !r.blocked) || /<tmp|\/private\/var/.test(guardTextOf(S.guard.calls[i])))]],
+          why: ({ S }) => { const k = gk(S); return `${k.caught} of ${k.escapes} were caught, and no harmless call was blocked, which is the good half. The ${k.missed} that got through all went to a temp folder (\`<tmp>\`, \`<tmp-parent>\` or \`/private/var/…\`) instead of the home folder. A rule blocks only what its author thought of.`; },
           expects: "Most, but not all",
           miss: { "All of them": ({ S }) => { const k = gk(S); return `${k.missed} escapes did not mention the home folder. They searched a temp folder.`; },
                   "About half or fewer": ({ S }) => { const k = gk(S); return `${k.caught} of ${k.escapes} is well over half. Most escapes were searches of the home folder.`; } } } },
@@ -342,6 +345,53 @@ export const LESSONS = [
           expects: "Fewer than half",
           miss: { None: ({ S }) => `${gat(S).missed} got through. \`ls $HOME\` has no \`/\` or \`~\` in it; the shell fills the path in later.`,
                   "Half or more": ({ S }) => `${gat(S).missed} of ${gat(S).escapes} is under half. The rule still catches every attack that names a path in plain sight.` } } },
+    ],
+  },
+  {
+    id: "scrub", title: "Can you stop it leaking?", blurb: "The scrubber that cleans the recorded runs, and ways around it.",
+    look: "Each square is one real model answer or tool call, rebuilt on a made-up machine. Red: it still shows the machine. Green: your scrubber cleaned it. Amber: it replaced a word that was not part of a path.",
+    learned: "A scrubber replaces what it was told about, and nothing else. It can look perfect on the texts you have and still miss a capital letter, a doubled slash or an encoded path. Widening it has a cost: it may change words that were never part of a path. So add a second layer that knows nothing about your machine and refuses anything shaped like a path, and test the scrubber with leaks you invent.",
+    needs: (S) => !!S.guard?.calls.length,
+    steps: [
+      { mode: "guard", setup: [["gtab", "output"], ["gscrub", [], "sam"]],
+        text: "A guardrail can limit what an agent says too. The recordings in this site ran on a real machine, and the agent can name absolute paths (its harness tells it where its own docs are installed). So `scripts/record_runs.py` scrubs every saved file. Here the real texts are rebuilt on a **made-up** machine (the real raw output is never saved), and you build the scrubber.",
+        exp: "`lab/scrub.py` (written for this lab). `scrub` is the function `record_runs.py` really runs: exact replacements for the working copy, the run's HOME, each answer's working folder, the machine's home, the temp folder and the folder above it. `leaks` is the reference check. `scripts/check_recorded.py` also runs `detect`, which knows no machine.",
+        predict: { q: (ctx) => { const k = sk(ctx.S); return `With no scrubbing at all, how many of the ${k.total} real model answers and tool calls carry the made-up machine's details (its paths, its username)?`; },
+          choices: ["Almost none", "Some, not most", "Most of them"], run: [["gscrub", [], "sam"]],
+          answer: ({ S }) => { const k = sk(S), p = k.dirty / k.total; return p < 0.05 ? "Almost none" : p < 0.5 ? "Some, not most" : "Most of them"; },
+          claims: [["some texts leak", ({ S }) => sk(S).leaks > 0], ["none of the model answers leak", ({ S }) => !S.guard.out.res.rows.some((r) => r.kind === "answer" && r.status === "leak")]],
+          why: ({ S }) => { const k = sk(S); return `${k.dirty} of ${k.total} do. All of them are tool calls: in their prose the models never wrote a path, but the commands they ran name paths constantly. A scrubber that only looked at answers would have missed every one.`; },
+          expects: "Some, not most",
+          miss: { "Almost none": ({ S }) => `${sk(S).dirty} texts leak. The commands the models ran name paths all the time, even though their answers do not.`,
+                  "Most of them": ({ S }) => `Only ${sk(S).dirty} of ${sk(S).total} do. All ${S.guard.out.texts.filter((t) => t.kind === "answer").length} answers are clean; the leaks are in the commands.` } },
+        hint: "Look at the two groups of squares: which one has red?" },
+      { mode: "guard", setup: [["gtab", "output"], ["gscrub", [], "sam"]],
+        predict: { q: (ctx) => `Now switch on the six things \`record_runs.py\` replaces (the working-copy path, the empty HOME, each answer's working folder, the home folder, the temp folder, the folder above it). How many texts still leak?`,
+          choices: ["None", "A few", "Many"], run: [["gscrub", "real", "sam"]],
+          answer: ({ S }) => { const k = sk(S); return k.leaks === 0 ? "None" : k.leaks <= 10 ? "A few" : "Many"; },
+          claims: [["every text that leaked is now cleaned", ({ S }) => sk(S).fixed === sk(S).dirty], ["nothing else was changed", ({ S }) => sk(S).damaged === 0]],
+          why: ({ S }) => { const k = sk(S); return `${k.leaks} still leak and all ${k.fixed} were cleaned. A scrubber replaces exactly the strings it was told about, and on these texts that is all there is. That is a score on the texts you happen to have, which is the same trap as the last lesson.`; },
+          expects: "None",
+          miss: { "A few": () => "It was given every path this machine produces, so every one the models wrote is covered.", Many: () => "It was given every path this machine produces, so every one the models wrote is covered." } } },
+      { mode: "guard", open: ["poke", "leaks"], setup: [["gtab", "output"], ["gscrub", "real", "sam"]],
+        predict: { q: (ctx) => { const r = sat(ctx.S); return `The same scrubber, against ${r.length} made-up texts: the machine's path in capital letters, with doubled slashes, URL-encoded, the bare username, and others. ${r.filter((x) => x.raw_leaks.length).length} of them identify the machine. Open “Ready-made leaks”. How many get through?`; },
+          choices: ["None", "A few", "Most"], run: [["gscrub", "real", "sam"]],
+          answer: ({ S }) => { const r = sat(S), dirty = r.filter((x) => x.raw_leaks.length).length, bad = r.filter((x) => x.leaks.length).length; return bad === 0 ? "None" : bad / dirty < 0.5 ? "A few" : "Most"; },
+          claims: [["the full home path is cleaned", ({ S }) => sat(S).some((x) => x.note.startsWith("the home path") && !x.leaks.length)], ["the bare username gets through", ({ S }) => sat(S).some((x) => x.note.startsWith("the username on its own") && x.leaks.length)],
+                   ["the harmless texts are untouched", ({ S }) => sat(S).filter((x) => x.note.startsWith("harmless")).every((x) => !x.leaks.length && x.out === x.text)]],
+          why: ({ S }) => { const r = sat(S), bad = r.filter((x) => x.leaks.length), dirty = r.filter((x) => x.raw_leaks.length).length; return `${bad.length} of ${dirty} got through: ${bad.map((x) => x.note).join("; ")}. The scrubber matches exact strings, so any other spelling of the same path passes. Turn on “Match paths in any letter case”, “Treat // and %2F like /” and “Replace the username…” and watch them go.`; },
+          expects: "Most",
+          miss: { None: ({ S }) => `${sat(S).filter((x) => x.leaks.length).length} got through. Only the path written exactly as the scrubber expects is cleaned.`,
+                  "A few": ({ S }) => { const r = sat(S); return `${r.filter((x) => x.leaks.length).length} of ${r.filter((x) => x.raw_leaks.length).length} is more than a few. Only the exact spelling is cleaned.`; } } } },
+      { mode: "guard", setup: [["gtab", "output"], ["gscrub", [...REAL, "nocase", "slashes", "user"], "dev"]],
+        predict: { q: (ctx) => `Everything is on now, and the machine's username is \`dev\`, which is also an ordinary word. Nothing leaks. What is the cost: how many real texts have a word replaced that was not part of any path?`,
+          choices: ["None", "A handful (1 to 10)", "More than ten"], run: [["gscrub", [...REAL, "nocase", "slashes", "user"], "dev"]],
+          answer: ({ S }) => { const d = sk(S).damaged; return d === 0 ? "None" : d <= 10 ? "A handful (1 to 10)" : "More than ten"; },
+          claims: [["nothing leaks", ({ S }) => sk(S).leaks === 0], ["some texts were changed", ({ S }) => sk(S).damaged > 0]],
+          why: async ({ S, call }) => { const k = sk(S), sam = (await call("scrub_run", { texts: S.guard.out.texts, opts: S.guard.out.opts, user: "sam" })).counts; return `${k.damaged} texts had the word \`dev\` replaced, in places that have nothing to do with a path. No scrubber can tell a username from the same word used normally. With the username \`sam\` on the same switches, ${sam.damaged} texts are damaged. So widening a scrubber trades leaks for damage, and the right answer depends on what you are protecting. A second layer helps: \`scripts/check_recorded.py\` runs \`detect\`, which knows no machine and fails CI if a recorded file holds the shape of a home or temp path.`; },
+          expects: "More than ten",
+          miss: { None: ({ S }) => `${sk(S).damaged} texts had a word replaced: \`dev\` is an ordinary word, and the switch replaces it everywhere.`,
+                  "A handful (1 to 10)": ({ S }) => `${sk(S).damaged} is more than a handful. \`dev\` turns up in many ordinary commands.` } } },
     ],
   },
   {

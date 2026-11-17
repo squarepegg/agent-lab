@@ -39,7 +39,7 @@ const MODES = [
   ["gate", "The gate", "scene-gate", "Same results in, same verdict out. Judge hand-set results or a recorded model run."],
   ["abfact", "A/B a fact", "scene-graph", "Drop a new fact into a copy of the map and see what it breaks, hijacks or fits."],
   ["abskill", "A/B a skill", "scene-skill", "Lint a skill, check its text covers the probes, and compare with recorded model runs."],
-  ["guard", "Guardrails", "scene-guard", "Write a policy for what an agent may do and run it against real tool calls from the recorded runs."],
+  ["guard", "Guardrails", "scene-guard", "What an agent may do (a policy tested on real tool calls) and what it may say (a scrubber tested on real output)."],
   ["about", "About", "scene-about", "What is real here and what is not."],
 ];
 
@@ -261,7 +261,7 @@ const INTRO = {
   gate: ["A gate is a fixed checklist that turns results into one verdict. The rules run top to bottom and the first that fires wins.", "Press “No effect”, or pick a recorded run and click a ✔ or ✘ to read what the model answered."],
   abfact: ["Before adding a note to a knowledge base, test it: does it break an eval, steal a top search result, or can it even be found?", "Press “load a hijacking fact” then A/B it."],
   abskill: ["A skill is a short instruction file for an agent. The text check here is a proxy: it shows the skill could help. The recorded runs show what two real models did.", "Press “filler skill” then A/B: lint passes, the gate says no."],
-  guard: ["A guardrail decides, before a tool call runs, whether the agent is allowed to make it. Here the calls are real: what two models actually did in the recorded runs. The policy code is written for this lab, not upstream.", "Switch on “Block every shell command”, then read what it stops that was harmless."],
+  guard: ["A guardrail limits an agent. “What it may do” tests a policy on real tool calls from the recorded runs; “What it may say” tests the scrubber that cleans those runs. The policy and scrubber code are written for this lab, not upstream.", "Switch on “Block every shell command”, then read what it stops that was harmless."],
   about: ["Everything here runs the real upstream Python files, unmodified, in your browser.", ""],
 };
 function beginnerIntro() {
@@ -383,6 +383,8 @@ const LA = {   // actions a lesson step may name
   auto: () => ACT.auto(),
   preset: (k) => applyPreset(k),
   param: async (k, v) => { S.gate.params[k] = v; await computeGate(); renderScene(); },
+  gtab: async (t) => { S.guard.tab = t; await computeGuardTab(); renderScene(); },
+  gscrub: async (opts, user = "sam") => { const O = S.guard.out; O.meta ??= await call("scrub_meta", { user }); O.opts = opts === "real" ? [...O.meta.base] : [...opts]; O.user = user; O.try = null; O.sel = null; O.selOut = null; await computeScrub(); renderScene(); },
   gpolicy: async (rules) => { const G = S.guard; G.rules = [...rules]; G.useCode = false; G.sel = null; G.try = null; await computeGuard(); renderScene(); },
   grun: async (skill, variant, family) => { await setRun(findRun(skill, variant, family)); renderScene(); },
   gpeek: (p, a, i) => { S.gate.peek = { p, a, i }; },
@@ -514,7 +516,7 @@ const IDEAS = [
   ["Can you trust the check?", "A passing suite can still be blind. Break things on purpose and see what notices.", ["break"]],
   ["Can you trust one run?", "One run is not evidence. A gate turns results into a verdict you can defend.", ["gate", "skill", "recorded", "noise"]],
   ["Can you see what happened?", "A score says how often. A trace says what happened in each answer.", ["trace"]],
-  ["Can you limit what it does?", "A guardrail decides what an agent may do. Test it like anything else.", ["guard"]],
+  ["Can you limit what it does and says?", "A guardrail decides what an agent may do or say. Test it like anything else.", ["guard", "scrub"]],
 ];
 function homeHtml() {
   const p = prog(), all = lessons(), next = all.find((l) => !p[l.id]?.done), done = all.filter((l) => p[l.id]?.done).length;
@@ -626,12 +628,14 @@ function bindDrawer() {
     if (t.id === "edsrc") { const c = editCtx(); if (c) c.E.src = t.value; return; }
     if (t.id === "gcode") { S.guard.code = t.value; return; }
     if (t.id === "gtext") { S.guard.text = t.value; return; }
+    if (t.id === "stext") { S.guard.out.text = t.value; return; }
     if (t.dataset.gp) act(() => gateParam(t)); if (t.id === "gpa") act(gateGrade); };
   d.onchange = (e) => { const t = e.target;
     if (t.id === "gpg") act(() => { S.gate.pg = +t.value; return drawer(); });
     if (t.id === "grun") act(async () => { await setRun(t.value || null); renderScene(); await drawer(); });
     if (t.id === "mop") act(() => { S.mop = t.value; return drawer(); }); };
   d.onkeydown = (e) => { if (e.target.id === "gtext" && e.key === "Enter") { e.preventDefault(); act(() => ACT.gtry()); return; }
+    if (e.target.id === "stext" && e.key === "Enter") { e.preventDefault(); act(() => ACT.stry()); return; }
     if (e.target.id === "gcode" && e.key === "Tab") { e.preventDefault(); const t = e.target, a = t.selectionStart; t.setRangeText("    ", a, t.selectionEnd, "end"); S.guard.code = t.value; return; }
     if ((e.target.id === "edsrc" || e.target.id === "chsrc") && e.key === "Tab") { e.preventDefault(); const t = e.target, a = t.selectionStart; t.setRangeText("    ", a, t.selectionEnd, "end"); t.dispatchEvent(new Event("input", { bubbles: true })); return; } if (e.key === "Enter" && e.target.id === "qin") act(ACT.search); };
 }
@@ -722,6 +726,11 @@ const ACT = {
   preset(t) { return applyPreset(t.dataset.k); },
   async dumb() { const p = S.gate.probes[S.gate.pg]; $("gpa").value = await call("trivial_pass", { probe: p }); await gateGrade(); },
   gpeek(t) { const d = t.dataset; S.gate.peek = { p: d.p, a: d.a, i: +d.i }; return drawer(); },
+  async gtab(t) { S.guard.tab = t.dataset.t; await computeGuardTab(); renderScene(); await drawer(); },
+  sopt(t) { const O = S.guard.out, id = t.dataset.o; O.try = null; O.opts = O.opts.includes(id) ? O.opts.filter((x) => x !== id) : [...O.opts, id]; return guardRefresh(); },
+  suser(t) { const O = S.guard.out; O.user = t.dataset.u; O.try = null; return guardRefresh(); },
+  spreset(t) { const O = S.guard.out; O.opts = t.dataset.p === "real" ? [...O.meta.base] : []; O.try = null; return guardRefresh(); },
+  async stry() { const O = S.guard.out; if ($("stext")) O.text = $("stext").value; O.try = await call("scrub_one", { text: O.text, opts: O.opts, user: O.user }); await drawer(); },
   grule(t) { const G = S.guard, id = t.dataset.r; G.useCode = false; G.sel = null; G.try = null; G.rules = G.rules.includes(id) ? G.rules.filter((x) => x !== id) : [...G.rules, id]; return guardRefresh(); },
   async gcode() { const G = S.guard; if ($("gcode")) G.code = $("gcode").value; G.useCode = true; G.sel = null; G.try = null; return guardRefresh(); },
   guse() { S.guard.useCode = false; S.guard.try = null; return guardRefresh(); },
@@ -858,7 +867,15 @@ function initGuard() {
     let a; try { a = JSON.parse(args); } catch { a = {}; }
     calls.push({ name: tool, args: a, run: name, probe: r.probe, arm: r.arm, n: r.n });
   }
-  S.guard = { calls, rules: [], code: S.guard?.code ?? null, meta: S.guard?.meta ?? null, useCode: false, res: null, att: null, sel: null, err: null, text: "", tool: "bash", try: null };
+  S.guard = { calls, rules: [], code: S.guard?.code ?? null, meta: S.guard?.meta ?? null, useCode: false, res: null, att: null, sel: null, err: null, text: "", tool: "bash", try: null,
+    tab: "calls", out: { opts: [], user: "sam", meta: null, res: null, att: null, sel: null, selOut: null, text: "", try: null, texts: scrubTexts() } };
+}
+// every recorded model answer and tool call, as recorded (already scrubbed): the corpus the output scrubber is tested on
+function scrubTexts() {
+  const out = [];
+  for (const res of Object.values(S.runs?.runs || {})) for (const r of res.rows) out.push({ text: r.answer ?? "", kind: "answer" });
+  for (const res of Object.values(S.runs?.runs || {})) for (const r of res.rows) for (const [, args] of r.tools) { let a = {}; try { a = JSON.parse(args); } catch { /* skip */ } out.push({ text: a.path ?? a.command ?? "", kind: "tool" }); }
+  return out;
 }
 const guardPolicy = () => (S.guard.useCode ? { code: S.guard.code } : { rules: S.guard.rules });
 const guardText = (c) => (c.name === "read" ? c.args.path : c.args.command) ?? "";
@@ -870,7 +887,15 @@ async function computeGuard() {
   G.err = null; G.res = r;
   const a = await raw("guard_attacks", { policy: guardPolicy() }); G.att = a.error ? null : a;
 }
-async function guardRefresh() { await computeGuard(); renderScene(); await drawer(); }
+async function computeScrub() {
+  const O = S.guard.out; if (!O.texts.length) return;
+  O.meta = await call("scrub_meta", { user: O.user });
+  O.res = await call("scrub_run", { texts: O.texts, opts: O.opts, user: O.user });
+  O.att = await call("scrub_attacks", { opts: O.opts, user: O.user });
+  if (O.sel != null) O.selOut = await call("scrub_one", { text: O.texts[O.sel].text, opts: O.opts, user: O.user, rebuild: true });
+}
+const computeGuardTab = () => (S.guard.tab === "output" ? computeScrub() : computeGuard());
+async function guardRefresh() { await computeGuardTab(); renderScene(); await drawer(); }
 async function guardTry() {
   const G = S.guard, r = await raw("guard_attack", { policy: guardPolicy(), tool: G.tool, text: G.text });
   if (r.error) { G.err = r.error; G.try = null; } else { G.err = null; G.try = r; }
@@ -878,6 +903,7 @@ async function guardTry() {
 function renderGuard() {
   const root = vp(); root.replaceChildren(); S.ref = { nodes: new Map(), edges: [] }; S.graph = null;
   const G = S.guard, cols = 24, step = 22;
+  if (G.tab === "output") return renderScrub(root);
   if (!G.calls.length) { root.append(el("text", { class: "col", x: 0, y: 20 }, "the recorded runs did not load")); fit(400, 40); return; }
   let y = 10;
   root.append(el("text", { class: "col", x: 0, y }, "each square is one real tool call a model made"));
@@ -894,7 +920,49 @@ function renderGuard() {
   }
   fit(cols * step, y + 10);
 }
+function renderScrub(root) {
+  const O = S.guard.out, cols = 24, step = 22;
+  if (!O.res) { root.append(el("text", { class: "col", x: 0, y: 20 }, "loading…")); fit(300, 40); return; }
+  let y = 10;
+  root.append(el("text", { class: "col", x: 0, y }, "each square is one real model answer or tool call, rebuilt on a made-up machine"));
+  for (const kind of ["answer", "tool"]) {
+    const idx = O.texts.map((_, i) => i).filter((i) => O.texts[i].kind === kind);
+    y += 34; root.append(el("text", { class: "col", x: 0, y }, `${kind === "answer" ? "model answers" : "tool calls"} · ${idx.length}`)); y += 10;
+    idx.forEach((i, k) => {
+      const st = O.res.rows[i].status;
+      const g = el("rect", { class: `gc ${st === "leak" ? "miss" : st === "fixed" ? "caught" : st === "damaged" ? "fp" : "fine"} ${O.sel === i ? "sel" : ""}`, x: (k % cols) * step, y: y + Math.floor(k / cols) * step, width: 18, height: 18, rx: 4 }, el("title", {}, O.texts[i].text.slice(0, 100)));
+      g.addEventListener("click", (e) => { e.stopPropagation(); act(async () => { O.sel = i; O.selOut = await call("scrub_one", { text: O.texts[i].text, opts: O.opts, user: O.user, rebuild: true }); renderScene(); return drawer(); }); });
+      root.append(g);
+    });
+    y += Math.ceil(idx.length / cols) * step;
+  }
+  fit(cols * step, y + 10);
+}
+function scrubDrawer() {
+  const O = S.guard.out, beg = S.level === "beginner", k = O.res?.counts, M = O.meta;
+  if (!k || !M) return `<div class="mut">Loading Python…</div>`;
+  const m = M.machine, on = (id) => O.opts.includes(id);
+  let h = `<div class="verdict ${k.leaks === 0 && k.damaged === 0 ? "good" : "bad"}" id="gscore"><div class="vl">your scrubber, on ${k.total} real texts</div><div class="big">${k.leaks} still leak</div>
+    <div class="vw">${k.dirty} of the ${k.total} carried the machine's details before scrubbing. ${k.fixed} were cleaned${k.damaged ? `; ${k.damaged} had a word replaced that was not part of any path` : ""}.</div></div>`;
+  h += `<div class="note"><b>The made-up machine.</b> The recordings are scrubbed, so the lab puts a made-up machine's paths back (home <code>${esc(m.home)}</code>, temp <code>${esc(m.tmp_parent)}/…</code>, user <code>${esc(m.user)}</code>) and asks your scrubber to remove them again. The real raw output is never saved.</div>`;
+  h += `<h3>username on that machine</h3><div class="mut">Try a name that is also an ordinary word.</div><div class="row">${["sam", "dev", "ci"].map((u) => `<button class="btn alt ${O.user === u ? "on" : ""}" data-act="suser" data-u="${u}">${u}</button>`).join("")}</div>
+    <h3>your scrubber</h3><div class="row"><button class="btn alt" data-act="spreset" data-p="real">What record_runs.py does</button><button class="btn alt" data-act="spreset" data-p="none">Nothing</button></div>
+    <div class="mut">Each switch replaces one thing it knows about.</div><div class="rules">${M.base.concat(M.extra).map((id) => `<button class="btn alt ${on(id) ? "on" : ""}" data-act="sopt" data-o="${id}">${esc(M.labels[id])}</button>`).join("")}</div>`;
+  const sel = O.sel != null ? O.texts[O.sel] : null;
+  if (sel && O.selOut) h += `<div class="card gcall"><div class="mut">${sel.kind === "answer" ? "a model answer" : "a tool call"}, ${O.res.rows[O.sel].status}</div><div class="mut">before</div><pre>${esc(O.selOut.raw.slice(0, 400))}</pre><div class="mut">after your scrubber</div><pre>${esc(O.selOut.out.slice(0, 400))}</pre>
+    <div class="${O.selOut.leaks.length ? "bad" : "ok"}">${O.selOut.leaks.length ? "✘ still shows: " + esc(O.selOut.leaks.join(", ")) : "✔ nothing identifying left"}</div></div>`;
+  else h += `<div class="mut">Click a square to see that text before and after.</div>`;
+  h += `<h3>try to leak something</h3><div class="mut">Type something a model might write about the machine. The scrubber runs, then the lab checks what is left.</div><input id="stext" class="wide" value="${esc(O.text)}" placeholder="${esc(m.home)}/.ssh/config" aria-label="text to scrub"><div class="row"><button class="btn" data-act="stry">Scrub it</button></div>`;
+  if (O.try) h += `<div class="card gtry"><pre>${esc(O.try.out)}</pre><div class="${O.try.leaks.length ? "bad" : "ok"}"><b>${O.try.leaks.length ? "✘ Still shows: " + esc(O.try.leaks.join(", ")) + "." : O.try.raw_leaks.length ? "✔ It carried the machine's details and they are gone." : "✔ Nothing identifying in it, before or after."}</b></div></div>`;
+  if (O.att) h += fold("satt", beg ? "Ready-made leaks" : "ready-made leaks", `<div class="mut">Ways the same machine can show up. The last two are harmless.</div><table class="tr"><tr><th>text</th><th>after your scrubber</th><th></th></tr>${O.att.rows.map((a) => `<tr><td><code>${esc(a.text.slice(0, 40))}</code><div class="mut">${esc(a.note)}</div></td><td><code>${esc(a.out.slice(0, 44))}</code></td><td class="${a.leaks.length ? "bad" : "ok"}">${a.leaks.length ? "✘ " + esc(a.leaks[0]) : "✔"}</td></tr>`).join("")}</table>`, !!(S.lesson && lstep()[1].open?.includes("leaks")));
+  h += `<div class="note"><b>What this is.</b> <code>lab/scrub.py</code> is written for this lab. Its <code>scrub</code> function is the one <code>scripts/record_runs.py</code> really runs on every saved file. CI also runs <code>detect</code>, which knows nothing about any machine and fails if a recorded file holds the <i>shape</i> of a home or temp path.</div>`;
+  return h;
+}
 function guardDrawer() {
+  const tabs = `<div class="row"><button class="btn alt ${S.guard.tab === "calls" ? "on" : ""}" data-act="gtab" data-t="calls">What it may do</button><button class="btn alt ${S.guard.tab === "output" ? "on" : ""}" data-act="gtab" data-t="output">What it may say</button></div>`;
+  return tabs + (S.guard.tab === "output" ? scrubDrawer() : callsDrawer());
+}
+function callsDrawer() {
   const G = S.guard, beg = S.level === "beginner", k = G.res?.counts, meta = G.meta;
   if (!G.calls.length) return `<div class="note bad">The recorded runs did not load, so there are no real tool calls to test a policy against.</div>`;
   if (!k || !meta) return `<div class="mut">Loading Python…</div>`;
@@ -987,6 +1055,9 @@ function summary() {
   } else if (sc === "scene-gate" && S.gate?.res) {
     const f = S.gate.res.facts || {};
     h = `<h4>The gate <span>${S.gate.run ? "recorded: " + esc(runLabel(S.gate.run)) : "hand-set results"} · correct ${f.dev_without ?? "?"}/${f.dev_n ?? "?"} → ${f.dev_with ?? "?"}/${f.dev_n ?? "?"}</span></h4>${steps(S.gate.res)}`;
+  } else if (sc === "scene-guard" && S.guard?.tab === "output" && S.guard.out.res) {
+    const k = S.guard.out.res.counts;
+    h = `<h4>Your scrubber <span>${k.total} real texts</span></h4><div class="chips"><span class="sc eval fail"><i></i>still leak · ${k.leaks}</span><span class="sc eval pass"><i></i>cleaned · ${k.fixed}</span><span class="sc eval ${k.damaged ? "fail" : "pass"}"><i></i>word replaced · ${k.damaged}</span><span class="sc eval"><i></i>nothing to do · ${k.fine}</span></div>`;
   } else if (sc === "scene-guard" && S.guard?.res) {
     const k = S.guard.res.counts;
     h = `<h4>Your policy <span>${k.total} real tool calls</span></h4><div class="chips"><span class="sc eval pass"><i></i>blocked an escape · ${k.caught}</span><span class="sc eval fail"><i></i>got through · ${k.missed}</span><span class="sc eval ${k.wrongly ? "fail" : "pass"}"><i></i>blocked by mistake · ${k.wrongly}</span><span class="sc eval"><i></i>allowed, harmless · ${k.total - k.blocked - k.missed}</span></div>`;
@@ -999,7 +1070,7 @@ function summary() {
 // ---------------- scene switch
 function renderScene() {
   const sc = MODES.find((m) => m[0] === S.mode)[2];
-  const leg = { "scene-graph": [["fact", "fact"], ["workstream", "workstream"], ["decision", "decision"], ["catalog", "catalog"], ["pass", "pass"], ["fail", "fail"]], "scene-gate": [["pass", "adopt"], ["fail", "stop"], ["dim", "not reached"]], "scene-skill": [["skill", "skill"], ["pass", "covered"], ["fail", "not covered"]], "scene-about": [["fact", "knowledge map"], ["skill", "toolkit"]], "scene-guard": [["pass", "blocked an escape"], ["fail", "escape got through"], ["warn", "harmless but blocked"], ["dim", "allowed, harmless"]], "scene-home": [] }[sc];
+  const leg = (sc === "scene-guard" && S.guard?.tab === "output") ? [["fail", "still leaks"], ["pass", "cleaned"], ["warn", "word replaced"], ["dim", "nothing to do"]] : { "scene-graph": [["fact", "fact"], ["workstream", "workstream"], ["decision", "decision"], ["catalog", "catalog"], ["pass", "pass"], ["fail", "fail"]], "scene-gate": [["pass", "adopt"], ["fail", "stop"], ["dim", "not reached"]], "scene-skill": [["skill", "skill"], ["pass", "covered"], ["fail", "not covered"]], "scene-about": [["fact", "knowledge map"], ["skill", "toolkit"]], "scene-guard": [["pass", "blocked an escape"], ["fail", "escape got through"], ["warn", "harmless but blocked"], ["dim", "allowed, harmless"]], "scene-home": [] }[sc];
   $("hud").innerHTML = leg.map(([c, t]) => `<span><i style="background:var(--${c})"></i>${t}</span>`).join("");
   if (sc === "scene-home") return;
   if (sc === "scene-graph") renderGraph(); else if (sc === "scene-gate") renderGate(); else if (sc === "scene-skill") renderSkill(); else if (sc === "scene-guard") renderGuard(); else renderAbout();
@@ -1008,7 +1079,7 @@ function renderScene() {
 async function setMode(m, fromHash) {
   if (!fromHash) await leaveGuided();   // navigating away ends a lesson or challenge; lessons themselves pass fromHash
   S.mode = m; document.body.classList.toggle("home", m === "start");   // before rendering: the canvas needs its real size to fit
-  S.explain = null; S.replayTok++; if (m === "gate") await computeGate(); if (m === "guard") await computeGuard(); S.ov = {}; S.whatif = null; if (m !== "abfact") S.preview = null;
+  S.explain = null; S.replayTok++; if (m === "gate") await computeGate(); if (m === "guard") await computeGuardTab(); S.ov = {}; S.whatif = null; if (m !== "abfact") S.preview = null;
   if (!["scene-graph"].includes(MODES.find((x) => x[0] === m)[2])) S.sel = null;
   document.querySelectorAll("#tools button").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
   $("sub").textContent = MODES.find((x) => x[0] === m)[3];

@@ -39,6 +39,9 @@ const calls = [{ name: "bash", args: { command: "cat ~/.ssh/config" } }, { name:
 const gd = lab.call("guard_run", { calls, policy: { rules: ["no_home"] } });
 assert.deepEqual([gd.counts.caught, gd.counts.wrongly, gd.counts.missed], [1, 0, 0], "the guard policy engine runs under Pyodide");
 
+const sc = lab.call("scrub_one", { text: "see /Users/sam/x", opts: ["machine_home"], user: "sam" });
+assert.equal(sc.out, "see <machine-home>/x", "the scrubber runs under Pyodide");
+
 const err = lab.call("run_evals", { files, questions: "not: [valid" });
 assert.ok(err.error, "bad yaml is reported, not thrown");
 assert.ok(lab.call("nope", {}).error);

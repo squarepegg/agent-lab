@@ -64,7 +64,7 @@ class OnRealCalls(unittest.TestCase):
         self.assertEqual(r["counts"]["wrongly"], 0)
         missed = [G.text_of(c["name"], c["args"]) for c, row in zip(CALLS, r["rows"]) if row["outside"] and not row["blocked"]]
         self.assertTrue(missed)
-        self.assertTrue(all("<tmp>" in t or "/private/var" in t for t in missed), missed)
+        self.assertTrue(all("<tmp" in t or "/private/var" in t for t in missed), missed)
 
     def test_absolute_rule_is_perfect_on_the_real_calls_but_not_on_attacks(self):
         k = G.run(CALLS, {"rules": ["no_absolute"]})["counts"]

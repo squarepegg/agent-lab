@@ -18,6 +18,8 @@ Nothing else in a results file is changed.
 import argparse, concurrent.futures, datetime, hashlib, json, os, re, shutil, subprocess, sys, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "lab"))
+from scrub import scrub as _scrub  # noqa: E402
 OUT = os.path.join(ROOT, "recorded")
 # No extensions and no MCP: nothing from the recording machine's own setup reaches the model.
 PI_EXTRA = ["--no-extensions", "--no-mcp"]
@@ -47,16 +49,9 @@ def aws_env():
 
 
 def scrub(text, d, home):
+    """lab/scrub.py does the replacing; this supplies the recording machine's own paths."""
     tmp = os.path.realpath(tempfile.gettempdir())
-    bare = tmp.replace("/private", "", 1)
-    text = text.replace(d, "<root>").replace(home, "<home>")
-    text = re.sub(r"(?:/private)?" + re.escape(bare) + r"/skill-ab-\w+", "<cwd>", text)   # each answer's empty working directory
-    places = [(os.path.expanduser("~"), "<machine-home>"), (tmp, "<tmp>"), (bare, "<tmp>")]
-    if "/var/folders/" in tmp:   # macOS: the per-user directory above the temp dir is as identifying as the temp dir
-        places += [(os.path.dirname(tmp), "<tmp-parent>"), (os.path.dirname(bare), "<tmp-parent>")]
-    for real, name in places:
-        text = text.replace(real, name)
-    return text
+    return _scrub(text, d, home, os.path.expanduser("~"), tmp, os.path.dirname(tmp) if "/var/folders/" in tmp else None)
 
 
 def record(skill, model, samples, creds, variant=None):

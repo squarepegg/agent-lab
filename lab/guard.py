@@ -17,7 +17,7 @@ BUDGET = 400_000
 
 def norm(t):
     """Placeholders to plain markers, so `<root>/x` is one token: @in is the working folder, @home the home folder, @tmp a temp folder."""
-    return t.replace("<root>", "@in").replace("<cwd>", "@in").replace("<machine-home>", "@home").replace("<tmp>", "@tmp")
+    return t.replace("<root>", "@in").replace("<cwd>", "@in").replace("<machine-home>", "@home").replace("<home>", "@home").replace("<tmp-parent>", "@tmp").replace("<tmp>", "@tmp")
 
 
 def toks(t):

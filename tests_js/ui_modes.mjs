@@ -162,11 +162,41 @@ const click = async (page, sel) => { await page.click(sel); await idle(page); };
   assert.match(await txt(page, "#drawer .note.bad"), /endless loop/);
   await page.context().close();
 }
+// --- Guardrails, output side: the scrubber on real texts, a typed leak, the username trade-off
+{
+  const page = await newPage();
+  await open(page, "#m=guard"); await ready(page); await idle(page);
+  await click(page, "[data-act=gtab][data-t=output]");
+  const leaks = async () => +/(\d+) still leak/.exec(await txt(page, "#gscore"))[1];
+  const before = await leaks();
+  assert.ok(before > 20, "with nothing switched on, real tool calls leak the made-up machine");
+  assert.equal(await page.locator(".gc.miss").count(), before);
+  await click(page, "[data-act=spreset][data-p=real]");
+  assert.equal(await leaks(), 0, "the six replacements record_runs.py makes clean every real text");
+  assert.ok(await page.locator(".gc.caught").count() > 20);
+  await page.fill("#stext", "whoami printed sam"); await click(page, "[data-act=stry]");
+  assert.match(await txt(page, ".gtry"), /Still shows: the username/);
+  await click(page, "[data-act=sopt][data-o=user]");
+  await page.fill("#stext", "whoami printed sam"); await click(page, "[data-act=stry]");
+  assert.match(await txt(page, ".gtry"), /gone/);
+  await click(page, "[data-act=suser][data-u=dev]");
+  assert.equal(await leaks(), 0);
+  assert.ok(await page.locator(".gc.fp").count() > 10, "a username that is an ordinary word makes the user switch change real words");
+  await click(page, "[data-act=sopt][data-o=user]");
+  assert.ok((await leaks()) > 0, "without the user switch, the word dev still leaks");
+  await page.locator(".gc.caught").first().click(); await idle(page);
+  assert.match(await txt(page, ".gcall"), /before[\s\S]*after your scrubber/);
+  await click(page, "summary[data-fold=satt]");
+  assert.ok((await page.locator("#drawer details[open] table.tr tr").count()) >= 9, "the ready-made leaks are listed");
+  await page.context().close();
+}
 {
   const page = await newPage({ width: 390, height: 844 });
   await open(page, "#m=guard"); await ready(page); await idle(page);
   assert.equal(await page.locator("#svg").isVisible(), false);
   assert.match(await page.evaluate(() => document.querySelector("#sum").innerText), /blocked an escape/);
+  await click(page, "[data-act=gtab][data-t=output]");
+  assert.match(await page.evaluate(() => document.querySelector("#sum").innerText), /still leak/);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "no horizontal scroll");
   await page.context().close();
 }
