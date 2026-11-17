@@ -15,7 +15,7 @@ const click = async (page, sel) => { await page.click(sel); await idle(page); };
   const page = await newPage({ javaScriptEnabled: false });
   await page.goto(url);
   const home = await txt(page, "#home");
-  assert.match(home, /Learn how AI agents get tested/);
+  assert.match(home, /Your agent passes the demo/);
   assert.equal(await page.locator("#home .ideas li").count(), 3, "three ideas");
   assert.match(home, /time zone/, "the lesson 1 preview question is on the page");
   await page.context().close();

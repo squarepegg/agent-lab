@@ -506,9 +506,9 @@ function chalCard() {
 }
 // ---------------- Start screen: a path, not a toolbox. Its first screenful is also the static shell in index.html.
 const IDEAS = [
-  ["An eval is a question plus a pass/fail check.", "See what the check really looks at.", ["eval", "rank"]],
-  ["A passing suite can still be blind.", "Break things on purpose and see what notices.", ["break"]],
-  ["One run is not evidence.", "A gate turns results into a verdict you can defend.", ["gate", "skill", "recorded", "noise"]],
+  ["How do you check an agent's answer?", "An eval is a question plus a pass/fail check. See what the check really looks at.", ["eval", "rank"]],
+  ["Can you trust the check?", "A passing suite can still be blind. Break things on purpose and see what notices.", ["break"]],
+  ["Can you trust one run?", "One run is not evidence. A gate turns results into a verdict you can defend.", ["gate", "skill", "recorded", "noise"]],
 ];
 function homeHtml() {
   const p = prog(), all = lessons(), next = all.find((l) => !p[l.id]?.done), done = all.filter((l) => p[l.id]?.done).length;
@@ -516,8 +516,8 @@ function homeHtml() {
   const lessonRow = (l) => { const q = p[l.id], up = next && l.id === next.id;
     return `<div class="lrow ${up ? "next" : ""}"><span class="ck">${q?.done ? "✔" : ""}</span><div class="t"><b>${esc(l.title)}</b><span class="mut">${q?.done && l.learned ? esc(l.learned) : `${esc(l.blurb)} · ${l.steps.length} steps`}${q?.done && q.total ? ` · ${q.right}/${q.total} predicted` : ""}</span></div><button class="btn ${up ? "" : "alt"}" data-act="lstart" data-id="${l.id}">${q?.done ? "Redo" : up ? (done || at ? "Continue" : "Start") : "Start"}</button></div>`; };
   const beg = S.level === "beginner";
-  let h = `<div class="hm"><h1>Learn how AI agents get tested</h1>
-    <p class="hl">You <b>predict</b> what will happen. Then the real code runs in your browser and shows whether you were right. No model is called and nothing leaves the page.</p>`;
+  let h = `<div class="hm"><h1>Your agent passes the demo. How do you know it's good?</h1>
+    <p class="hl">Guardrails limit what an agent may do. Observability shows what it did. Evals measure how well it does. This site is about <b>evals</b>: you <b>predict</b> what the real code will do, then watch it run in your browser. No model is called and nothing leaves the page.</p>`;
   h += (next ? `<div class="cta"><button class="btn lg" data-act="lcont">${done || at ? "Continue" : "Start"}: ${esc(next.title)}${at ? ` · step ${at + 1} of ${next.steps.length}` : ""}</button><span class="mut">${first ? `${all.length} short lessons, about 3 minutes each` : `${done}/${all.length} lessons done`}</span></div>`
             : `<div class="cta"><span class="ok">✔ all ${all.length} lessons done.</span><span class="mut">Try the challenges below, or poke around freely.</span></div>`) + `<div class="mut" id="homepy">${homePy()}</div>`;
   h += `<div class="who"><span class="mut">Pitched at</span><button data-act="lvl" data-l="beginner" class="chip ${beg ? "on" : ""}">new to evals or Python</button><button data-act="lvl" data-l="experienced" class="chip ${beg ? "" : "on"}">I write Python</button>
