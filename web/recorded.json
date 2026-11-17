@@ -4,7 +4,7 @@
   "vendor_sha256": "1e9c00dfe6f6bee555b5551bbfe137dc32563d611bd050f639d8593511c95bb4"
  },
  "calls": {
-  "explore:2d12q27cx2b": [
+  "explore:5isa6qnvfp": [
    {
     "path": "brain.config.yaml",
     "kind": "config",
@@ -199,7 +199,7 @@
     "bytes": 1089
    }
   ],
-  "gate:196p069gx63": {
+  "gate:1u5vh9xgse": {
    "verdict": "ADOPT",
    "reason": "gain 12 ≥ 2, no regression, cost ×1.0 ≤ 1.5",
    "facts": {
@@ -698,7 +698,7 @@
     "tier": "must"
    }
   ],
-  "run_edit:26bm8xhjsf1": {
+  "run_edit:23wo27mxlq": {
    "base": {
     "results": [
      {
@@ -1070,176 +1070,7 @@
     }
    }
   },
-  "run_evals:1lkcq0y6ky4": {
-   "results": [
-    {
-     "id": "midnight-mismatch",
-     "tier": "must",
-     "pass": true,
-     "q": "Why do per-store and global revenue disagree near midnight?",
-     "query": "order_date UTC",
-     "output": "facts/orders-timestamps-utc.md:2: title: orders.created_at is UTC but orders.order_date is store-local\nfacts/orders-timestamps-utc.md:12: `orders.created_at` is stored in UTC. `orders.order_date` is derived in the store's local timezone. Joining or grouping revenue on `order_date` across stores\nfacts/orders-timestamps-utc.md:13: double-counts or drops orders near midnight UTC. Use `created_at` converted with `convert_timezone('UTC', ...)` for global metrics and `order_date` only for per-store reports.\nfacts/daily-core-sla.md:2: title: daily_core must finish by 07:00 UTC; the exec dashboard refreshes at 07:30\nfacts/daily-core-sla.md:12: The executive dashboard extract starts at 07:30 UTC and reads whatever `daily_core` has produced. If the DAG is not green at 07:00 the on-call analytics engineer is paged and posts\ncapabilities.yaml:8: gotchas: See facts/orders-timestamps-utc.md before grouping by date\nfacts/mobile-events-arrive-late.md:13: before 10:00 UTC, and quote D-4 or older when a number must be final. Dashboards show a \"provisional\" badge for the last 3 days.\nglossary.yaml:3: one_liner: Airflow DAG that builds the core fact and dimension tables each night; SLA 07:00 UTC\nworkstreams/revenue-metric-v2/STATE.md:19: Finance and growth quote revenue that differs by up to 2%: refunds, FX date and store-local dates are handled differently. The layer must use `created_at` (UTC) and net refunds.",
-     "checks": [
-      {
-       "kind": "expect",
-       "value": "orders.created_at",
-       "ok": true
-      },
-      {
-       "kind": "expect",
-       "value": "UTC",
-       "ok": true
-      },
-      {
-       "kind": "first_line",
-       "value": "orders-timestamps",
-       "ok": true,
-       "got": "facts/orders-timestamps-utc.md:2: title: orders.created_at is UTC but orders.order_date is store-local"
-      }
-     ],
-     "error": ""
-    },
-    {
-     "id": "late-rows",
-     "tier": "must",
-     "pass": true,
-     "q": "Why did my backfilled rows not show up in the incremental model?",
-     "query": "incremental late rows",
-     "output": "facts/incremental-models-miss-late-rows.md:2: title: Incremental dbt models do not pick up rows that arrive late\nfacts/incremental-models-miss-late-rows.md:13: Incremental models filter on `loaded_at > max(loaded_at)`, so rows backfilled with an old `loaded_at` are skipped. Fix for one model: `dbt run --select <model> --full-refresh`.\nfacts/daily-core-sla.md:13: in the data-status channel. Common causes: late upstream export (check the `source_freshness` task), warehouse queue (see backfill concurrency), a failed incremental model.\nfacts/mobile-events-arrive-late.md:2: title: Mobile events can arrive up to 72 hours late; rollups finalise at T+3\nbrain.config.yaml:9: - need: a pipeline failed or is late\ncapabilities.yaml:10: enables: Check whether a DAG run is late or failed\nglossary.yaml:15: one_liner: Pre-aggregated daily table; recomputed for D-1..D-3 because events arrive late",
-     "checks": [
-      {
-       "kind": "expect",
-       "value": "full-refresh",
-       "ok": true
-      },
-      {
-       "kind": "first_line",
-       "value": "incremental-models",
-       "ok": true,
-       "got": "facts/incremental-models-miss-late-rows.md:2: title: Incremental dbt models do not pick up rows that arrive late"
-      }
-     ],
-     "error": ""
-    },
-    {
-     "id": "finality",
-     "tier": "must",
-     "pass": true,
-     "q": "When are yesterday's numbers final?",
-     "query": "late rollups final",
-     "output": "facts/mobile-events-arrive-late.md:2: title: Mobile events can arrive up to 72 hours late; rollups finalise at T+3\nfacts/mobile-events-arrive-late.md:13: before 10:00 UTC, and quote D-4 or older when a number must be final. Dashboards show a \"provisional\" badge for the last 3 days.\nfacts/mobile-events-arrive-late.md:12: Clients batch events and flush on reconnect, so day D keeps growing until about D+3. Daily rollups are re-computed for D-1..D-3 every run. Do not alert on a D-1 volume drop\nfacts/incremental-models-miss-late-rows.md:2: title: Incremental dbt models do not pick up rows that arrive late\nglossary.yaml:13: - term: Rollup\nglossary.yaml:15: one_liner: Pre-aggregated daily table; recomputed for D-1..D-3 because events arrive late\nbrain.config.yaml:9: - need: a pipeline failed or is late\ncapabilities.yaml:10: enables: Check whether a DAG run is late or failed\nfacts/daily-core-sla.md:13: in the data-status channel. Common causes: late upstream export (check the `source_freshness` task), warehouse queue (see backfill concurrency), a failed incremental model.",
-     "checks": [
-      {
-       "kind": "expect",
-       "value": "T+3",
-       "ok": true
-      },
-      {
-       "kind": "first_line",
-       "value": "mobile-events",
-       "ok": true,
-       "got": "facts/mobile-events-arrive-late.md:2: title: Mobile events can arrive up to 72 hours late; rollups finalise at T+3"
-      }
-     ],
-     "error": ""
-    },
-    {
-     "id": "pii-join",
-     "tier": "must",
-     "pass": true,
-     "q": "How do I join on email without raw PII?",
-     "query": "email hashed restricted",
-     "output": "facts/pii-hashed-email.md:2: title: Email is only available hashed; raw email lives in the restricted schema\nfacts/pii-hashed-email.md:13: Use `email_hash` (salted SHA-256, salt rotated yearly) for joins and counts. Raw email exists only in schema `restricted`; queries there are audited and need a ticket reference in the query comment.\nfacts/pii-hashed-email.md:14: Never paste raw values into the brain, tickets or chat. Exports containing `restricted` columns need approval from the data protection lead.\nbrain.config.yaml:18: - Raw PII lives in schema `restricted` (audited); everything else is hashed.\nglossary.yaml:7: - term: Restricted schema\nglossary.yaml:9: one_liner: Audited warehouse schema holding raw PII; everything else is hashed",
-     "checks": [
-      {
-       "kind": "expect",
-       "value": "email_hash",
-       "ok": true
-      },
-      {
-       "kind": "first_line",
-       "value": "pii-hashed",
-       "ok": true,
-       "got": "facts/pii-hashed-email.md:2: title: Email is only available hashed; raw email lives in the restricted schema"
-      }
-     ],
-     "error": ""
-    },
-    {
-     "id": "backfill",
-     "tier": "must",
-     "pass": true,
-     "q": "How do I run an Airflow backfill safely?",
-     "query": "backfill concurrency",
-     "output": "facts/airflow-backfill-concurrency.md:12: `airflow dags backfill -s <start> -e <end> --reset-dagruns daily_core` with the default concurrency starts every day in parallel and queues interactive queries for an hour.\nfacts/airflow-backfill-concurrency.md:2: title: Airflow backfills must run with max_active_runs=1 or they exhaust warehouse slots\nfacts/airflow-backfill-concurrency.md:13: Run `airflow dags backfill ... --max-active-runs 1` (or set it on the DAG for the backfill window). Check slot usage in the warehouse console before starting.\nfacts/daily-core-sla.md:13: in the data-status channel. Common causes: late upstream export (check the `source_freshness` task), warehouse queue (see backfill concurrency), a failed incremental model.\nworkstreams/revenue-metric-v2/STATE.md:31: 1. Backfill 2024 (see backfill concurrency fact)\nworkstreams/revenue-metric-v2/STATE.md:11: - Backfill 2024 with max-active-runs 1\nbrain.config.yaml:17: - Airflow UI needs the VPN; `airflow dags backfill` runs only from the bastion.\nfacts/incremental-models-miss-late-rows.md:13: Incremental models filter on `loaded_at > max(loaded_at)`, so rows backfilled with an old `loaded_at` are skipped. Fix for one model: `dbt run --select <model> --full-refresh`.",
-     "checks": [
-      {
-       "kind": "expect",
-       "value": "max-active-runs",
-       "ok": true
-      }
-     ],
-     "error": ""
-    },
-    {
-     "id": "sla",
-     "tier": "must",
-     "pass": true,
-     "q": "When must the daily pipeline finish?",
-     "query": "daily_core 07:00",
-     "output": "facts/daily-core-sla.md:2: title: daily_core must finish by 07:00 UTC; the exec dashboard refreshes at 07:30\nfacts/daily-core-sla.md:12: The executive dashboard extract starts at 07:30 UTC and reads whatever `daily_core` has produced. If the DAG is not green at 07:00 the on-call analytics engineer is paged and posts\ncapabilities.yaml:13: how: Airflow UI (VPN) or `airflow dags list-runs -d daily_core`\ncapabilities.yaml:15: - is daily_core green?\nfacts/airflow-backfill-concurrency.md:12: `airflow dags backfill -s <start> -e <end> --reset-dagruns daily_core` with the default concurrency starts every day in parallel and queues interactive queries for an hour.",
-     "checks": [
-      {
-       "kind": "expect",
-       "value": "07:00 UTC",
-       "ok": true
-      }
-     ],
-     "error": ""
-    },
-    {
-     "id": "in-flight",
-     "tier": "must",
-     "pass": true,
-     "q": "What is in flight?",
-     "query": "revenue metric layer",
-     "output": "workstreams/revenue-metric-v2/STATE.md:3: title: Move revenue to the metric layer\nworkstreams/revenue-metric-v2/STATE.md:16: One governed revenue definition in the metric layer, replacing three divergent dashboard formulas.\nworkstreams/revenue-metric-v2/STATE.md:19: Finance and growth quote revenue that differs by up to 2%: refunds, FX date and store-local dates are handled differently. The layer must use `created_at` (UTC) and net refunds.\ndecisions/2025-01-10-use-metric-layer.md:1: # Use a metric layer for business metrics\ndecisions/2025-01-10-use-metric-layer.md:10: | metric layer in dbt | reconciled Jan within 0.05% in a spike | cannot express refunds | yes (views) |\ndecisions/2025-01-10-use-metric-layer.md:12: Define metrics once in the metric layer; dashboards read only from it.\ncapabilities.yaml:5: how: warehouse MCP `query` tool as role analyst_ro; prefer the metric layer views over raw tables\ncapabilities.yaml:7: - what was revenue yesterday by country?\nglossary.yaml:18: - term: Metric layer\nglossary.yaml:20: one_liner: Single governed definition of each business metric, consumed by dashboards and notebooks\nfacts/orders-timestamps-utc.md:12: `orders.created_at` is stored in UTC. `orders.order_date` is derived in the store's local timezone. Joining or grouping revenue on `order_date` across stores\nfacts/orders-timestamps-utc.md:13: double-counts or drops orders near midnight UTC. Use `created_at` converted with `convert_timezone('UTC', ...)` for global metrics and `order_date` only for per-store reports.\nbrain.config.yaml:7: - need: why a metric or dashboard number looks wrong\nbrain.config.yaml:8: use: '`brain.py search <metric>`, then facts tagged `warehouse`'\nbrain.config.yaml:11: - need: who owns a table or metric",
-     "checks": [
-      {
-       "kind": "expect",
-       "value": "Move revenue to the metric layer",
-       "ok": true
-      }
-     ],
-     "error": ""
-    },
-    {
-     "id": "order-timezone",
-     "tier": "must",
-     "pass": true,
-     "q": "Which time zone are order timestamps stored in?",
-     "query": "late rollups final",
-     "output": "facts/mobile-events-arrive-late.md:2: title: Mobile events can arrive up to 72 hours late; rollups finalise at T+3\nfacts/mobile-events-arrive-late.md:13: before 10:00 UTC, and quote D-4 or older when a number must be final. Dashboards show a \"provisional\" badge for the last 3 days.\nfacts/mobile-events-arrive-late.md:12: Clients batch events and flush on reconnect, so day D keeps growing until about D+3. Daily rollups are re-computed for D-1..D-3 every run. Do not alert on a D-1 volume drop\nfacts/incremental-models-miss-late-rows.md:2: title: Incremental dbt models do not pick up rows that arrive late\nglossary.yaml:13: - term: Rollup\nglossary.yaml:15: one_liner: Pre-aggregated daily table; recomputed for D-1..D-3 because events arrive late\nbrain.config.yaml:9: - need: a pipeline failed or is late\ncapabilities.yaml:10: enables: Check whether a DAG run is late or failed\nfacts/daily-core-sla.md:13: in the data-status channel. Common causes: late upstream export (check the `source_freshness` task), warehouse queue (see backfill concurrency), a failed incremental model.",
-     "checks": [
-      {
-       "kind": "expect",
-       "value": "UTC",
-       "ok": true
-      }
-     ],
-     "error": ""
-    }
-   ],
-   "summary": {
-    "must_pass": 8,
-    "must_total": 8,
-    "coverage_pass": 0,
-    "coverage_total": 0,
-    "skipped": 0,
-    "ok": true
-   }
-  },
-  "run_evals:28yy9f5lg6e": {
+  "run_evals:1hie9erfli2": {
    "results": [
     {
      "id": "midnight-mismatch",
@@ -1408,7 +1239,7 @@
     "ok": false
    }
   },
-  "run_evals:k34a9kdohq": {
+  "run_evals:1qd6i1c31wj": {
    "results": [
     {
      "id": "midnight-mismatch",
@@ -1550,18 +1381,34 @@
       }
      ],
      "error": ""
+    },
+    {
+     "id": "order-timezone",
+     "tier": "must",
+     "pass": true,
+     "q": "Which time zone are order timestamps stored in?",
+     "query": "late rollups final",
+     "output": "facts/mobile-events-arrive-late.md:2: title: Mobile events can arrive up to 72 hours late; rollups finalise at T+3\nfacts/mobile-events-arrive-late.md:13: before 10:00 UTC, and quote D-4 or older when a number must be final. Dashboards show a \"provisional\" badge for the last 3 days.\nfacts/mobile-events-arrive-late.md:12: Clients batch events and flush on reconnect, so day D keeps growing until about D+3. Daily rollups are re-computed for D-1..D-3 every run. Do not alert on a D-1 volume drop\nfacts/incremental-models-miss-late-rows.md:2: title: Incremental dbt models do not pick up rows that arrive late\nglossary.yaml:13: - term: Rollup\nglossary.yaml:15: one_liner: Pre-aggregated daily table; recomputed for D-1..D-3 because events arrive late\nbrain.config.yaml:9: - need: a pipeline failed or is late\ncapabilities.yaml:10: enables: Check whether a DAG run is late or failed\nfacts/daily-core-sla.md:13: in the data-status channel. Common causes: late upstream export (check the `source_freshness` task), warehouse queue (see backfill concurrency), a failed incremental model.",
+     "checks": [
+      {
+       "kind": "expect",
+       "value": "UTC",
+       "ok": true
+      }
+     ],
+     "error": ""
     }
    ],
    "summary": {
-    "must_pass": 7,
-    "must_total": 7,
+    "must_pass": 8,
+    "must_total": 8,
     "coverage_pass": 0,
     "coverage_total": 0,
     "skipped": 0,
     "ok": true
    }
   },
-  "run_evals:mj11kyqzr8": {
+  "run_evals:coc44bh73i": {
    "results": [
     {
      "id": "midnight-mismatch",
@@ -1746,7 +1593,160 @@
     "ok": false
    }
   },
-  "run_evals:ol7kgy9iek": {
+  "run_evals:f19fgs5qwe": {
+   "results": [
+    {
+     "id": "midnight-mismatch",
+     "tier": "must",
+     "pass": true,
+     "q": "Why do per-store and global revenue disagree near midnight?",
+     "query": "order_date UTC",
+     "output": "facts/orders-timestamps-utc.md:2: title: orders.created_at is UTC but orders.order_date is store-local\nfacts/orders-timestamps-utc.md:12: `orders.created_at` is stored in UTC. `orders.order_date` is derived in the store's local timezone. Joining or grouping revenue on `order_date` across stores\nfacts/orders-timestamps-utc.md:13: double-counts or drops orders near midnight UTC. Use `created_at` converted with `convert_timezone('UTC', ...)` for global metrics and `order_date` only for per-store reports.\nfacts/daily-core-sla.md:2: title: daily_core must finish by 07:00 UTC; the exec dashboard refreshes at 07:30\nfacts/daily-core-sla.md:12: The executive dashboard extract starts at 07:30 UTC and reads whatever `daily_core` has produced. If the DAG is not green at 07:00 the on-call analytics engineer is paged and posts\ncapabilities.yaml:8: gotchas: See facts/orders-timestamps-utc.md before grouping by date\nfacts/mobile-events-arrive-late.md:13: before 10:00 UTC, and quote D-4 or older when a number must be final. Dashboards show a \"provisional\" badge for the last 3 days.\nglossary.yaml:3: one_liner: Airflow DAG that builds the core fact and dimension tables each night; SLA 07:00 UTC\nworkstreams/revenue-metric-v2/STATE.md:19: Finance and growth quote revenue that differs by up to 2%: refunds, FX date and store-local dates are handled differently. The layer must use `created_at` (UTC) and net refunds.",
+     "checks": [
+      {
+       "kind": "expect",
+       "value": "orders.created_at",
+       "ok": true
+      },
+      {
+       "kind": "expect",
+       "value": "UTC",
+       "ok": true
+      },
+      {
+       "kind": "first_line",
+       "value": "orders-timestamps",
+       "ok": true,
+       "got": "facts/orders-timestamps-utc.md:2: title: orders.created_at is UTC but orders.order_date is store-local"
+      }
+     ],
+     "error": ""
+    },
+    {
+     "id": "late-rows",
+     "tier": "must",
+     "pass": true,
+     "q": "Why did my backfilled rows not show up in the incremental model?",
+     "query": "incremental late rows",
+     "output": "facts/incremental-models-miss-late-rows.md:2: title: Incremental dbt models do not pick up rows that arrive late\nfacts/incremental-models-miss-late-rows.md:13: Incremental models filter on `loaded_at > max(loaded_at)`, so rows backfilled with an old `loaded_at` are skipped. Fix for one model: `dbt run --select <model> --full-refresh`.\nfacts/daily-core-sla.md:13: in the data-status channel. Common causes: late upstream export (check the `source_freshness` task), warehouse queue (see backfill concurrency), a failed incremental model.\nfacts/mobile-events-arrive-late.md:2: title: Mobile events can arrive up to 72 hours late; rollups finalise at T+3\nbrain.config.yaml:9: - need: a pipeline failed or is late\ncapabilities.yaml:10: enables: Check whether a DAG run is late or failed\nglossary.yaml:15: one_liner: Pre-aggregated daily table; recomputed for D-1..D-3 because events arrive late",
+     "checks": [
+      {
+       "kind": "expect",
+       "value": "full-refresh",
+       "ok": true
+      },
+      {
+       "kind": "first_line",
+       "value": "incremental-models",
+       "ok": true,
+       "got": "facts/incremental-models-miss-late-rows.md:2: title: Incremental dbt models do not pick up rows that arrive late"
+      }
+     ],
+     "error": ""
+    },
+    {
+     "id": "finality",
+     "tier": "must",
+     "pass": true,
+     "q": "When are yesterday's numbers final?",
+     "query": "late rollups final",
+     "output": "facts/mobile-events-arrive-late.md:2: title: Mobile events can arrive up to 72 hours late; rollups finalise at T+3\nfacts/mobile-events-arrive-late.md:13: before 10:00 UTC, and quote D-4 or older when a number must be final. Dashboards show a \"provisional\" badge for the last 3 days.\nfacts/mobile-events-arrive-late.md:12: Clients batch events and flush on reconnect, so day D keeps growing until about D+3. Daily rollups are re-computed for D-1..D-3 every run. Do not alert on a D-1 volume drop\nfacts/incremental-models-miss-late-rows.md:2: title: Incremental dbt models do not pick up rows that arrive late\nglossary.yaml:13: - term: Rollup\nglossary.yaml:15: one_liner: Pre-aggregated daily table; recomputed for D-1..D-3 because events arrive late\nbrain.config.yaml:9: - need: a pipeline failed or is late\ncapabilities.yaml:10: enables: Check whether a DAG run is late or failed\nfacts/daily-core-sla.md:13: in the data-status channel. Common causes: late upstream export (check the `source_freshness` task), warehouse queue (see backfill concurrency), a failed incremental model.",
+     "checks": [
+      {
+       "kind": "expect",
+       "value": "T+3",
+       "ok": true
+      },
+      {
+       "kind": "first_line",
+       "value": "mobile-events",
+       "ok": true,
+       "got": "facts/mobile-events-arrive-late.md:2: title: Mobile events can arrive up to 72 hours late; rollups finalise at T+3"
+      }
+     ],
+     "error": ""
+    },
+    {
+     "id": "pii-join",
+     "tier": "must",
+     "pass": true,
+     "q": "How do I join on email without raw PII?",
+     "query": "email hashed restricted",
+     "output": "facts/pii-hashed-email.md:2: title: Email is only available hashed; raw email lives in the restricted schema\nfacts/pii-hashed-email.md:13: Use `email_hash` (salted SHA-256, salt rotated yearly) for joins and counts. Raw email exists only in schema `restricted`; queries there are audited and need a ticket reference in the query comment.\nfacts/pii-hashed-email.md:14: Never paste raw values into the brain, tickets or chat. Exports containing `restricted` columns need approval from the data protection lead.\nbrain.config.yaml:18: - Raw PII lives in schema `restricted` (audited); everything else is hashed.\nglossary.yaml:7: - term: Restricted schema\nglossary.yaml:9: one_liner: Audited warehouse schema holding raw PII; everything else is hashed",
+     "checks": [
+      {
+       "kind": "expect",
+       "value": "email_hash",
+       "ok": true
+      },
+      {
+       "kind": "first_line",
+       "value": "pii-hashed",
+       "ok": true,
+       "got": "facts/pii-hashed-email.md:2: title: Email is only available hashed; raw email lives in the restricted schema"
+      }
+     ],
+     "error": ""
+    },
+    {
+     "id": "backfill",
+     "tier": "must",
+     "pass": true,
+     "q": "How do I run an Airflow backfill safely?",
+     "query": "backfill concurrency",
+     "output": "facts/airflow-backfill-concurrency.md:12: `airflow dags backfill -s <start> -e <end> --reset-dagruns daily_core` with the default concurrency starts every day in parallel and queues interactive queries for an hour.\nfacts/airflow-backfill-concurrency.md:2: title: Airflow backfills must run with max_active_runs=1 or they exhaust warehouse slots\nfacts/airflow-backfill-concurrency.md:13: Run `airflow dags backfill ... --max-active-runs 1` (or set it on the DAG for the backfill window). Check slot usage in the warehouse console before starting.\nfacts/daily-core-sla.md:13: in the data-status channel. Common causes: late upstream export (check the `source_freshness` task), warehouse queue (see backfill concurrency), a failed incremental model.\nworkstreams/revenue-metric-v2/STATE.md:31: 1. Backfill 2024 (see backfill concurrency fact)\nworkstreams/revenue-metric-v2/STATE.md:11: - Backfill 2024 with max-active-runs 1\nbrain.config.yaml:17: - Airflow UI needs the VPN; `airflow dags backfill` runs only from the bastion.\nfacts/incremental-models-miss-late-rows.md:13: Incremental models filter on `loaded_at > max(loaded_at)`, so rows backfilled with an old `loaded_at` are skipped. Fix for one model: `dbt run --select <model> --full-refresh`.",
+     "checks": [
+      {
+       "kind": "expect",
+       "value": "max-active-runs",
+       "ok": true
+      }
+     ],
+     "error": ""
+    },
+    {
+     "id": "sla",
+     "tier": "must",
+     "pass": true,
+     "q": "When must the daily pipeline finish?",
+     "query": "daily_core 07:00",
+     "output": "facts/daily-core-sla.md:2: title: daily_core must finish by 07:00 UTC; the exec dashboard refreshes at 07:30\nfacts/daily-core-sla.md:12: The executive dashboard extract starts at 07:30 UTC and reads whatever `daily_core` has produced. If the DAG is not green at 07:00 the on-call analytics engineer is paged and posts\ncapabilities.yaml:13: how: Airflow UI (VPN) or `airflow dags list-runs -d daily_core`\ncapabilities.yaml:15: - is daily_core green?\nfacts/airflow-backfill-concurrency.md:12: `airflow dags backfill -s <start> -e <end> --reset-dagruns daily_core` with the default concurrency starts every day in parallel and queues interactive queries for an hour.",
+     "checks": [
+      {
+       "kind": "expect",
+       "value": "07:00 UTC",
+       "ok": true
+      }
+     ],
+     "error": ""
+    },
+    {
+     "id": "in-flight",
+     "tier": "must",
+     "pass": true,
+     "q": "What is in flight?",
+     "query": "revenue metric layer",
+     "output": "workstreams/revenue-metric-v2/STATE.md:3: title: Move revenue to the metric layer\nworkstreams/revenue-metric-v2/STATE.md:16: One governed revenue definition in the metric layer, replacing three divergent dashboard formulas.\nworkstreams/revenue-metric-v2/STATE.md:19: Finance and growth quote revenue that differs by up to 2%: refunds, FX date and store-local dates are handled differently. The layer must use `created_at` (UTC) and net refunds.\ndecisions/2025-01-10-use-metric-layer.md:1: # Use a metric layer for business metrics\ndecisions/2025-01-10-use-metric-layer.md:10: | metric layer in dbt | reconciled Jan within 0.05% in a spike | cannot express refunds | yes (views) |\ndecisions/2025-01-10-use-metric-layer.md:12: Define metrics once in the metric layer; dashboards read only from it.\ncapabilities.yaml:5: how: warehouse MCP `query` tool as role analyst_ro; prefer the metric layer views over raw tables\ncapabilities.yaml:7: - what was revenue yesterday by country?\nglossary.yaml:18: - term: Metric layer\nglossary.yaml:20: one_liner: Single governed definition of each business metric, consumed by dashboards and notebooks\nfacts/orders-timestamps-utc.md:12: `orders.created_at` is stored in UTC. `orders.order_date` is derived in the store's local timezone. Joining or grouping revenue on `order_date` across stores\nfacts/orders-timestamps-utc.md:13: double-counts or drops orders near midnight UTC. Use `created_at` converted with `convert_timezone('UTC', ...)` for global metrics and `order_date` only for per-store reports.\nbrain.config.yaml:7: - need: why a metric or dashboard number looks wrong\nbrain.config.yaml:8: use: '`brain.py search <metric>`, then facts tagged `warehouse`'\nbrain.config.yaml:11: - need: who owns a table or metric",
+     "checks": [
+      {
+       "kind": "expect",
+       "value": "Move revenue to the metric layer",
+       "ok": true
+      }
+     ],
+     "error": ""
+    }
+   ],
+   "summary": {
+    "must_pass": 7,
+    "must_total": 7,
+    "coverage_pass": 0,
+    "coverage_total": 0,
+    "skipped": 0,
+    "ok": true
+   }
+  },
+  "run_evals:n047sm4cv0": {
    "results": [
     {
      "id": "midnight-mismatch",
@@ -1915,402 +1915,7 @@
     "ok": false
    }
   },
-  "trace:15885b6urz4": {
-   "hits": {
-    "eval_run.py": {
-     "16": 1,
-     "17": 1,
-     "18": 1,
-     "19": 1,
-     "27": 2,
-     "28": 10,
-     "29": 1,
-     "30": 1,
-     "31": 1
-    },
-    "brain.py": {
-     "34": 1292,
-     "35": 1276,
-     "36": 1292,
-     "37": 1289,
-     "38": 1104,
-     "40": 1488,
-     "45": 4,
-     "46": 1,
-     "54": 8,
-     "55": 1,
-     "56": 194,
-     "57": 9118,
-     "58": 551,
-     "59": 4,
-     "60": 1,
-     "61": 12,
-     "62": 1005,
-     "63": 11,
-     "64": 78,
-     "65": 30,
-     "66": 7,
-     "67": 16,
-     "68": 1,
-     "71": 15,
-     "72": 1,
-     "73": 12,
-     "74": 11,
-     "75": 210,
-     "76": 199,
-     "77": 1,
-     "83": 9,
-     "89": 10
-    }
-   }
-  },
-  "trace:16kuu3ucclj": {
-   "hits": {
-    "eval_run.py": {
-     "16": 1,
-     "17": 1,
-     "18": 1,
-     "19": 1,
-     "27": 3,
-     "28": 10,
-     "29": 1,
-     "30": 1,
-     "31": 1
-    },
-    "brain.py": {
-     "34": 1273,
-     "35": 1257,
-     "36": 1273,
-     "37": 1270,
-     "38": 1086,
-     "40": 1470,
-     "45": 3,
-     "46": 1,
-     "54": 6,
-     "55": 1,
-     "56": 194,
-     "57": 5900,
-     "58": 343,
-     "59": 3,
-     "60": 1,
-     "61": 12,
-     "62": 809,
-     "63": 11,
-     "64": 78,
-     "65": 24,
-     "66": 7,
-     "67": 16,
-     "68": 1,
-     "71": 15,
-     "72": 1,
-     "73": 12,
-     "74": 11,
-     "75": 210,
-     "76": 199,
-     "77": 1,
-     "83": 9,
-     "89": 10
-    }
-   }
-  },
-  "trace:1jb3vcrv4de": {
-   "hits": {
-    "eval_run.py": {
-     "16": 8,
-     "17": 8,
-     "18": 8,
-     "19": 8,
-     "27": 17,
-     "28": 69,
-     "29": 8,
-     "30": 8,
-     "31": 8
-    },
-    "brain.py": {
-     "34": 10109,
-     "35": 9984,
-     "36": 10109,
-     "37": 10087,
-     "38": 8648,
-     "40": 11672,
-     "45": 28,
-     "46": 8,
-     "54": 52,
-     "55": 8,
-     "56": 1552,
-     "57": 53258,
-     "58": 3237,
-     "59": 26,
-     "60": 8,
-     "61": 96,
-     "62": 6846,
-     "63": 88,
-     "64": 481,
-     "65": 164,
-     "66": 45,
-     "67": 106,
-     "68": 8,
-     "71": 120,
-     "72": 8,
-     "73": 96,
-     "74": 88,
-     "75": 1680,
-     "76": 1592,
-     "77": 8,
-     "83": 61,
-     "89": 69
-    }
-   }
-  },
-  "trace:1kxy8va65n": {
-   "hits": {
-    "eval_run.py": {
-     "16": 1,
-     "17": 1,
-     "18": 1,
-     "19": 1,
-     "27": 2,
-     "28": 7,
-     "29": 1,
-     "30": 1,
-     "31": 1
-    },
-    "brain.py": {
-     "34": 1244,
-     "35": 1229,
-     "36": 1244,
-     "37": 1242,
-     "38": 1070,
-     "40": 1437,
-     "45": 4,
-     "46": 1,
-     "54": 8,
-     "55": 1,
-     "56": 194,
-     "57": 9041,
-     "58": 571,
-     "59": 4,
-     "60": 1,
-     "61": 12,
-     "62": 999,
-     "63": 11,
-     "64": 39,
-     "65": 15,
-     "66": 4,
-     "67": 10,
-     "68": 1,
-     "71": 15,
-     "72": 1,
-     "73": 12,
-     "74": 11,
-     "75": 210,
-     "76": 199,
-     "77": 1,
-     "83": 6,
-     "89": 7
-    }
-   }
-  },
-  "trace:1u6vvykgym": {
-   "hits": {
-    "eval_run.py": {
-     "16": 1,
-     "17": 1,
-     "18": 1,
-     "19": 1,
-     "27": 2,
-     "28": 3,
-     "29": 1,
-     "30": 1,
-     "31": 1
-    },
-    "brain.py": {
-     "34": 1212,
-     "35": 1197,
-     "36": 1212,
-     "37": 1209,
-     "38": 1033,
-     "40": 1406,
-     "45": 2,
-     "46": 1,
-     "54": 4,
-     "55": 1,
-     "56": 194,
-     "57": 2980,
-     "58": 193,
-     "59": 2,
-     "60": 1,
-     "61": 12,
-     "62": 603,
-     "63": 11,
-     "64": 26,
-     "65": 6,
-     "66": 3,
-     "67": 5,
-     "68": 1,
-     "71": 15,
-     "72": 1,
-     "73": 12,
-     "74": 11,
-     "75": 210,
-     "76": 199,
-     "77": 1,
-     "83": 2,
-     "89": 3
-    }
-   }
-  },
-  "trace:1x09sbbouhr": {
-   "hits": {
-    "eval_run.py": {
-     "16": 1,
-     "17": 1,
-     "18": 1,
-     "19": 1,
-     "27": 2,
-     "28": 6,
-     "29": 1,
-     "30": 1,
-     "31": 1
-    },
-    "brain.py": {
-     "34": 1240,
-     "35": 1224,
-     "36": 1240,
-     "37": 1237,
-     "38": 1060,
-     "40": 1435,
-     "45": 4,
-     "46": 1,
-     "54": 4,
-     "55": 1,
-     "56": 194,
-     "57": 2953,
-     "58": 194,
-     "59": 2,
-     "60": 1,
-     "61": 12,
-     "62": 606,
-     "63": 11,
-     "64": 39,
-     "65": 9,
-     "66": 4,
-     "67": 9,
-     "68": 1,
-     "71": 15,
-     "72": 1,
-     "73": 12,
-     "74": 11,
-     "75": 210,
-     "76": 199,
-     "77": 1,
-     "83": 5,
-     "89": 6
-    }
-   }
-  },
-  "trace:2127fsy5n5b": {
-   "hits": {
-    "eval_run.py": {
-     "16": 1,
-     "17": 1,
-     "18": 1,
-     "19": 1,
-     "27": 2,
-     "28": 10,
-     "29": 1,
-     "30": 1,
-     "31": 1
-    },
-    "brain.py": {
-     "34": 1292,
-     "35": 1276,
-     "36": 1292,
-     "37": 1289,
-     "38": 1104,
-     "40": 1488,
-     "45": 4,
-     "46": 1,
-     "54": 8,
-     "55": 1,
-     "56": 194,
-     "57": 9118,
-     "58": 551,
-     "59": 4,
-     "60": 1,
-     "61": 12,
-     "62": 1005,
-     "63": 11,
-     "64": 78,
-     "65": 30,
-     "66": 7,
-     "67": 16,
-     "68": 1,
-     "71": 15,
-     "72": 1,
-     "73": 12,
-     "74": 11,
-     "75": 210,
-     "76": 199,
-     "77": 1,
-     "83": 9,
-     "89": 10
-    }
-   }
-  },
-  "trace:22l6azd78e7": {
-   "hits": {}
-  },
-  "trace:25edrc1fpcy": {
-   "hits": {
-    "eval_run.py": {
-     "16": 1,
-     "17": 1,
-     "18": 1,
-     "19": 1,
-     "27": 2,
-     "28": 8,
-     "29": 1,
-     "30": 1,
-     "31": 1
-    },
-    "brain.py": {
-     "34": 1292,
-     "35": 1276,
-     "36": 1292,
-     "37": 1289,
-     "38": 1104,
-     "40": 1488,
-     "45": 4,
-     "46": 1,
-     "54": 8,
-     "55": 1,
-     "56": 194,
-     "57": 9021,
-     "58": 563,
-     "59": 4,
-     "60": 1,
-     "61": 12,
-     "62": 998,
-     "63": 11,
-     "64": 78,
-     "65": 30,
-     "66": 7,
-     "67": 14,
-     "68": 1,
-     "71": 15,
-     "72": 1,
-     "73": 12,
-     "74": 11,
-     "75": 210,
-     "76": 199,
-     "77": 1,
-     "83": 7,
-     "89": 8
-    }
-   }
-  },
-  "trace:26jzl8nlk6k": {
+  "trace:126qrmzjb5v": {
    "hits": {
     "eval_run.py": {
      "16": 1,
@@ -2359,7 +1964,154 @@
     }
    }
   },
-  "trace:2a96zqh6uo2": {
+  "trace:1ab24050drg": {
+   "hits": {
+    "eval_run.py": {
+     "16": 1,
+     "17": 1,
+     "18": 1,
+     "19": 1,
+     "27": 3,
+     "28": 10,
+     "29": 1,
+     "30": 1,
+     "31": 1
+    },
+    "brain.py": {
+     "34": 1273,
+     "35": 1257,
+     "36": 1273,
+     "37": 1270,
+     "38": 1086,
+     "40": 1470,
+     "45": 3,
+     "46": 1,
+     "54": 6,
+     "55": 1,
+     "56": 194,
+     "57": 5900,
+     "58": 343,
+     "59": 3,
+     "60": 1,
+     "61": 12,
+     "62": 809,
+     "63": 11,
+     "64": 78,
+     "65": 24,
+     "66": 7,
+     "67": 16,
+     "68": 1,
+     "71": 15,
+     "72": 1,
+     "73": 12,
+     "74": 11,
+     "75": 210,
+     "76": 199,
+     "77": 1,
+     "83": 9,
+     "89": 10
+    }
+   }
+  },
+  "trace:1n3lo0tcoq0": {
+   "hits": {
+    "eval_run.py": {
+     "16": 1,
+     "17": 1,
+     "18": 1,
+     "19": 1,
+     "27": 2,
+     "28": 10,
+     "29": 1,
+     "30": 1,
+     "31": 1
+    },
+    "brain.py": {
+     "34": 1292,
+     "35": 1276,
+     "36": 1292,
+     "37": 1289,
+     "38": 1104,
+     "40": 1488,
+     "45": 4,
+     "46": 1,
+     "54": 8,
+     "55": 1,
+     "56": 194,
+     "57": 9118,
+     "58": 551,
+     "59": 4,
+     "60": 1,
+     "61": 12,
+     "62": 1005,
+     "63": 11,
+     "64": 78,
+     "65": 30,
+     "66": 7,
+     "67": 16,
+     "68": 1,
+     "71": 15,
+     "72": 1,
+     "73": 12,
+     "74": 11,
+     "75": 210,
+     "76": 199,
+     "77": 1,
+     "83": 9,
+     "89": 10
+    }
+   }
+  },
+  "trace:1qaxd6435nk": {
+   "hits": {
+    "eval_run.py": {
+     "16": 1,
+     "17": 1,
+     "18": 1,
+     "19": 1,
+     "27": 2,
+     "28": 6,
+     "29": 1,
+     "30": 1,
+     "31": 1
+    },
+    "brain.py": {
+     "34": 1240,
+     "35": 1224,
+     "36": 1240,
+     "37": 1237,
+     "38": 1060,
+     "40": 1435,
+     "45": 4,
+     "46": 1,
+     "54": 4,
+     "55": 1,
+     "56": 194,
+     "57": 2953,
+     "58": 194,
+     "59": 2,
+     "60": 1,
+     "61": 12,
+     "62": 606,
+     "63": 11,
+     "64": 39,
+     "65": 9,
+     "66": 4,
+     "67": 9,
+     "68": 1,
+     "71": 15,
+     "72": 1,
+     "73": 12,
+     "74": 11,
+     "75": 210,
+     "76": 199,
+     "77": 1,
+     "83": 5,
+     "89": 6
+    }
+   }
+  },
+  "trace:1wwioaihpnj": {
    "hits": {
     "eval_run.py": {
      "16": 7,
@@ -2408,56 +2160,157 @@
     }
    }
   },
-  "trace:2bh7544cz5v": {
+  "trace:1ysjvfvm7w1": {
    "hits": {
     "eval_run.py": {
-     "16": 9,
-     "17": 9,
-     "18": 9,
-     "19": 9,
-     "27": 18,
-     "28": 79,
-     "29": 9,
-     "30": 10,
-     "31": 9
+     "16": 1,
+     "17": 1,
+     "18": 1,
+     "19": 1,
+     "27": 2,
+     "28": 8,
+     "29": 1,
+     "30": 1,
+     "31": 1
     },
     "brain.py": {
-     "34": 11382,
-     "35": 11241,
-     "36": 11382,
-     "37": 11357,
-     "38": 9734,
-     "40": 13142,
-     "45": 31,
-     "46": 9,
-     "54": 58,
-     "55": 9,
-     "56": 1746,
-     "57": 59158,
-     "58": 3580,
-     "59": 29,
-     "60": 9,
-     "61": 108,
-     "62": 7655,
-     "63": 99,
-     "64": 559,
-     "65": 188,
-     "66": 52,
-     "67": 122,
-     "68": 9,
-     "71": 135,
-     "72": 9,
-     "73": 108,
-     "74": 99,
-     "75": 1890,
-     "76": 1791,
-     "77": 9,
-     "83": 70,
-     "89": 79
+     "34": 1292,
+     "35": 1276,
+     "36": 1292,
+     "37": 1289,
+     "38": 1104,
+     "40": 1488,
+     "45": 4,
+     "46": 1,
+     "54": 8,
+     "55": 1,
+     "56": 194,
+     "57": 9021,
+     "58": 563,
+     "59": 4,
+     "60": 1,
+     "61": 12,
+     "62": 998,
+     "63": 11,
+     "64": 78,
+     "65": 30,
+     "66": 7,
+     "67": 14,
+     "68": 1,
+     "71": 15,
+     "72": 1,
+     "73": 12,
+     "74": 11,
+     "75": 210,
+     "76": 199,
+     "77": 1,
+     "83": 7,
+     "89": 8
     }
    }
   },
-  "trace:ca9k2c4wy9": {
+  "trace:22m0dxsaoy4": {
+   "hits": {
+    "eval_run.py": {
+     "16": 8,
+     "17": 8,
+     "18": 8,
+     "19": 8,
+     "27": 17,
+     "28": 69,
+     "29": 8,
+     "30": 8,
+     "31": 8
+    },
+    "brain.py": {
+     "34": 10109,
+     "35": 9984,
+     "36": 10109,
+     "37": 10087,
+     "38": 8648,
+     "40": 11672,
+     "45": 28,
+     "46": 8,
+     "54": 52,
+     "55": 8,
+     "56": 1552,
+     "57": 53258,
+     "58": 3237,
+     "59": 26,
+     "60": 8,
+     "61": 96,
+     "62": 6846,
+     "63": 88,
+     "64": 481,
+     "65": 164,
+     "66": 45,
+     "67": 106,
+     "68": 8,
+     "71": 120,
+     "72": 8,
+     "73": 96,
+     "74": 88,
+     "75": 1680,
+     "76": 1592,
+     "77": 8,
+     "83": 61,
+     "89": 69
+    }
+   }
+  },
+  "trace:23tp3h62r8a": {
+   "hits": {}
+  },
+  "trace:285d0adc9dw": {
+   "hits": {
+    "eval_run.py": {
+     "16": 1,
+     "17": 1,
+     "18": 1,
+     "19": 1,
+     "27": 2,
+     "28": 3,
+     "29": 1,
+     "30": 1,
+     "31": 1
+    },
+    "brain.py": {
+     "34": 1212,
+     "35": 1197,
+     "36": 1212,
+     "37": 1209,
+     "38": 1033,
+     "40": 1406,
+     "45": 2,
+     "46": 1,
+     "54": 4,
+     "55": 1,
+     "56": 194,
+     "57": 2980,
+     "58": 193,
+     "59": 2,
+     "60": 1,
+     "61": 12,
+     "62": 603,
+     "63": 11,
+     "64": 26,
+     "65": 6,
+     "66": 3,
+     "67": 5,
+     "68": 1,
+     "71": 15,
+     "72": 1,
+     "73": 12,
+     "74": 11,
+     "75": 210,
+     "76": 199,
+     "77": 1,
+     "83": 2,
+     "89": 3
+    }
+   }
+  },
+  "trace:3kgkjrn6it": {
    "hits": {
     "eval_run.py": {
      "16": 1,
@@ -2506,7 +2359,7 @@
     }
    }
   },
-  "trace:vgxhg1wg0j": {
+  "trace:bakvj2f3e6": {
    "hits": {
     "eval_run.py": {
      "16": 1,
@@ -2540,6 +2393,153 @@
      "63": 11,
      "64": 78,
      "65": 24,
+     "66": 7,
+     "67": 16,
+     "68": 1,
+     "71": 15,
+     "72": 1,
+     "73": 12,
+     "74": 11,
+     "75": 210,
+     "76": 199,
+     "77": 1,
+     "83": 9,
+     "89": 10
+    }
+   }
+  },
+  "trace:gzw74504d3": {
+   "hits": {
+    "eval_run.py": {
+     "16": 9,
+     "17": 9,
+     "18": 9,
+     "19": 9,
+     "27": 18,
+     "28": 79,
+     "29": 9,
+     "30": 10,
+     "31": 9
+    },
+    "brain.py": {
+     "34": 11382,
+     "35": 11241,
+     "36": 11382,
+     "37": 11357,
+     "38": 9734,
+     "40": 13142,
+     "45": 31,
+     "46": 9,
+     "54": 58,
+     "55": 9,
+     "56": 1746,
+     "57": 59158,
+     "58": 3580,
+     "59": 29,
+     "60": 9,
+     "61": 108,
+     "62": 7655,
+     "63": 99,
+     "64": 559,
+     "65": 188,
+     "66": 52,
+     "67": 122,
+     "68": 9,
+     "71": 135,
+     "72": 9,
+     "73": 108,
+     "74": 99,
+     "75": 1890,
+     "76": 1791,
+     "77": 9,
+     "83": 70,
+     "89": 79
+    }
+   }
+  },
+  "trace:lm0992aoqx": {
+   "hits": {
+    "eval_run.py": {
+     "16": 1,
+     "17": 1,
+     "18": 1,
+     "19": 1,
+     "27": 2,
+     "28": 7,
+     "29": 1,
+     "30": 1,
+     "31": 1
+    },
+    "brain.py": {
+     "34": 1244,
+     "35": 1229,
+     "36": 1244,
+     "37": 1242,
+     "38": 1070,
+     "40": 1437,
+     "45": 4,
+     "46": 1,
+     "54": 8,
+     "55": 1,
+     "56": 194,
+     "57": 9041,
+     "58": 571,
+     "59": 4,
+     "60": 1,
+     "61": 12,
+     "62": 999,
+     "63": 11,
+     "64": 39,
+     "65": 15,
+     "66": 4,
+     "67": 10,
+     "68": 1,
+     "71": 15,
+     "72": 1,
+     "73": 12,
+     "74": 11,
+     "75": 210,
+     "76": 199,
+     "77": 1,
+     "83": 6,
+     "89": 7
+    }
+   }
+  },
+  "trace:z0jn44jed3": {
+   "hits": {
+    "eval_run.py": {
+     "16": 1,
+     "17": 1,
+     "18": 1,
+     "19": 1,
+     "27": 2,
+     "28": 10,
+     "29": 1,
+     "30": 1,
+     "31": 1
+    },
+    "brain.py": {
+     "34": 1292,
+     "35": 1276,
+     "36": 1292,
+     "37": 1289,
+     "38": 1104,
+     "40": 1488,
+     "45": 4,
+     "46": 1,
+     "54": 8,
+     "55": 1,
+     "56": 194,
+     "57": 9118,
+     "58": 551,
+     "59": 4,
+     "60": 1,
+     "61": 12,
+     "62": 1005,
+     "63": 11,
+     "64": 78,
+     "65": 30,
      "66": 7,
      "67": 16,
      "68": 1,

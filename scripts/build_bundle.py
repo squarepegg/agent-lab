@@ -11,7 +11,8 @@ WEB = os.path.join(ROOT, "web")
 
 def tree(base):
     out = {}
-    for r, _, fs in os.walk(base):
+    for r, dirs, fs in os.walk(base):
+        dirs.sort()   # os.walk order is the filesystem's; the bundle (and the keys of recorded calls) must not depend on it
         for f in sorted(fs):
             if f.endswith((".md", ".yaml", ".py", ".json")) and f != "VENDOR.json" and "__pycache__" not in r:
                 out[os.path.relpath(os.path.join(r, f), base)] = open(os.path.join(r, f), encoding="utf-8").read()

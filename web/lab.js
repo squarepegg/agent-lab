@@ -35,7 +35,9 @@ function hash(s) {
   b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909);
   return (4294967296 * (2097151 & b) + (a >>> 0)).toString(36);
 }
-export const callKey = (name, args) => `${name}:${hash(JSON.stringify(args))}`;
+// Object keys sorted, so the same call hashes the same wherever the arguments were built.
+const stable = (v) => JSON.stringify(v, (_, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, x[k]])) : x));
+export const callKey = (name, args) => `${name}:${hash(stable(args))}`;
 
 /** port = { worker, log: [messages so far], on } (set up by the inline script in index.html so Python starts before this file loads).
  *  recorded = { calls: { key: result } }. Returns the client; `onState` fires on every progress / ready / error message. */

@@ -157,6 +157,11 @@ test("lessons: seven, unique ids, and the three recorded steps have expected ans
   }
 });
 
+test("callKey ignores object key order (a bundle built on another filesystem lists files in another order)", () => {
+  assert.equal(callKey("run_evals", { files: { b: "1", a: "2" }, q: [{ y: 1, x: 2 }] }), callKey("run_evals", { q: [{ x: 2, y: 1 }], files: { a: "2", b: "1" } }));
+  assert.notEqual(callKey("f", { a: [1, 2] }), callKey("f", { a: [2, 1] }), "array order still matters");
+});
+
 test("callKey: stable, and differs when the arguments differ", () => {
   assert.equal(callKey("gate", { a: 1 }), callKey("gate", { a: 1 }));
   assert.notEqual(callKey("gate", { a: 1 }), callKey("gate", { a: 2 }));
