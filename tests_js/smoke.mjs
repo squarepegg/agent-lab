@@ -30,6 +30,11 @@ assert.ok(["ADOPT","NO_DELTA","CEILING","REGRESSION"].includes(sk.gate.verdict),
 const P = lab.call("lint_skill", { text: bundle.skills.dst });
 assert.deepEqual(P.errors, []);
 
+const recorded = JSON.parse(readFileSync(new URL("../recorded/RUNS.json", import.meta.url)));
+const name = Object.keys(recorded.files).find((n) => n.startsWith("doubt--") && n.includes("haiku"));
+const gr = lab.call("gate_run", { res: JSON.parse(readFileSync(new URL("../recorded/" + name, import.meta.url))) });
+assert.equal(gr.verdict, "NO_DELTA", "the real gate judges a recorded run under Pyodide");
+
 const err = lab.call("run_evals", { files, questions: "not: [valid" });
 assert.ok(err.error, "bad yaml is reported, not thrown");
 assert.ok(lab.call("nope", {}).error);

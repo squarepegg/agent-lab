@@ -1,0 +1,487 @@
+{
+ "skill": "evidence-gated",
+ "samples": 3,
+ "arms": [
+  "with",
+  "without"
+ ],
+ "with_path": "skills/evidence-gated",
+ "pi_args": [
+  "--model",
+  "amazon-bedrock/global.anthropic.claude-sonnet-5-5",
+  "--no-extensions",
+  "--no-mcp"
+ ],
+ "probes_sha256": "15c11ce601b064898c464e2e89307274ace3ea814692d9e61c2688bc205b2f7a",
+ "date": "2026-11-16",
+ "cost_usd": 0.475,
+ "rows": [
+  {
+   "probe": "eg-recommended",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 200, \"offset\": 1, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0278,
+   "finished": true,
+   "answer": "Only when the eval returns a DECISIVE verdict. That means exactly one option is valid and none are untested, or one valid option is no worse on every metric and better on at least one. Otherwise, show the table with no pick."
+  },
+  {
+   "probe": "eg-recommended",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 200, \"offset\": 1, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.028,
+   "finished": true,
+   "answer": "Only next to a DECISIVE verdict from the registered, deterministic eval. That means one valid option and none untested, or one valid option no worse on every metric and better on one. Irreversible choices also need a committed `attack_report` and `blind_check`. Otherwise, show the table with no pick."
+  },
+  {
+   "probe": "eg-recommended",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 200, \"offset\": 1, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.028,
+   "finished": true,
+   "answer": "Only next to a DECISIVE verdict from the registered eval. That means exactly one valid option and none untested, or one valid option that is no worse on every metric and better on one. Irreversible decisions also need a committed `attack_report` and `blind_check`. Otherwise, show the table with no pick."
+  },
+  {
+   "probe": "eg-recommended",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "decisive"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0104,
+   "finished": true,
+   "answer": "Write \"(Recommended)\" only on the option you'd actually choose after weighing the trade-offs, and mark at most one option per table. Add a short reason that ties to the user's stated constraints. If no option clearly wins, or the choice depends on facts you don't have, leave the label off and state what the choice depends on."
+  },
+  {
+   "probe": "eg-recommended",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "decisive"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -rIl \\\"Recommended\\\" . 2>/dev/null | head\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0126,
+   "finished": true,
+   "answer": "I found no project rule on this in the working directory, so this is a general answer. Write \"(Recommended)\" only when you are actually recommending that option. Your analysis should back it up, and the table should mark at most one option that way. If the trade-offs are too close to call, leave the label off and say what would tip the choice."
+  },
+  {
+   "probe": "eg-recommended",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "decisive"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0101,
+   "finished": true,
+   "answer": "Only write \"(Recommended)\" next to an option when you have a clear basis for preferring it over the others in the table, such as it best fits the stated requirements or constraints. Mark at most one option, and give the reason for the preference."
+  },
+  {
+   "probe": "eg-register",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 200, \"offset\": 1, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0281,
+   "finished": true,
+   "answer": "It must be written and committed to git before the run, because `eval.py` refuses an uncommitted or modified decision file. `--draft` skips that check, but the result is marked DRAFT and is never decisive."
+  },
+  {
+   "probe": "eg-register",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 200, \"offset\": 1, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0278,
+   "finished": true,
+   "answer": "It has to be committed to git first. `eval.py` refuses an uncommitted or modified decision file, and `--draft` runs are marked DRAFT and are never decisive."
+  },
+  {
+   "probe": "eg-register",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 200, \"offset\": 1, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.028,
+   "finished": true,
+   "answer": "It must be committed to git before the run. `eval.py` refuses a decision file that is uncommitted or modified, and `--draft` runs are never decisive. The same goes for every spec, input and evidence file the decision uses."
+  },
+  {
+   "probe": "eg-register",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -il \\\"architecture decision|decision file\\\" . 2>/dev/null | head; ls\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0129,
+   "finished": true,
+   "answer": "I couldn't find an answer. The working directory is empty, and no files mention an architecture decision or a decision file.\n\nIf you tell me which project or doc you mean, I'll look it up. In many ADR workflows the decision file has to be committed or finalized, with its status set to \"proposed\", before anyone evaluates it. That's a guess, though, not something I confirmed here."
+  },
+  {
+   "probe": "eg-register",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "commit"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -ril \\\"decision\\\" . 2>/dev/null | head -20\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0123,
+   "finished": true,
+   "answer": "I couldn't find anything about this. There are no files in the working directory that mention architecture decisions or evaluations, so I can't say what has to happen to the decision file.\n\nIf you tell me where the process is documented, or what tool or repo it belongs to, I'll check there."
+  },
+  {
+   "probe": "eg-register",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "commit"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -il \\\"architecture decision|decision file\\\" . 2>/dev/null | head\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0118,
+   "finished": true,
+   "answer": "I couldn't find anything about this in the working directory, so I can't answer from the project. Can you point me to the relevant doc or skill?"
+  },
+  {
+   "probe": "eg-irreversible",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 200, \"offset\": 1, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0291,
+   "finished": true,
+   "answer": "The two files are an `attack_report` and a `blind_check`.\n\nFor a hard-to-reverse choice like a datastore, set `reversible: false` in the decision file. The decision needs both files, committed, before `eval.py` can return DECISIVE:\n\n1. **`attack_report`** is the output of an independent attack round on the options.\n2. **`blind_check`** is the output of an independent blind check.\n\nBoth files must be non-empty and committed. They must also be two different files, and neither can be the decision file itself. Without them the verdict can't be DECISIVE. That means no \"(Recommended)\" label either."
+  },
+  {
+   "probe": "eg-irreversible",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 200, \"offset\": 1, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0289,
+   "finished": true,
+   "answer": "For a hard-to-reverse choice like a datastore, set `reversible: false` in the decision file. It then needs two more committed files before `eval.py` can return DECISIVE:\n\n1. **`attack_report`** is the output of an independent attack round on the decision.\n2. **`blind_check`** is the output of an independent blind check.\n\nBoth files must be non-empty and committed. They must also be two different files, and neither can be the decision file itself. Without them, the verdict can't be DECISIVE, however good the other checks are."
+  },
+  {
+   "probe": "eg-irreversible",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 200, \"offset\": 1, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.029,
+   "finished": true,
+   "answer": "For a hard-to-reverse choice like a datastore, set `reversible: false` in the decision file. It then needs two more committed files:\n\n1. **`attack_report`**: the output of an independent attack round on the options.\n2. **`blind_check`**: the output of an independent blind check.\n\n`eval.py` won't return DECISIVE unless both are present. They must also meet these conditions:\n- They are two different files.\n- Both are non-empty.\n- Both are committed.\n- Neither is the decision file itself.\n\nWhere the property can be modelled, the skill also says to use TLC."
+  },
+  {
+   "probe": "eg-irreversible",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "attack",
+    "blind"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"cd \\\"$PWD\\\"; ls -la; rg -il \\\"datastore|hard-to-reverse|hard to reverse\\\" . 2>/dev/null | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.015,
+   "finished": true,
+   "answer": "The working directory is empty, so I found no document or skill that defines this. I'm not going to invent a rule and present it as yours.\n\nIf you want a general answer, a hard-to-reverse choice like a datastore usually needs two committed artifacts before it counts as decided:\n\n1. **A decision record (ADR).** It states the options considered, the criteria, the chosen option, the rationale and the trade-offs accepted.\n2. **Evidence for the choice.** This is usually a benchmark or spike, such as a load test or prototype against real access patterns. It could also be a written requirements or constraints doc, or a migration/exit plan that shows what reversing the choice would cost.\n\nIf you're thinking of a specific framework or skill, tell me its name or give me the file path. Then I can give you its exact two files."
+  },
+  {
+   "probe": "eg-irreversible",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "attack",
+    "blind"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"cd <cwd> && ls -la && rg -il \\\"datastore|hard-to-reverse|irreversible\\\" . | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0153,
+   "finished": true,
+   "answer": "The working directory is empty, so I found no files that define this rule. I'm answering from general decision-making practice, and I can't point to a source for it.\n\nFor a choice that's hard to reverse, like picking a datastore, two committed files would make the decision decisive:\n\n1. **Decision record (an ADR).** It states the choice, the alternatives considered, the criteria, and the trade-offs accepted. It also records the context and constraints at the time, so people can later see why the choice was made and when to revisit it.\n2. **Evidence file, such as a benchmark or spike results.** It holds the load and latency numbers, the data-model fit, the cost estimate, and the prototype or proof-of-concept output. This is what separates a measured choice from an opinion.\n\nIf you meant a specific framework or skill, tell me which one, or point me to the file. Then I can give you its exact two files."
+  },
+  {
+   "probe": "eg-irreversible",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "attack",
+    "blind"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"cd \\\"$PWD\\\"; ls -la; rg -il \\\"datastore|hard-to-reverse|decisive\\\" . 2>/dev/null | head\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0152,
+   "finished": true,
+   "answer": "The working directory is empty, so I found no project convention or document that answers this. I can't name two specific files from the project.\n\nIf you mean general practice, a hard-to-reverse choice like a datastore usually needs these two committed files before the decision can be final:\n\n1. **A decision record (ADR).** It states the context, the options considered, the choice, and the trade-offs and consequences. It also records the criteria and the reasons the alternatives were rejected.\n2. **Evidence for the choice, such as a spike, benchmark, or prototype write-up.** It holds measured results against your real workload, such as data shape, query patterns, scale, and cost. Without it the ADR is only opinion.\n\nSome teams use different files for the second slot. Common ones are a migration or exit plan (how to back out or switch later), or a requirements and constraints doc.\n\nIf your team has a specific template or skill that names the two files, tell me where it is or paste it. Then I'll answer from that."
+  },
+  {
+   "probe": "eg-requirement-tags",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"cd <cwd> && ls -R | head -50 && grep -rniE \\\"candidate|drop\\\" . | head -30\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -rniE \\\"candidate|drop|tag\\\" <root>/skills/ | head -30\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0204,
+   "finished": true,
+   "answer": "The tag is `old-behaviour-only`. This comes from the evidence-gated-decisions skill (`SKILL.md`, line 21), which says: \"Old-behaviour-only rows are candidates to drop.\""
+  },
+  {
+   "probe": "eg-requirement-tags",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"cd <cwd>; ls -R | head -50; rg -i \\\"candidate\\\" . | head -20\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"cd <cwd>; ls -la; grep -ril \\\"candidate\\\" . | head; grep -ri \\\"drop\\\" . | head\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -rin -B2 -A2 \\\"drop\\\\|tag\\\" <root>/skills/evidence-gated/ | head -60\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.026,
+   "finished": true,
+   "answer": "The tag is `old-behaviour-only`. The evidence-gated skill (`SKILL.md`) says rows with this tag are candidates to drop."
+  },
+  {
+   "probe": "eg-requirement-tags",
+   "split": "heldout",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"cd <cwd>; ls -R | head -50; grep -rniE \\\"candidate|drop\\\" . | head -20\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -rniE \\\"drop|tag\\\" <root>/skills/ | head -20\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0189,
+   "finished": true,
+   "answer": "The tag is `old-behaviour-only`. This comes from the evidence-gated-decisions skill (`SKILL.md`, step 2). It says rows tagged this way are candidates to drop."
+  },
+  {
+   "probe": "eg-requirement-tags",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "old-behaviour-only"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -il \\\"tag\\\" . | head -20; ls\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la; grep -ril \\\"candidate\\\" . | head\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0139,
+   "finished": true,
+   "answer": "The working directory is empty, so I found no source-tagging scheme to check. I can't say which tag marks rows as candidates to drop without guessing.\n\nIf you share the document or skill that defines the tags, or tell me where it is, I'll look up the exact tag."
+  },
+  {
+   "probe": "eg-requirement-tags",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "old-behaviour-only"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la; rg -il \\\"candidate\\\" . | head\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0125,
+   "finished": true,
+   "answer": "The working directory is empty, so I have no document to check this against. I also don't know which tagging scheme you mean, so I won't guess at a tag.\n\nCan you share the file or the name of the skill or template? If you paste the tag list, I'll pick out the one for rows that are candidates to drop."
+  },
+  {
+   "probe": "eg-requirement-tags",
+   "split": "heldout",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "old-behaviour-only"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"cd <cwd> && ls -la && grep -ril \\\"candidate\\\" . 2>/dev/null | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0131,
+   "finished": true,
+   "answer": "The working directory is empty, so I found no source for this. I also don't know of a standard tag for it.\n\nCan you point me to the file or doc that defines the tagging scheme? If you tell me the tag set (for example, \"Stakeholder / Regulatory / Legacy / ...\"), I can pick out the one that marks drop candidates."
+  }
+ ]
+}

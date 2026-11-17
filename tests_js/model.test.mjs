@@ -4,7 +4,8 @@ import { extractFunc, annotate, coverage, MODE_CODE, TWEAKS, applyTweak, lineDif
 import fs from "node:fs";
 import { LESSONS, checkClaims } from "../web/lessons.js";
 import { CHALLENGES } from "../web/challenges.js";
-import { parseHits, buildGraph, layout, neighbors, gateSteps, encodeGate, decodeGate, GATE_ORDER, clip } from "../web/model.js";
+import { parseHits, buildGraph, layout, neighbors, gateSteps, plainReason, runGrid, PLAIN_VERDICT, encodeGate, decodeGate, GATE_ORDER, clip } from "../web/model.js";
+import { PYODIDE, callKey } from "../web/lab.js";
 
 const docs = [{ path: "facts/a.md", kind: "fact", title: "A" }, { path: "facts/b.md", kind: "fact", title: "B" }, { path: "facts/c.md", kind: "fact", title: "C" },
   { path: "brain.config.yaml", kind: "config", title: "cfg" }];
@@ -103,10 +104,11 @@ test("lessons: every predict step has a why, 2+ choices, and claims that can fai
   assert.ok(ps.filter((p) => (p.claims || []).length).length >= 11, "nearly every explanation is claim-checked");
 });
 
-test("checkClaims reports exactly the claims that do not hold (and treats a throwing claim as failed)", () => {
+test("checkClaims reports exactly the claims that do not hold (and treats a throwing claim as failed)", async () => {
   const p = { claims: [["true one", () => true], ["false one", () => false], ["throws", () => { throw new Error("x"); }]] };
-  assert.deepEqual(checkClaims(p, {}), ["false one", "throws"]);
-  assert.deepEqual(checkClaims({}, {}), []);
+  assert.deepEqual(await checkClaims(p, {}), ["false one", "throws"]);
+  assert.deepEqual(await checkClaims({}, {}), []);
+  assert.deepEqual(await checkClaims({ claims: [["async false", async () => false], ["async true", async () => true]] }, {}), ["async false"]);
 });
 
 test("challenges: unique ids, goals, 3 hints for graded ones, code challenges have cases", () => {
@@ -119,4 +121,55 @@ test("lessons: every lesson says what to look at, and step.open only names real 
     assert.ok(l.look && l.look.length > 20, `${l.id} has a look caption`);
     for (const st of l.steps) for (const f of st.open || []) assert.ok(["poke", "code", "try"].includes(f), `${l.id}: unknown fold ${f}`);
   }
+});
+
+const PARAMS = /min_gain|ceiling|regress_by|max_cost_ratio|_cand_cost|heldout|max_unfinished/;
+const FACTS = { regressed: ["p1"], gain: 1, cost_ratio: 2.1, dev_n: 12, dev_with: 8, dev_without: 7, heldout_with: 1, heldout_without: 3 };
+const PARAM = { min_gain: 2, ceiling: 0.9, regress_by: 1, max_cost_ratio: 1.5, max_unfinished: 0.1 };
+
+test("beginner gate wording never shows an upstream parameter name; experienced keeps it", () => {
+  for (const v of GATE_ORDER) {
+    const g = { verdict: v, facts: FACTS, params: PARAM };
+    for (const s of gateSteps(g, true)) assert.doesNotMatch(`${s.name} ${s.question} ${s.detail}`, PARAMS, v + " " + s.verdict);
+    assert.doesNotMatch(plainReason(g), PARAMS, v);
+    assert.ok(PLAIN_VERDICT[v]);
+  }
+  assert.match(gateSteps({ verdict: "NO_DELTA", facts: FACTS, params: PARAM })[3].detail, /min_gain 2/);
+});
+
+test("plainReason states the numbers the gate used", () => {
+  assert.match(plainReason({ verdict: "NO_DELTA", facts: FACTS, params: PARAM }), /\+1 correct answers\. It needs at least \+2/);
+  assert.match(plainReason({ verdict: "TOO_COSTLY", facts: FACTS, params: PARAM }), /2\.1 times as much\. The limit is 1\.5/);
+  assert.match(plainReason({ verdict: "CEILING", facts: FACTS, params: PARAM }), /7 of 12/);
+});
+
+test("runGrid turns a recorded results file into the hand-set grid shape; an unfinished answer counts as wrong", () => {
+  const rows = [{ probe: "a", arm: "without", n: 0, correct: true }, { probe: "a", arm: "with", n: 0, correct: true, finished: false }, { probe: "a", arm: "with", n: 1, correct: true, finished: true }];
+  assert.deepEqual(runGrid({ rows }), { a: { without: [true], with: [false, true] } });
+});
+
+test("lessons: seven, unique ids, and the three recorded steps have expected answers and a written miss for every other choice", () => {
+  assert.equal(LESSONS.length, 7);
+  assert.equal(new Set(LESSONS.map((l) => l.id)).size, 7);
+  for (const st of LESSONS.find((l) => l.id === "recorded").steps) {
+    const p = st.predict; assert.ok(p.choices.includes(p.expects));
+    for (const c of p.choices.filter((x) => x !== p.expects)) assert.ok(p.miss[c], `${p.expects}: no miss for ${c}`);
+  }
+});
+
+test("callKey: stable, and differs when the arguments differ", () => {
+  assert.equal(callKey("gate", { a: 1 }), callKey("gate", { a: 1 }));
+  assert.notEqual(callKey("gate", { a: 1 }), callKey("gate", { a: 2 }));
+  assert.notEqual(callKey("gate", { a: 1 }), callKey("trace", { a: 1 }));
+});
+
+test("index.html: the static shell says what lesson 1 step 1 says, and every preload comes from the Pyodide the code loads", () => {
+  const html = fs.readFileSync(new URL("../web/index.html", import.meta.url), "utf8");
+  const shell = html.replace(/<[^>]+>/g, "").replace(/&[a-z#0-9]+;/g, " ").replace(/\s+/g, " ");
+  const strip = (t) => t.replace(/[`*]/g, "").replace(/\s+/g, " ");
+  assert.ok(shell.includes(strip(LESSONS[0].steps[0].predict.q)), "predict question");
+  assert.ok(shell.includes(strip(LESSONS[0].steps[0].text)), "step text");
+  const urls = [...html.matchAll(/<link rel="(?:module)?preload"[^>]*href="(https?:[^"]+)"/g)].map((m) => m[1]);
+  assert.ok(urls.length >= 3);
+  for (const u of urls) assert.ok(u.startsWith(PYODIDE), u);
 });

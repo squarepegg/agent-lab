@@ -27,25 +27,42 @@ restored; syntax errors and endless loops (400k-line budget) are reported in the
 
 **Start** (the landing page): pick your level, then follow the path: see how an agent is graded, test the tests, decide what to trust. One button continues where you left off; free-explore modes and the challenges are below the path.
 
-**Lessons**: 6 guided lessons (what is an eval, ranking, mutation testing, the gate, skill A/B, why one run isn't enough). Each asks you to **predict** before it
+**Lessons**: 7 guided lessons (what is an eval, ranking, mutation testing, the gate, skill A/B, real models recorded, why one run isn't enough). Each asks you to **predict** before it
 runs the real code. The answer is computed from that run, never written in advance, and the page refuses a lesson whose answer is not one of its choices.
 While a lesson runs, the drawer shows only the lesson card. A strip above the canvas says what to look at (`look` in `web/lessons.js`), the mode's controls sit in a **Poke at it yourself** fold and the Python folds are closed unless a step lists them in `open`. After you answer a prediction, **Show the Python that ran** opens the lines the real code executed. Leaving a lesson resets whatever it set up. Progress is in localStorage.
 
 **Challenges** (on the Start screen under Practice): six tasks (catch a surviving mutant, lift the mutation score, make the gate say TOO_COSTLY, find the regression the gate tolerates, fool the grader,
 fix `skill_ab.missing` against unit tests). Press **Check** and the real code judges your result; each has a 3-step hint ladder.
-Lesson explanations are claim-checked: every causal sentence has predicates evaluated on the real run, and the page shows a warning instead of the sentence if one stops holding.
+Each prediction has a plain explanation of a wrong pick (`miss`), and the last step says what you learned. Lesson explanations are claim-checked: every causal sentence has predicates evaluated on the real run, and the page shows a warning instead of the sentence if one stops holding.
+
+## How it loads
+The page works before Python does. `index.html` holds a static shell (headline, three ideas, lesson 1's first question) and starts `web/pyworker.js` first.
+The worker downloads Pyodide 0.27.7 from jsDelivr and boots the vendored Python off the main thread, so a chip shows real progress. Lesson 1 runs from
+`web/recorded.json` until Python is ready: results recorded from this same code in headless Chrome, labelled "recorded from the real code" on the page. Once Python is ready every result is computed live.
+`node tests_js/record.mjs` regenerates that file; `--check` fails CI on any byte difference. `web/sw.js` caches the app and Pyodide, so a repeat visit works offline (it registers off localhost, or with `?sw=1`).
+Pyodide stays on 0.27.7: 0.29.5 was about 0.3 s faster unthrottled and 0.4 s faster at 8 Mbit in a 4 to 7 run comparison, which is not worth moving from Python 3.12 (what CI runs natively) to 3.13.
+A Pyodide memory snapshot was tried and failed ("Unexpected hiwire entry") in 0.27.7, so it is not used.
 
 ## What is and is not real
-Real: ranking, eval checking, grading, gate verdicts, skill lint. **Not real:** model answers. Gate demos use fixtures; the skill A/B is a
-text-coverage proxy ("the skill states the answer"), not evidence a model behaves better. Behaviour needs recorded runs from
-`agent-toolkit/evals/run.py`, which the gate then judges identically.
+Real: ranking, eval checking, grading, gate verdicts, skill lint, and the model answers in `recorded/`. **Not real:** the Gate's presets and clickable cells are hand-set; the
+skill A/B canvas is a text-coverage proxy ("the skill states the answer"), not evidence a model behaves better; the noise lesson uses a seeded coin.
+No model is called on the page.
+
+**Recorded runs** (`recorded/`, 8 files, 192 answers): 3 tries per probe question, with and without the skill, on `claude-haiku-4-5` and `claude-sonnet-5-5`, for `dst`, `doubt`, `evidence-gated` and a "Lorem ipsum" filler skill.
+Made on 2026-11-16 with the vendored `skill_ab.py` through `pi 1.5.2` on Bedrock (`--no-extensions --no-mcp`, empty HOME). Machine paths in the answers are scrubbed.
+`recorded/RUNS.json` holds each file's sha256, model, date, cost and the exact prompt. `scripts/check_recorded.py` fails CI if a file is edited, a probe changed, or the vendored grader would grade an answer differently.
+`scripts/record_runs.py` is the only script that calls a model. These are 3 tries on two models: evidence about those runs, not a general claim about a skill. No run was ADOPT.
 
 ## Run / test
 ```sh
 python3 scripts/build_bundle.py && python3 -m http.server -d web 8000     # http://localhost:8000
 python3 -W ignore -m unittest discover -s tests                            # native tests of lab/lab_core.py
-cd tests_js && npm ci && npm test                                          # graph model unit tests, same code inside Pyodide, the page in headless Chrome
+cd tests_js && npm ci && node --test model.test.mjs && node smoke.mjs      # unit tests, same code inside Pyodide
+env -u CI node ui.mjs && env -u CI node ui_modes.mjs                       # the page in headless Chrome: every mode, lesson and challenge; then loading, offline, phone, recorded runs
+env -u CI node record.mjs --check                                          # web/recorded.json equals a fresh run
+python3 scripts/check_recorded.py                                          # recorded/ unedited and still graded the same
 ```
+(`env -u CI` only matters where `CI` is set: locally the tests use `/Applications/Google Chrome.app`, in CI Playwright's Chromium.)
 ## Vendoring
 `vendor/` holds byte-identical copies of upstream scripts, hashed in `vendor/VENDOR.json`. Refresh with
 `python3 scripts/vendor.py --map ../agent-knowledge-map --toolkit ../agent-toolkit`. `scripts/check_vendor.py` fails CI on local edits;

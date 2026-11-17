@@ -1,0 +1,226 @@
+{
+ "skill": "doubt",
+ "samples": 3,
+ "arms": [
+  "with",
+  "without"
+ ],
+ "with_path": "skills/doubt",
+ "pi_args": [
+  "--model",
+  "amazon-bedrock/global.anthropic.claude-sonnet-5-5",
+  "--no-extensions",
+  "--no-mcp"
+ ],
+ "probes_sha256": "a60616737dfca4995044db0bbdede691bac98435344ff66242528293782edf91",
+ "date": "2026-11-16",
+ "cost_usd": 0.204,
+ "rows": [
+  {
+   "probe": "doubt-framing",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0127,
+   "finished": true,
+   "answer": "1. **Prompt:** Give it an adversarial reviewer role. Ask it to find flaws, hidden assumptions, missing steps, and failure modes, and to rank them by severity. Ask for specific evidence and a suggested fix for each, and tell it not to rewrite the plan or praise it.\n\n2. **Context:** Give it a fresh context with only what it needs: the goal, constraints, the plan itself, and the relevant code or facts. Leave out your own reasoning, your confidence, and any \"I think this is right\" framing, so it isn't anchored to your conclusions."
+  },
+  {
+   "probe": "doubt-framing",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0127,
+   "finished": true,
+   "answer": "1. **Prompt:** Give it an adversarial role, such as \"find the flaws, hidden assumptions, and failure modes in this plan. Don't validate it.\" Ask for ranked concerns with a concrete reason and a suggested fix for each. Also ask for a clear verdict (proceed, revise, or reject).\n\n2. **Context:** Use a fresh context. Give it only the goal, the constraints, the plan itself, and the key facts it needs to check the plan. Leave out your reasoning, your preferred conclusion, and the chat history, so it can't just agree with you."
+  },
+  {
+   "probe": "doubt-framing",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0129,
+   "finished": true,
+   "answer": "1. **Prompt:** Tell it to act as an adversarial reviewer. It should find flaws, hidden assumptions, missing cases, and failure modes, and rank them by severity. Tell it not to rewrite the plan or to agree for the sake of agreeing. Ask for a verdict (proceed, revise, or stop) and the evidence behind each objection.\n\n2. **Context:** Give it only the plan, the goal, the constraints, and the relevant code or facts. Leave out your reasoning, your preferred answer, and the history of how you got there, so it judges the plan fresh and isn't anchored by your conclusions."
+  },
+  {
+   "probe": "doubt-framing",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "adversarial"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0113,
+   "finished": true,
+   "answer": "1. **Context:** Give the reviewer a fresh session with only what it needs: the plan, the goal and constraints, and the relevant files or excerpts. Leave out your own reasoning and chat history so it can't just absorb your assumptions.\n2. **Prompt:** Tell it to act as a skeptical reviewer. It should find flaws, missing steps, risks, and unstated assumptions, and say what it would do differently. Ask for a ranked list of concrete issues with a verdict (go, revise, or stop), and tell it not to rewrite the plan or add praise."
+  },
+  {
+   "probe": "doubt-framing",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "adversarial",
+    "fresh"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0108,
+   "finished": true,
+   "answer": "Give the reviewer a self-contained prompt. It should state the goal, the constraints, the full plan, and the specific decisions you're unsure about. Ask it to find flaws, missing steps, and risks, and to rank them by severity instead of approving.\n\nLeave out your own conclusions and reasoning for why the plan is good, because they bias the reviewer. Include only the files and facts it needs, and ask for concrete alternatives with evidence."
+  },
+  {
+   "probe": "doubt-framing",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "adversarial"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0116,
+   "finished": true,
+   "answer": "1. **Give it the plan and its constraints, not your conclusions.** Include the goal, the plan, the constraints, and the relevant code or files. Leave out your reasoning for why the plan is good, so the reviewer isn't anchored. Ask it to find flaws: missing steps, wrong assumptions, risks, and simpler alternatives.\n\n2. **Set a role and an output format.** For example: \"You are a skeptical senior reviewer. List blocking issues first, then risks, then nitpicks. Cite the step each one refers to. Say 'no issues' if you find none instead of padding.\" Start it with a fresh context, not your chat history, so it reviews independently."
+  },
+  {
+   "probe": "doubt-not-summarize",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 300, \"offset\": 1, \"path\": \"<root>/skills/doubt/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0307,
+   "finished": true,
+   "answer": "The adversarial prompt tells the reviewer two things not to do:\n\n1. **Do NOT validate.** It shouldn't approve the artifact or confirm the author's conclusions.\n2. **Do NOT summarize.** It shouldn't restate the artifact. It should either find issues or say explicitly that it found none after thorough examination.\n\nSeparately, the orchestrator is told not to pass the CLAIM to the reviewer, because that would bias it toward agreeing. That rule is for the orchestrator, not the reviewer."
+  },
+  {
+   "probe": "doubt-not-summarize",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 400, \"offset\": 1, \"path\": \"<root>/skills/doubt/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0304,
+   "finished": true,
+   "answer": "The skill's adversarial prompt tells the reviewer:\n\n1. **Do NOT validate.** It shouldn't approve the artifact or give a balanced verdict.\n2. **Do NOT summarize.** It should report issues. If it finds none, it should say so explicitly after thorough examination.\n\nSeparately, the orchestrator must not pass the CLAIM to the reviewer, because that biases it toward agreeing."
+  },
+  {
+   "probe": "doubt-not-summarize",
+   "split": "heldout",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 400, \"offset\": 1, \"path\": \"<root>/skills/doubt/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0307,
+   "finished": true,
+   "answer": "The skill tells the reviewer two things not to do:\n\n1. **Do not validate.** The reviewer isn't there to approve the artifact. It has to find issues, or say explicitly that it found none after thorough examination.\n2. **Do not summarize.** The reviewer shouldn't restate the artifact. Its output is issues only.\n\nSeparately, the orchestrator is told not to pass the CLAIM to the reviewer, because that biases the reviewer toward agreeing. That rule applies to the orchestrator, not the reviewer."
+  },
+  {
+   "probe": "doubt-not-summarize",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "validate",
+    "summarize"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -il \\\"doubt-driven|doubt driven\\\" . ~/.pi 2>/dev/null | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0128,
+   "finished": true,
+   "answer": "I couldn't find any \"doubt-driven review\" in the working directory or in `~/.pi`, so I have no source that says what the reviewer is told not to do. Any pair of items I gave you would be a guess presented as fact.\n\nIf you point me to the file, skill or document that defines it, I'll pull out the two prohibitions. You could also paste the relevant text here."
+  },
+  {
+   "probe": "doubt-not-summarize",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "validate",
+    "summarize"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -ril \\\"doubt-driven\\\" . ~/.pi 2>/dev/null | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0126,
+   "finished": true,
+   "answer": "I couldn't find a \"doubt-driven review\" definition in the working directory or in `~/.pi`, so I can't quote its actual rules. Any answer would be a guess.\n\nCan you point me to the document, skill, or file that defines it? Or paste the relevant section, and I'll pull out the two \"do not\" items."
+  },
+  {
+   "probe": "doubt-not-summarize",
+   "split": "heldout",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "validate",
+    "summarize"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -il \\\"doubt-driven|doubt driven\\\" . ~/.pi 2>/dev/null | head\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la; rg -il \\\"doubt\\\" . 2>/dev/null | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0146,
+   "finished": true,
+   "answer": "I couldn't find a \"doubt-driven review\" anywhere. The working directory is empty, and a search of `~/.pi` for \"doubt-driven\" returned nothing. So I can't say what that process tells a reviewer not to do, and I'd rather not make something up.\n\nIf you paste the text or give me the file path, I'll pull out two \"don'ts\" from it."
+  }
+ ]
+}

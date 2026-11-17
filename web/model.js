@@ -54,20 +54,66 @@ export function neighbors(graph, id) {
   return s;
 }
 
-/** Which rule of gate.decide fired, in its exact order, with live numbers. g = api "gate"/gate_decide result. */
-export function gateSteps(g) {
+/** Beginner names for the gate's verdicts. The upstream names stay visible for experienced users. */
+export const PLAIN_VERDICT = {
+  INCONCLUSIVE: "Too many unfinished runs", REGRESSION: "Something got worse", CEILING: "Already too good to show a gain",
+  NO_DELTA: "Not enough improvement", TOO_COSTLY: "Helps, but costs too much", ADOPT: "Adopt the skill", BAD_INPUT: "Cannot judge this input",
+};
+const pct = (x, d) => Math.round((x ?? d) * 100);
+/** "costs the same" or "costs 2.1 times as much": never "1 times". */
+export const costs = (r) => (+r === 1 ? "costs the same" : `costs ${r} times as much`);
+const signed = (n) => (n > 0 ? "+" + n : String(n));
+
+/** One plain sentence saying why the gate gave this verdict, built only from the facts gate.decide returned. */
+export function plainReason(g) {
+  const f = g.facts || {}, p = g.params || {};
+  switch (g.verdict) {
+    case "INCONCLUSIVE": return `More than ${pct(p.max_unfinished, 0.1)}% of the answers did not finish, so the gate refuses to judge.`;
+    case "REGRESSION": return (f.regressed || []).length
+      ? `The skill made ${f.regressed.length === 1 ? "one question" : f.regressed.length + " questions"} worse (${f.regressed.join(", ")}). A skill that breaks something is rejected, however much it helps elsewhere.`
+      : `The skill did worse on the hidden test questions (${f.heldout_without} correct without it, ${f.heldout_with} with it).`;
+    case "CEILING": return `Without the skill, ${f.dev_without} of ${f.dev_n} answers were already correct. There is no room left to show a gain.`;
+    case "NO_DELTA": return `The skill changed the score by ${signed(f.gain)} correct answers. It needs at least +${p.min_gain}.`;
+    case "TOO_COSTLY": return `The skill helps (${signed(f.gain)} correct answers) but ${costs(f.cost_ratio)}. The limit is ${p.max_cost_ratio} times.`;
+    case "ADOPT": return `The skill added ${f.gain} correct answers, made nothing worse, and ${costs(f.cost_ratio)} (the limit is ${p.max_cost_ratio}).`;
+    default: return g.reason || "";
+  }
+}
+
+/** Which rule of gate.decide fired, in its exact order, with live numbers. g = api "gate"/gate_decide result.
+ *  plain = beginner wording: no upstream parameter names. */
+export function gateSteps(g, plain = false) {
   const f = g.facts || {}, p = g.params || {};
   const fired = GATE_ORDER.indexOf(g.verdict);
-  const text = {
-    INCONCLUSIVE: ["too many runs unfinished?", `limit ${Math.round((p.max_unfinished ?? 0.1) * 100)}% of answers`],
+  const text = plain ? {
+    INCONCLUSIVE: ["Did too many answers fail to finish?", `at most ${pct(p.max_unfinished, 0.1)}% may be unfinished`],
+    REGRESSION: ["Did any question get worse with the skill?", `worse: ${(f.regressed || []).join(", ") || "none"} · hidden test ${f.heldout_without} → ${f.heldout_with} correct (a drop of ${p.regress_by} counts)`],
+    CEILING: ["Was it already near-perfect without the skill?", `without the skill ${f.dev_without}/${f.dev_n} correct · near-perfect means ${pct(p.ceiling, 0.9)}% or more`],
+    NO_DELTA: ["Did the skill add too few correct answers?", `changed by ${signed(f.gain ?? 0)} · needs at least +${p.min_gain}`],
+    TOO_COSTLY: ["Does it help, but cost too much more?", `${costs(f.cost_ratio)} · the limit is ${p.max_cost_ratio} times`],
+    ADOPT: ["Every check passed", "this is the only way to be adopted"],
+  } : {
+    INCONCLUSIVE: ["too many runs unfinished?", `limit ${pct(p.max_unfinished, 0.1)}% of answers`],
     REGRESSION: ["a probe or the heldout split got worse?", `regressed: ${(f.regressed || []).join(", ") || "none"} · heldout ${f.heldout_without}→${f.heldout_with} (limit ${p.regress_by})`],
-    CEILING: ["baseline already too good to show a gain?", `without-skill dev ${f.dev_without}/${f.dev_n} vs ceiling ${Math.round((p.ceiling ?? 0.9) * 100)}%`],
+    CEILING: ["baseline already too good to show a gain?", `without-skill dev ${f.dev_without}/${f.dev_n} vs ceiling ${pct(p.ceiling, 0.9)}%`],
     NO_DELTA: ["gain below the minimum?", `gain ${f.gain} vs min_gain ${p.min_gain}`],
     TOO_COSTLY: ["gain is there, but costs too much?", `cost ×${f.cost_ratio} vs max ${p.max_cost_ratio}`],
     ADOPT: ["every rule passed", "this is the only way to ADOPT"],
   };
-  return GATE_ORDER.map((v, i) => ({ verdict: v, question: text[v][0], detail: g.facts ? text[v][1] : "", state: fired < 0 ? "unreached" : i < fired ? "no" : i === fired ? "fired" : "unreached" }));
+  return GATE_ORDER.map((v, i) => ({ verdict: v, name: plain ? PLAIN_VERDICT[v] : v, question: text[v][0], detail: g.facts ? text[v][1] : "", state: fired < 0 ? "unreached" : i < fired ? "no" : i === fired ? "fired" : "unreached" }));
 }
+
+/** A recorded skill_ab results file -> the same {probe: {without: [bool], with: [bool]}} grid the hand-set gate uses. */
+export function runGrid(res) {
+  const grid = {};
+  for (const r of res.rows) ((grid[r.probe] ||= { without: [], with: [] })[r.arm][r.n] = !!(r.correct && r.finished !== false));
+  return grid;
+}
+/** Only what gate.decide reads from a results file (answers and tool calls stay on the page). */
+export const slimRun = (res) => ({ skill: res.skill, samples: res.samples, pi_args: res.pi_args, date: res.date,
+  rows: res.rows.map((r) => ({ probe: r.probe, split: r.split, arm: r.arm, n: r.n, correct: r.correct, finished: r.finished, cost_usd: r.cost_usd })) });
+/** "amazon-bedrock/global.anthropic.claude-haiku-4-5-20251001-v1:0" -> "claude-haiku-4-5" */
+export const modelName = (id) => (String(id).match(/claude-[a-z]+-\d+(?:-\d(?!\d))?/) || [String(id).split("/").pop()])[0];
 
 /** gate state <-> URL hash (grid is 0/1 strings) */
 export function encodeGate(grid, params) {

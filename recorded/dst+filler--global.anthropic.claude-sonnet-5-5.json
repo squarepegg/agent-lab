@@ -1,0 +1,519 @@
+{
+ "skill": "dst",
+ "samples": 3,
+ "arms": [
+  "with",
+  "without"
+ ],
+ "with_path": "variants/filler",
+ "pi_args": [
+  "--model",
+  "amazon-bedrock/global.anthropic.claude-sonnet-5-5",
+  "--no-extensions",
+  "--no-mcp"
+ ],
+ "probes_sha256": "ea2e8de60f47a0b798ebf1962176cf4d40ab83153d322f8c1ea93c8c94090cd6",
+ "date": "2026-11-16",
+ "cost_usd": 0.377,
+ "rows": [
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0115,
+   "finished": true,
+   "answer": "It needs a conformance (contract) test that runs the same inputs against both the hand-written model and the real service, or a recorded real-service trace, and checks that their responses match. These tests can be run periodically or in CI.\n\nThe model is only a guess about how the service behaves. If it drifts from the real service, the simulation will pass against behavior that never happens in production and miss real bugs."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0114,
+   "finished": true,
+   "answer": "It needs a conformance (contract) test that runs the same inputs against both the model and the real service, or a recorded trace of it, and checks that their observable behavior matches, including errors, timeouts, and edge cases. Without it, the model can drift from the real service, so the simulation could pass against behavior production never shows and miss behavior production does show."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0115,
+   "finished": true,
+   "answer": "It needs a conformance (contract) test that runs the same inputs against both the model and the real service, or a recorded trace of it, and checks that their observable behavior matches. That includes responses, errors, ordering, and edge cases. Without it, the model can drift from the real service, and your simulation will pass against behavior that doesn't exist in production, or miss behavior that does."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0106,
+   "finished": true,
+   "answer": "It needs a conformance (contract) test that runs the same inputs against both the hand-written model and the real downstream service, or a recorded or spec-derived version of it, and checks that their responses match. This includes error cases, ordering, and edge cases. Without it, the model can drift from the real service's behavior, so the simulation could pass against a fiction and miss bugs that appear in production."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0107,
+   "finished": true,
+   "answer": "It needs a conformance (contract) test that runs the same inputs against both the hand-written model and the real downstream service, or a recorded trace of it, and checks that their observable behavior matches. That includes responses, errors, ordering, and edge cases. Without it, the model can drift from the real service, and your simulation can pass against behavior the real service never shows. That would hide real bugs and give you false confidence."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0106,
+   "finished": true,
+   "answer": "It needs a conformance (contract) test that runs the same inputs against both the model and the real service, or a recorded trace of the real service. The test should assert that they behave equivalently, including on errors, timeouts, ordering and edge cases. Without it, the model can drift from the real service's behavior, so the simulation would pass against a service that doesn't exist and give you false confidence."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0154,
+   "finished": true,
+   "answer": "Write it as a characterization test that pins the current behavior and marks it as known-wrong, so nobody mistakes it for the intended spec.\n\n1. **Name and comment it clearly.** Say that it documents a bug, not the desired behavior. Link the tracking issue.\n   ```python\n   def test_foo_current_behavior_known_bug():\n       # KNOWN BUG: foo() returns 0 for empty input; should raise ValueError.\n       # Pins current behavior only. See ISSUE-1234. Update when fixed.\n       assert foo([]) == 0\n   ```\n\n2. **Assert the actual output, not the correct one.** Keep the assertion narrow. Pin only the behavior in question, so unrelated changes don't break it.\n\n3. **Also record the intended behavior.** Add the correct assertion as a strict expected-failure test (`pytest.mark.xfail(strict=True)`, `@Disabled(\"ISSUE-1234\")`, `test.fails`, etc.):\n   ```python\n   @pytest.mark.xfail(strict=True, reason=\"ISSUE-1234\")\n   def test_foo_empty_input_should_raise():\n       with pytest.raises(ValueError):\n           foo([])\n   ```\n   When someone fixes the bug, strict xfail fails loudly. They then delete the pinning test and remove the marker.\n\n4. **File the issue first.** The test should point to a real ticket, not a vague TODO.\n\nDon't silently assert the wrong value without a comment. The next reader will assume it's correct."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "known bug"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0162,
+   "finished": true,
+   "answer": "Write it as a **characterization test** that pins the current behaviour, and mark it clearly as known-wrong so nobody mistakes it for the desired behaviour.\n\n1. **Assert the actual current output.** This keeps the suite green and catches unintended changes.\n2. **Name it for what it does.** Use something like `test_foo_current_behaviour_known_bug` instead of `test_foo_works`.\n3. **Add a comment with three things:**\n   - What the correct behaviour should be.\n   - Why the current behaviour is wrong. Link your simulation or its results if you can.\n   - A link to a tracking issue, for example `# BUG: see #1234. Expected X, currently returns Y. Update this test when fixed.`\n4. **Keep the assertion narrow.** Assert only the wrong part, so unrelated changes don't break the test.\n5. **Optionally add the desired-behaviour test too, marked as an expected failure.** Examples are `@pytest.mark.xfail(strict=True, reason=\"#1234\")` and `it.failing`. With `strict`, an unexpected pass fails the suite. That tells whoever fixes the bug to remove the marker and delete the characterization test.\n\nExample (pytest):\n\n```python\ndef test_rate_limit_current_behaviour_known_bug():\n    # BUG #1234: should reject at 100 requests, but allows 101 (off-by-one).\n    # Pinning current behaviour; update when fixed.\n    assert limiter.allowed(101) is True\n\n@pytest.mark.xfail(strict=True, reason=\"#1234 off-by-one in limiter\")\ndef test_rate_limit_correct_behaviour():\n    assert limiter.allowed(101) is False\n```\n\nOpen the tracking issue before merging, so the comment doesn't point at nothing."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "known bug"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0165,
+   "finished": true,
+   "answer": "Write it as a characterization test that pins the current behaviour but is clearly marked as wrong, so nobody mistakes it for the intended behaviour.\n\n1. **Name it for what it does.** For example, `test_current_behaviour_foo_returns_X_when_Y`. Avoid names like `test_foo_works`.\n2. **Put the correct behaviour in a comment.** State what should happen and why the current result is wrong. For example: `# BUG: should return Z (see simulation results / issue #123). Asserting current behaviour so this PR doesn't change it silently.`\n3. **Link a tracking issue.** Include the ticket or issue number in the comment. Without one, the test is likely to be forgotten.\n4. **Assert the exact current output.** Then any change in behaviour, including the eventual fix, fails the test and forces someone to look at it.\n5. **Optionally add the desired assertion as an expected failure.** Use `xfail(strict=True)`, `@Disabled`, `it.failing` or your framework's equivalent. It holds the correct assertion and flips to a failure once the bug is fixed, which prompts removal of the characterization test.\n6. **Keep it narrow.** Cover only the specific wrong behaviour. Don't snapshot the whole output.\n\nExample (pytest):\n\n```python\ndef test_current_behaviour_rounding_truncates_instead_of_rounds():\n    # BUG (#123): should return 3, simulation shows correct value is 3.\n    # Pins current behaviour; update when #123 is fixed.\n    assert compute(2.7) == 2\n\n@pytest.mark.xfail(strict=True, reason=\"#123: should round, not truncate\")\ndef test_desired_rounding():\n    assert compute(2.7) == 3\n```\n\nIn the PR description, say that the behaviour is known to be wrong, that the fix is out of scope, and where it's tracked."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0145,
+   "finished": true,
+   "answer": "Write it as a **characterization test** that pins the current behavior, and make it obvious that the behavior is known to be wrong.\n\n1. **Name and comment it as a known bug.** Say that it documents current behavior and not the desired behavior. Link the tracking issue.\n   ```python\n   def test_foo_current_behavior_KNOWN_BUG_issue_1234():\n       # Documents CURRENT (incorrect) behavior. Correct result should be X.\n       # See #1234. Update this test when the bug is fixed.\n       assert foo(input) == current_wrong_value\n   ```\n\n2. **Assert the actual output.** Don't loosen the assertion to make it pass. Pinning the exact value means the test fails when someone fixes the bug, which tells them to update it.\n\n3. **Record the expected behavior.** Put the correct assertion in the comment. Alternatively, add it as an expected-failure test (`xfail(strict=True)`, `@Ignore`, `test.failing`, or your framework's equivalent) with the issue reference. With a strict xfail, the test starts failing loudly once the bug is fixed.\n\n4. **Open a tracking issue.** Do this before merging, so the test points to something real.\n\n5. **Keep it narrow.** Assert only the buggy part, so unrelated changes don't break the test.\n\nDon't assert the wrong value as if it were correct, and don't skip or delete the test. A test that looks like a spec for wrong behavior misleads readers, and a missing test lets the behavior change without anyone noticing."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0148,
+   "finished": true,
+   "answer": "Write it as a **characterization test** that pins the current behaviour, and make it obvious that the behaviour is wrong and temporary:\n\n1. **Name it for what it does now.** Use something like `test_foo_returns_stale_value_known_bug`. Avoid names that suggest the behaviour is correct.\n2. **Assert the current output, and put the correct expectation next to it.**\n   ```python\n   def test_parse_negative_offset_current_behavior():\n       # KNOWN BUG: TICKET-123. Should raise ValueError, but currently returns 0.\n       # This test pins the current behaviour so the fix shows up as a deliberate diff.\n       assert parse(-1) == 0  # TODO(TICKET-123): expected: raises ValueError\n   ```\n3. **Link a tracking issue.** If there isn't one, file it first. A bare TODO will get forgotten.\n4. **Optionally add the desired test as an expected failure.** Use `@pytest.mark.xfail(strict=True, reason=\"TICKET-123\")`, `it.failing`, `#[should_panic]` or your framework's equivalent. With `strict=True`, the xfail test flips to a failure when someone fixes the bug. That prompts them to delete the characterization test and remove the marker.\n5. **Keep the assertion narrow.** Assert only the buggy part, so unrelated changes don't break the test.\n6. **Mention it in the PR description.** Say that the behaviour is known to be wrong, that the fix is deferred, and where it's tracked.\n\nDon't assert the wrong behaviour without a comment, because the next reader will assume it's intended."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0156,
+   "finished": true,
+   "answer": "Write it as a **characterization test** that pins the current behaviour, and label it clearly as a known defect, not as correct behaviour.\n\n1. **Name it honestly.** Say what it does and that it's temporary. For example, `test_current_behavior_X_returns_stale_value_KNOWN_BUG`.\n\n2. **Add a comment with context.** Include:\n   - what the correct behaviour should be,\n   - why the current behaviour is wrong (link your simulation or results),\n   - a link to the tracking issue, e.g. `# TODO(#1234): should return Y; update this test when fixed`.\n\n3. **Assert the current output, not the desired one.** Use the actual observed values so the test passes today. If the fix lands, this test fails and forces someone to update it on purpose.\n\n4. **Optionally add the desired-behaviour test too.** Write it as the correct assertion and mark it expected-fail, e.g. `@pytest.mark.xfail(strict=True, reason=\"#1234\")` or `@Disabled(\"#1234\")`. With `strict`, it will flag when the bug is fixed, so you remember to remove both markers.\n\n5. **Keep the scope narrow.** Pin only the behaviour in question, not incidental details, so unrelated changes don't break it.\n\n6. **File the issue before merging.** A pinned bug with no ticket gets forgotten and starts to look intentional.\n\nExample (Python):\n\n```python\n# KNOWN BUG #1234: compute() should return 42 but returns 41 (off-by-one).\n# This pins current behaviour; replace with the xfail test's assertion once fixed.\ndef test_compute_current_behavior_off_by_one():\n    assert compute(10) == 41\n\n@pytest.mark.xfail(strict=True, reason=\"#1234 off-by-one in compute\")\ndef test_compute_correct_behavior():\n    assert compute(10) == 42\n```"
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -il \\\"seed\\\" . 2>/dev/null | head -20\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la; rg -i \\\"DST|sweep\\\" -l . ~/.pi 2>/dev/null | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0147,
+   "finished": true,
+   "answer": "I can't answer that. The working directory is empty, and I found nothing about a PR-tier DST seed sweep, so I don't know the seed count or whether Docker is allowed. If you point me to the repo or doc that defines it, I'll look it up."
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -i -n \\\"seed\\\" --glob '!node_modules' . | head -50\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -rIil \\\"seed\\\" . 2>/dev/null | grep -v node_modules | head -20\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la; grep -i -n \\\"seed\\\\|docker\\\\|DST\\\" <root>/variants/filler/SKILL.md\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0176,
+   "finished": true,
+   "answer": "Nothing in the working directory mentions seeds. I'll check the skill file in case it covers this.\nI can't answer this. The working directory is empty, and the only skill available (`filler`) says nothing about DST, seed counts, or Docker. If you point me to the repo or doc that defines the PR-tier sweep, I'll look it up."
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -il \\\"seed\\\" . 2>/dev/null | head -20\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la; rg -i \\\"DST|sweep\\\" -l . ~/.pi 2>/dev/null | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0147,
+   "finished": true,
+   "answer": "I couldn't find an answer. The working directory is empty, and a search for \"DST\", \"sweep\" and \"seed\" turned up no files that define the PR-tier seed count or a Docker policy. If you can point me to the repo or doc that covers it, I'll look there."
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -il \\\"seed sweep|DST\\\" . 2>/dev/null | head -20\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la; rg -il \\\"seed\\\" . | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0135,
+   "finished": true,
+   "answer": "The working directory is empty, so I couldn't find anything that sets the PR-tier DST seed sweep's seed count or its Docker policy. Point me to the repo or doc that defines it and I'll give you the answer."
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -il \\\"seed sweep|DST\\\" . 2>/dev/null | head -20\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la; rg -i \\\"seed\\\" . | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0136,
+   "finished": true,
+   "answer": "I can't answer this from the working directory, because it's empty and has no DST or seed-sweep configuration or docs. Point me at the repo or doc that defines the PR-tier policy and I'll look up the seed count and the Docker rule."
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -il \\\"seed sweep|DST\\\" . 2>/dev/null | head -20\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la; rg -i \\\"seed|docker\\\" . 2>/dev/null | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0137,
+   "finished": true,
+   "answer": "I can't answer that. The working directory is empty, so there's no DST seed sweep config or documentation to check. If you point me to the repo or file that defines the PR-tier sweep, I'll look up the seed count and the Docker rule."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0108,
+   "finished": true,
+   "answer": "Verify it: check that it holds, ideally by testing it against the DST (deterministic simulation testing) harness across many seeds and fault schedules, and try to falsify it before you claim it."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0117,
+   "finished": true,
+   "answer": "Verify it: check that it holds for the DST (the dynamic/discrete/deterministic system, depending on your context). Don't just assume it. Prove it formally, or test it, and make sure the definitions and assumptions it depends on are stated.\n\nIf you mean a specific DST, such as Deterministic Simulation Testing, Daylight Saving Time, or Dempster-Shafer Theory, tell me which one. I can then give you a precise answer."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0107,
+   "finished": true,
+   "answer": "Verify it: test it against the system, ideally by trying to falsify it (for example, with counterexample search or a model check). Don't just assume it holds."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0102,
+   "finished": true,
+   "answer": "Try to falsify it first. Test it adversarially, for example with property-based or randomized testing and counterexample search, before you claim it holds.\n\nIf \"DST\" means something else in your context, such as deterministic simulation testing or a domain-specific term, tell me and I'll adjust."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0099,
+   "finished": true,
+   "answer": "Verify it: test the property against real data across DST transitions (spring-forward gaps and fall-back overlaps) in the relevant time zones. Don't assume it holds."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.01,
+   "finished": true,
+   "answer": "Test it: run the deterministic simulation across many seeds and fault schedules, and try to falsify the property (for example, by checking that it can fail under a deliberately injected bug) before you claim it holds."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la; rg -il \\\"simulat|fault\\\" . 2>/dev/null | head\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.015,
+   "finished": true,
+   "answer": "It must state the injected fault (type, parameters and timing) and the seed or config that reproduces it. That lets readers tell whether the bug is a real defect or only a product of the fault, and lets them replay it.\n\nThe working directory is empty, so I found no project-specific convention. This is the general rule for simulation testing."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0107,
+   "finished": true,
+   "answer": "It must state the **seed (and exact fault-injection schedule/config)** that reproduces it. That way anyone can replay the same run deterministically."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0107,
+   "finished": true,
+   "answer": "It must state the injected fault (and the seed or config that reproduces it), so the bug can be replayed and told apart from a bug that appears without the fault."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.01,
+   "finished": true,
+   "answer": "It must state the exact fault that was injected, along with the seed or config needed to reproduce it. Without those, nobody can tell whether the bug comes from the fault or from the simulator, and nobody can replay it."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.01,
+   "finished": true,
+   "answer": "It must state the exact fault that was injected (type, target, timing) along with the seed or schedule needed to reproduce it. That way the bug can be replayed and told apart from a failure that would happen without the fault."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0104,
+   "finished": true,
+   "answer": "The finding must also state that the bug appears under the injected fault, meaning the fault is part of the reproduction. Give the exact fault (type, parameters, timing) and the seed or config needed to replay it. Also say whether the fault is realistic, meaning it could happen in production, or whether it is an artifact of the simulator."
+  }
+ ]
+}

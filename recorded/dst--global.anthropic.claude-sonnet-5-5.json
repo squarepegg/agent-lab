@@ -1,0 +1,513 @@
+{
+ "skill": "dst",
+ "samples": 3,
+ "arms": [
+  "with",
+  "without"
+ ],
+ "with_path": "skills/dst",
+ "pi_args": [
+  "--model",
+  "amazon-bedrock/global.anthropic.claude-sonnet-5-5",
+  "--no-extensions",
+  "--no-mcp"
+ ],
+ "probes_sha256": "ea2e8de60f47a0b798ebf1962176cf4d40ab83153d322f8c1ea93c8c94090cd6",
+ "date": "2026-11-16",
+ "cost_usd": 0.583,
+ "rows": [
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0128,
+   "finished": true,
+   "answer": "It needs a model-vs-real conformance check. This runs the same operations, including faults, against both the model and the real service (or a recorded or contract-tested version of it) and asserts that their observable results match.\n\nIt's needed because the simulation only proves your code is correct against the model. If the model drifts from the real service's behavior, such as its error cases, ordering, or retry and idempotency semantics, the invariants will pass while the system is still broken in production."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0126,
+   "finished": true,
+   "answer": "It needs a conformance test that runs the same operation sequences, including faults, against both the model and the real service (or a contract-test double of it). The test should assert that their observable results match: return values, errors, ordering and state. Without it, the simulation can pass while checking only the model's assumptions, so the model can drift from the real service's behavior and the green runs tell you nothing about production."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0126,
+   "finished": true,
+   "answer": "It needs a model-vs-real conformance test. Run the same sequences of operations, including error and edge cases, against both the model and the real service (or a recorded or contract-test version of it), and assert that their observable results match. Without that test, the simulation only checks your code against your assumptions about the service. It can pass while the real service behaves differently, so the model can drift without anyone noticing."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0106,
+   "finished": true,
+   "answer": "It needs a conformance (contract) test that runs the same inputs against both the model and the real service, or a recorded trace of the real service, and checks that their observable behavior matches. That includes responses, error cases, ordering, and edge cases. Without it, the model can drift from the real service, so the simulation could pass against behavior production never has, or miss failures production does have."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0107,
+   "finished": true,
+   "answer": "It needs a contract (conformance) test. This test runs the same scenarios against both the hand-written model and the real service, or a recorded sample of its behavior, and checks that they agree on responses, errors, ordering, and edge cases. Without it, the model can drift from the real service's behavior. The simulation would then pass against a fiction, and the bugs it finds or misses wouldn't carry over to production."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0106,
+   "finished": true,
+   "answer": "The model needs a conformance (contract) test that runs the same inputs against both the hand-written model and the real service, or a recorded trace of it, and checks that their observable behavior matches: responses, errors, ordering, and edge cases. Without it, the simulation only proves your system works against your own assumptions. The model can drift from the real service, and the simulation will still pass while production fails."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0175,
+   "finished": true,
+   "answer": "Write it as a **known-bug pin**. It asserts the current (wrong) behaviour, but it is labelled so nobody mistakes it for correct behaviour. It should also fail loudly once the bug is fixed.\n\n1. **Name and comment it as a pin.** For example, `pin_KNOWN_BUG_<id>_staleReadAfterRetry`. In the comment, state what the correct behaviour should be, why the current behaviour is wrong, and link the ticket for the follow-up fix.\n\n2. **Assert the exact wrong outcome, not just \"doesn't crash\".** Use a minimal deterministic repro, such as a fixed seed or a scripted op sequence. That way the test fails only when the bug's behaviour changes.\n\n3. **Make the failure message point to the fix.** If the assertion trips, it should say something like: \"Known bug X appears fixed. Delete this pin and enable the real invariant test.\"\n\n4. **Keep the real invariant alongside it, disabled or excluded.** Put the correct assertion in a test marked `@Disabled(\"BUG-123\")` or an expected-failure marker. Fixing the bug then means flipping the two tests: delete the pin and enable the invariant.\n\n5. **Exclude the bug from the broader seed sweep, narrowly.** Skip only the specific failing seeds or condition, not the whole invariant. This keeps the sweep green without hiding new bugs.\n\nExample (Kotlin):\n```kotlin\n// KNOWN BUG BUG-123: the cache returns the stale value after a retry. Correct: the new value.\n@Test fun `pin BUG-123 stale read after retry`() {\n    val r = simulate(seed = 4812)\n    assertEquals(\"old\", r.read(\"k\"),\n        \"BUG-123 seems fixed: delete this pin and enable the invariant test\")\n}\n```"
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 400, \"offset\": 1, \"path\": \"<root>/skills/dst/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0525,
+   "finished": true,
+   "answer": "Write it as a **known-bug pin**. Don't write it as a plain green test of the current behaviour.\n\n- **Name:** `known bug #<issue> - <what goes wrong>`. Add `@Tag(\"known-bug\")`. File an issue first, so the pin has a number to cite.\n- **Body:** wrap the current wrong behaviour in `knownBug(issue, correctBehaviour) { ... }`. The helper is in `templates/kotlin/SimulationTestModes.kt`. Use a few-op deterministic scenario with the seed. Assert the current wrong result inside the wrapper.\n- **Failure mode:** the test goes red when someone fixes the bug. Then you flip it to `regression guard - <behaviour>`, assert the correct behaviour, and close the issue.\n- **Sweeps:**\n  - Don't make the whole sweep skip the bug's state region. Filter only that specific violation, and keep the unrestricted generator running. Otherwise the sweep is green by construction around the bug and blind to its neighbours.\n  - Add the seed to `corpusSeeds`.\n- **PR notes:** record the repro, the invariant violated, whether production can reach it, and the severity. Production reachability matters because the sim can be more adversarial than prod.\n\nDon't name it `bug catch`, and don't assert the wrong behaviour in a test that looks like an ordinary passing one. That hides a known-broken behaviour behind a green run."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0187,
+   "finished": true,
+   "answer": "Write it as a **known-bug pin**: a test that passes today, asserts the current (wrong) behaviour, and is clearly labeled so nobody mistakes it for the spec.\n\n**How to write it**\n1. **Name and comment it as a pin.** For example, `pin_KNOWN_BUG_<ticket>_retry_double_applies`. The comment should say what the correct behaviour is, why the current behaviour is wrong, and which ticket tracks the fix.\n2. **Assert the current output exactly.** Use the minimal reproducing input, or a fixed seed from the simulation, such as `SIM_SEED=1234`. Assert the specific wrong outcome, not just \"doesn't crash\".\n3. **Include the intended assertion, disabled.** Keep the correct expectation next to it, commented out or in a skipped or `@Disabled(\"TICKET-123\")` variant. The fixer can then flip the test without rewriting it.\n4. **Keep it narrow.** Pin only the buggy aspect, so unrelated changes don't break it.\n5. **Make it fail loudly when the bug is fixed.** The fixer should see \"this pin is now obsolete, so invert it\". Don't let it fail with a cryptic diff.\n6. **Exclude the bug from the general simulation invariants.** Either skip that seed or scenario in the sweep, or add an explicit allowlist entry tied to the ticket. Otherwise the sweep stays red, or the bug gets silently ignored.\n7. **Link the ticket** in the PR description and the test, and make sure the ticket exists.\n\n**Example (Kotlin)**\n```kotlin\n// KNOWN BUG (TICKET-123): the retry applies the op twice. Correct: balance == 100.\n// Pinned to the current behaviour; when you fix it, delete this and enable the test below.\n@Test fun pin_TICKET123_retry_double_applies() {\n    val r = runSim(seed = 1234)\n    assertEquals(200, r.balance) // wrong, but current\n}\n\n@Disabled(\"TICKET-123\")\n@Test fun retry_applies_once() {\n    assertEquals(100, runSim(seed = 1234).balance)\n}\n```"
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0145,
+   "finished": true,
+   "answer": "Write it as a **characterization test** that pins the current behaviour but is clearly flagged as wrong, so nobody mistakes it for the spec.\n\n1. **Assert what the code does today.** This keeps the suite green and catches unintended changes.\n2. **Name it honestly.** For example, `test_current_behavior_foo_returns_X_when_Y`. Don't name it `test_foo_works`.\n3. **Add a comment above the assertion.** State the expected correct behaviour, why the test pins the wrong one, and link a tracking issue:\n   ```python\n   # KNOWN BUG (#1234): the correct result is 42, but the code returns 41\n   # because of <cause>. This test pins the current behaviour so changes\n   # to it are deliberate. When #1234 is fixed, update this to expect 42.\n   assert foo(y) == 41\n   ```\n4. **Optionally, add the desired-behaviour test as an expected failure.** Use `@pytest.mark.xfail(strict=True, reason=\"#1234\")` or your framework's equivalent. With `strict=True`, the suite fails when the bug is fixed. That prompts whoever fixes it to flip the characterization test and remove the xfail.\n5. **File the issue before merging**, so the link in the comment points to something real.\n6. **Mention it in the PR description**, so reviewers know the assertion is intentionally pinning a bug.\n\nDon't write the assertion as if the current behaviour were correct, and don't skip or delete the test. Either one hides the bug."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0145,
+   "finished": true,
+   "answer": "Write it as a **characterization test** that pins the current behavior, and mark it clearly so nobody reads it as correct.\n\n1. **Assert what the code does today.** The test should pass now and fail if the behavior changes. That way, whoever fixes it has to update the test on purpose.\n2. **Name it for the behavior, not for correctness.** For example, `test_current_behavior_rounds_down_on_overflow`. Don't call it `test_rounds_correctly`.\n3. **Add a comment that says why the behavior is wrong.** Include the expected behavior, a link to the tracking issue, and what to do once the bug is fixed:\n   ```python\n   # KNOWN BUG: see #1234. Correct result should be 42; code currently returns 41.\n   # This test documents current behavior only. When #1234 is fixed,\n   # update the expected value to 42 and rename the test.\n   def test_current_behavior_off_by_one_on_empty_input():\n       assert compute(x) == 41\n   ```\n4. **File a ticket before merging.** Without one, the test turns into a permanent endorsement of the bug.\n5. **Optionally, add the correct assertion as an expected failure.** Use `xfail(strict=True)`, `@Disabled`, `it.failing`, or your framework's equivalent. It should point to the same issue. With strict mode, the suite flags it when the bug is fixed, and you can then delete the characterization test.\n\nKeep the test narrow. Pin only the wrong behavior you found, so it doesn't lock in unrelated details."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.015,
+   "finished": true,
+   "answer": "Write it as a **characterization test** that pins the current behaviour but is clearly marked as wrong, so nobody mistakes it for the desired spec.\n\n1. **Name and comment it as known-buggy.** For example, name it `test_current_behavior_X_is_incorrect`. Add a comment that says what the correct behaviour should be, why the test pins the wrong one, and a link to a tracking issue (`# TODO(#1234): should return Y; see simulation \u2026`).\n\n2. **Assert the actual current output.** The test then passes today. It also fails when someone changes the behaviour, which prompts them to review it on purpose.\n\n3. **Optionally add the desired assertion too, marked as an expected failure.** Use `xfail(strict=True)`, `@Disabled`, `it.failing` or your framework's equivalent, with the issue reference in the reason. The strict mode flips to a failure when the bug gets fixed, which reminds the fixer to remove the marker and the characterization test.\n\n```python\n# Known bug: #1234. Correct result is 42; current code returns 41.\ndef test_compute_total_current_behavior_off_by_one():\n    assert compute_total(data) == 41  # DO NOT \"fix\" here; update when #1234 lands\n\n@pytest.mark.xfail(strict=True, reason=\"#1234: off-by-one in compute_total\")\ndef test_compute_total_correct_behavior():\n    assert compute_total(data) == 42\n```\n\n4. **Keep it narrow.** Pin only the specific wrong value or behaviour, not the whole output. That way unrelated changes don't break it.\n\n5. **Mention it in the PR description** so reviewers know the wrong assertion is deliberate."
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 400, \"offset\": 1, \"path\": \"<root>/skills/dst/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0482,
+   "finished": true,
+   "answer": "About 150 seeds per suite, plus `corpusSeeds`. No Docker: the PR tier must stay cheap, and Docker belongs to the real-infra conformance tier."
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 400, \"offset\": 1, \"path\": \"<root>/skills/dst/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0482,
+   "finished": true,
+   "answer": "About 150 seeds per suite, plus `corpusSeeds`. No Docker: Docker is only for the real-infra conformance tier, which samples 5\u201310 seeds."
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -n -i -E \\\"seed|docker|PR\\\" <root>/skills/dst/SKILL.md | grep -i -E \\\"pr-tier|PR tier|docker|sweep\\\" | head -30\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0193,
+   "finished": true,
+   "answer": "About 150 seeds per suite (plus any `corpusSeeds`), and no, the PR tier must not use Docker. Docker belongs to the real-infra tier."
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -il \\\"seed sweep|DST\\\" . 2>/dev/null | head -20\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la; rg -il \\\"seed\\\" . | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0136,
+   "finished": true,
+   "answer": "I can't answer this. The working directory is empty, so I found no DST seed sweep docs, config or CI files to check. Point me to the repo or file that defines the PR-tier sweep and I'll look up the seed count and the Docker rule."
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -i -n \\\"seed\\\" --glob '!node_modules' . | head -50\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -ril \\\"seed\\\" . --exclude-dir=node_modules --exclude-dir=.git | head; ls -a\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0135,
+   "finished": true,
+   "answer": "The working directory is empty, so I couldn't find a seed count or a Docker policy. I don't want to guess. Point me to the repo or doc that defines the PR-tier DST sweep and I'll give you the one-line answer."
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -il \\\"seed sweep|DST\\\" . 2>/dev/null | head -20\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la; rg -i \\\"seed|docker\\\" . | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0136,
+   "finished": true,
+   "answer": "I can't answer this from the project. The working directory is empty, so there's no PR-tier DST seed sweep config or doc to check. If you point me to the repo or file that defines it, I'll look up the seed count and the Docker rule."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 200, \"offset\": 1, \"path\": \"<root>/skills/dst/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0375,
+   "finished": true,
+   "answer": "Mutation-check it (rule 4, step 9). Break the code or property on purpose, watch the property fail, then restore the code. A property that never failed under a mutant hasn't been shown to catch anything."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -n -i -E \\\"mutant|before (you )?claim|must\\\" <root>/skills/dst/SKILL.md | head -40\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0202,
+   "finished": true,
+   "answer": "Mutation-check it (step 9). Inject a fault that should break the property, and confirm the sim catches it with that invariant ID, for example with an `expectViolation(\"<InvariantId>\")` mutant-catch test."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/dst/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0491,
+   "finished": true,
+   "answer": "Mutation-check it (rule 4, step 9). Break the SUT or model in the way the property should catch, run the sweep, and confirm that the intended property ID fails. Then restore the code, and record any break that survives or is shadowed by a stronger check."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0104,
+   "finished": true,
+   "answer": "Verify it: check the property against the actual DST (e.g., run the deterministic simulation or test with the real code and seeds), and don't assume it holds from reasoning alone.\n\nIf you meant a different \"DST\" (such as daylight saving time or a specific framework in your repo), tell me which one and I'll give a more precise answer."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0102,
+   "finished": true,
+   "answer": "Try to falsify it first: run it against adversarial, randomized DST scenarios (fault injection, varied seeds and timings) and make sure it can fail. That means confirming a deliberately broken implementation trips it, and that you can replay any failure from its seed."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0101,
+   "finished": true,
+   "answer": "Test it: try to falsify it first, by running it against adversarial cases such as DST transitions (spring-forward gaps, fall-back overlaps) and zones with unusual offsets. Don't claim it holds until it survives those."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0119,
+   "finished": true,
+   "answer": "The finding must also state the seed (e.g. `SIM_SEED`) and the exact fault schedule or config that reproduces it. That lets anyone replay the failure deterministically."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -n -i -E \\\"finding|must (also )?state|report\\\" <root>/skills/dst/SKILL.md | head -40\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"sed -n 36,42p <root>/skills/dst/SKILL.md; sed -n 271,290p <root>/skills/dst/SKILL.md\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0228,
+   "finished": true,
+   "answer": "It must state whether production can reach the bug, meaning whether prod's environment (clock source, real concurrency, deployment config, and only operations prod can perform) allows the injected fault. The sim can be more adversarial than prod, so a sim-only finding shouldn't be reported as a prod bug.\n\nThe finding should also include a minimal repro with the seed, the violated invariant, the severity, and how it was found."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -n -i -E \\\"finding|must (also )?state|report\\\" <root>/skills/dst/SKILL.md | head -40\", \"timeout\": 10}"
+    ],
+    [
+     "read",
+     "{\"limit\": 25, \"offset\": 271, \"path\": \"<root>/skills/dst/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0216,
+   "finished": true,
+   "answer": "It must state whether production can reach it. Say whether prod's real environment (clock source, real concurrency, deployment config, and ops prod can actually perform) allows the injected fault. Otherwise the finding is a sim-only artifact, not a prod bug."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.01,
+   "finished": true,
+   "answer": "The finding must also state the **reproduction details**: the seed (or fault schedule) and the exact injected fault, so the bug can be replayed deterministically. It should also say which invariant or expected behavior was violated."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0101,
+   "finished": true,
+   "answer": "It must state the exact fault that was injected, along with the seed or configuration needed to reproduce it. That way the bug can be replayed deterministically, and a reader can tell a real defect from an artifact of the simulated fault."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0101,
+   "finished": true,
+   "answer": "The finding must also state the exact fault that was injected, meaning its type, parameters and timing. It should also include the seed or config needed to reproduce the run, so the bug can be told apart from simulator artifacts and replayed."
+  }
+ ]
+}

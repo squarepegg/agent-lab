@@ -1,0 +1,589 @@
+{
+ "skill": "dst",
+ "samples": 3,
+ "arms": [
+  "with",
+  "without"
+ ],
+ "with_path": "variants/filler",
+ "pi_args": [
+  "--model",
+  "amazon-bedrock/global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "--no-extensions",
+  "--no-mcp"
+ ],
+ "probes_sha256": "ea2e8de60f47a0b798ebf1962176cf4d40ab83153d322f8c1ea93c8c94090cd6",
+ "date": "2026-11-16",
+ "cost_usd": 0.203,
+ "rows": [
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "conformance"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.004,
+   "finished": true,
+   "answer": "When you replace a downstream service with a hand-written model in a deterministic simulation test, the extra test you need is a **contract/fidelity test** that validates the model behaves identically to the actual service. Without it, your simulation test could pass while the real system fails, because you have no guarantee the model faithfully represents the service's actual behavior, edge cases, and error responses."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "conformance"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0044,
+   "finished": true,
+   "answer": "You need **contract validation or equivalence tests** that verify the model's behavior matches the real downstream service in realistic scenarios. This is essential because a hand-written model could contain bugs or incorrect assumptions about the service, and without this verification, your deterministic simulation would be testing against an inaccurate representation rather than the actual system behavior."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "conformance"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.004,
+   "finished": true,
+   "answer": "The hand-written model needs **contract testing or validation against the actual downstream service** to ensure the model accurately reproduces the real service's behavior. This is critical because if the model diverges from the actual service's behavior, your deterministic simulation tests become unreliable\u2014they may pass in simulation but fail in production."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "conformance"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0036,
+   "finished": true,
+   "answer": "The model needs a **contract verification test** (or parity test with the real service) to verify that the hand-written model's behavior actually matches the downstream service's real behavior. Without this test, the model could diverge from reality over time, causing your deterministic tests to pass while the actual system fails in production."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "conformance"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0036,
+   "finished": true,
+   "answer": "The hand-written model needs a **contract test or integration test** that verifies its behavior matches the actual downstream service's real API and response patterns. Without this test, the model could silently diverge from the real service's behavior, giving you false confidence that your deterministic tests are meaningful while your system fails differently in production."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "conformance"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0037,
+   "finished": true,
+   "answer": "When you replace a downstream service with a hand-written model in a deterministic test, that model needs **contract or compliance testing** to verify it accurately matches the real service's behavior, outputs, and edge cases. This is critical because the mock is just an approximation\u2014if it diverges from the real service's actual behavior, your simulation tests will pass falsely but fail in production."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0047,
+   "finished": true,
+   "answer": "For a test asserting current (wrong) behavior that's out of scope:\n\n**Use a skip/xfail marker with clear documentation:**\n\n```python\n@pytest.mark.xfail(reason=\"Known bug: X. See issue #123. Fix out of scope for this PR.\")\ndef test_current_wrong_behavior():\n    # Document the actual (wrong) behavior\n    assert result == wrong_value\n    \n    # Optional: comment what it should be\n    # TODO: Should be `expected_correct_value` after fix\n```\n\n**Alternatives:**\n- `@pytest.mark.skip` if you don't want it running at all\n- Add a `pytest.xfail()` call inside the test for conditional marking\n\n**Key points:**\n- Reference the issue number\n- Explain why it's wrong and that it's acknowledged\n- This makes it visible in CI but doesn't fail the build\n- Future dev knows to update/remove this test when the real fix lands"
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0044,
+   "finished": true,
+   "answer": "Write the test with a **skip/pending marker** and a comment referencing the issue:\n\n```python\n# pytest\n@pytest.mark.skip(reason=\"Known bug: #123 - fix out of scope\")\ndef test_current_wrong_behaviour():\n    assert result == wrong_value  # Should be correct_value\n\n# or xfail (expected to fail)\n@pytest.mark.xfail(reason=\"Known bug: #123\")\ndef test_current_wrong_behaviour():\n    assert result == correct_value\n```\n\nOr **without a decorator**, just document it clearly:\n\n```python\ndef test_current_behaviour_documented():\n    # TODO: #123 - This assertion documents current (wrong) behavior\n    # Should be `expected_correct` when fixed\n    assert result == current_wrong_value\n```\n\n**Key points:**\n- Use `skip` if you don't want it running at all\n- Use `xfail` if the test should run but is expected to fail\n- Add a comment/issue reference\n- Keep the test runnable so the fix is straightforward later\n\nWhich testing framework are you using?"
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "known bug"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0046,
+   "finished": true,
+   "answer": "Write the test asserting the current behavior, then mark it as expected to fail with a comment:\n\n**Python (pytest):**\n```python\n@pytest.mark.xfail(reason=\"Known issue: [brief description]. Fix deferred to issue #XYZ\")\ndef test_current_behavior():\n    assert actual == wrong_value  # Currently incorrect\n```\n\n**JavaScript (Jest):**\n```javascript\ntest.skip(\"current behavior - known issue, fix in #XYZ\", () => {\n  expect(actual).toBe(wrongValue);\n});\n```\n\nOr use `it.todo()` if the test is placeholder-level.\n\n**Key points:**\n- Documents the known wrong behavior for future reference\n- Prevents test from failing the CI\n- Makes it clear this is intentional, not an oversight\n- Reference the tracking issue if available\n\nThis is preferable to ignoring it entirely\u2014it signals to others that this behavior is acknowledged."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "known bug"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0043,
+   "finished": true,
+   "answer": "Write the test to assert the current behavior, then mark it with your testing framework's \"expected failure\" decorator:\n\n**pytest:**\n```python\n@pytest.mark.xfail(reason=\"Fix out of scope for this PR - see issue #XXX\")\ndef test_current_wrong_behavior():\n    assert simulation_result == current_wrong_value\n```\n\n**unittest:**\n```python\n@unittest.expectedFailure\ndef test_current_wrong_behavior(self):\n    self.assertEqual(simulation_result, current_wrong_value)\n```\n\nAdd a TODO comment with the issue/ticket number:\n```python\ndef test_current_wrong_behavior():\n    # TODO: Fix behavior and update this test - issue #XXX\n    assert simulation_result == current_wrong_value\n```\n\nThis:\n- Documents the bug explicitly\n- Prevents the test from failing the build\n- Acts as a reminder for future work\n- Creates a clear record of what needs fixing"
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0047,
+   "finished": true,
+   "answer": "Use a **skip or xfail marker** with a descriptive comment:\n\n```python\nimport pytest\n\n@pytest.mark.skip(reason=\"Asserts current buggy behavior; fix tracked in ISSUE-123\")\ndef test_current_wrong_behaviour():\n    \"\"\"Document current (incorrect) simulation behavior.\"\"\"\n    assert current_result == wrong_expected_value\n```\n\nOr with expected failure if you prefer it to run:\n\n```python\n@pytest.mark.xfail(reason=\"Known bug; fix in ISSUE-123\")\ndef test_current_wrong_behaviour():\n    assert current_result == wrong_expected_value\n```\n\n**Key points:**\n- Use `@pytest.mark.skip` if you don't want it running\n- Use `@pytest.mark.xfail` if you want it running but passing when it fails (useful for CI)\n- Always cite the tracking issue in the reason\n- Add a docstring explaining it's asserting *current* buggy behavior\n\nThis prevents the test from being mistaken for a passing requirement while documenting the known issue."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0043,
+   "finished": true,
+   "answer": "Use a **skip/xfail marker** with a comment linking to the issue:\n\n**Python (pytest):**\n```python\n@pytest.mark.xfail(reason=\"Current behavior is wrong, fix tracked in #123\")\ndef test_current_wrong_behavior():\n    assert result == wrong_value\n```\n\nOr:\n```python\n@pytest.mark.skip(reason=\"Known bug #123 - to be fixed separately\")\ndef test_current_wrong_behavior():\n    assert result == wrong_value\n```\n\n**JavaScript/TypeScript (Jest):**\n```javascript\nit.skip(\"current wrong behavior - issue #123\", () => {\n  expect(result).toBe(wrongValue);\n});\n\n// or\nit.todo(\"fix wrong behavior - issue #123\");\n```\n\n**Key points:**\n- Use `xfail` if the test currently fails but documents the wrong behavior\n- Use `skip` if you want to exclude it entirely\n- Always reference the issue/ticket that tracks the fix\n- Add a comment explaining the known problem\n\nThis documents the issue without breaking CI and prevents regressions on the wrong behavior until it's fixed."
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.yml\\\" -o -name \\\"*.json\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0098,
+   "finished": true,
+   "answer": "I don't see any files in the current directory. Could you provide the file or directory that contains the PR-tier DST seed sweep configuration? That will help me find the answer about the seed count and Docker usage."
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.yml\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.json\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0099,
+   "finished": true,
+   "answer": "The current directory is empty. Could you provide the file or path that contains the PR-tier DST seed sweep configuration?"
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.yml\\\" -o -name \\\"*.json\\\" -o -name \\\"*.txt\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0097,
+   "finished": true,
+   "answer": "The current directory is empty. Could you provide the path to the configuration file or directory containing the PR-tier DST seed sweep settings?"
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.yml\\\" -o -name \\\"*.json\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0091,
+   "finished": true,
+   "answer": "I don't have access to any configuration files in this directory. Could you provide the relevant file (e.g., CI config, test suite configuration, or documentation) that contains the PR-tier DST seed sweep settings?"
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.json\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.yml\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0091,
+   "finished": true,
+   "answer": "The current working directory is empty. I cannot find any configuration files about PR-tier DST seed sweep settings. Could you provide the file path or name where this configuration is stored?"
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.json\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.yml\\\" -o -name \\\"*.txt\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0092,
+   "finished": true,
+   "answer": "I don't see any files in this directory. Could you provide the file or repository path where the PR-tier DST seed sweep configuration is located?"
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0082,
+   "finished": true,
+   "answer": "I need more context to answer accurately. Could you clarify:\n\n1. What does DST stand for in your context? (Daylight Saving Time, Distributed Systems Testing, or something else?)\n2. Is this related to a specific testing framework, library, or codebase?\n\nOnce you clarify, I can give you the one-line answer about what property you need to do before claiming it holds."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.007,
+   "finished": true,
+   "answer": "I need more context to answer your question. \"DST property\" could refer to different things depending on the framework or context you're working with. \n\nCould you provide:\n- What framework/library are you using? (e.g., is this related to property-based testing, formal verification, a specific tool?)\n- A reference document or code example?\n\nOr if you have a file with documentation or code related to this, I can read it to help answer your question."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0072,
+   "finished": true,
+   "answer": "I don't have enough context to answer your question. Could you provide more information, such as:\n- Is this related to a specific codebase or framework?\n- Is \"DST property\" a term from a particular testing library or language?\n- Can you share the code or documentation that mentions this?\n\nAlternatively, if you have files you'd like me to examine, share them and I can help identify what needs to be done to DST properties."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.007,
+   "finished": true,
+   "answer": "I need more context to give you an accurate answer. Could you clarify what DST stands for in your case? Is this related to:\n\n- A specific testing framework?\n- A property-based testing library?\n- A formal verification tool?\n- Something else?\n\nWith that information, I can give you the concise one-line answer you're looking for."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.js\\\" -o -name \\\"*.ts\\\" | head -20\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0076,
+   "finished": true,
+   "answer": "I don't have context about what specific DST property you're referring to. Could you provide more details about what DST stands for in your case, or point me to relevant documentation/files? That would help me give you an accurate one-line answer."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0064,
+   "finished": true,
+   "answer": "I need more context. Could you clarify what \"DST property\" refers to? Are you asking about:\n- Property-based testing in a specific framework?\n- A domain-specific concept in your codebase?\n- Daylight Saving Time related properties?\n\nIf you have related code or documentation, please share it and I can give you a precise answer."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0067,
+   "finished": true,
+   "answer": "I don't have any files in the current directory to reference. Could you provide more context about what you're asking? Are you referring to:\n\n- A specific document or specification?\n- A simulator tool or testing framework?\n- A methodology or standard for bug reporting?\n\nOr do you have a file you'd like me to read that contains this information?"
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": true,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find /private/var/folders -type f -name \\\"*.md\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": 50, \"offset\": 1, \"path\": \"<root>/variants/filler/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0151,
+   "finished": true,
+   "answer": "The finding must also state **which fault was injected** (or the fault conditions that led to the bug discovery)."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0081,
+   "finished": true,
+   "answer": "Without seeing your specific documentation or system, the standard answer in formal verification and fault injection testing is:\n\n**The finding must state the fault assumption that was injected.**\n\n(A bug finding is incomplete without specifying which fault triggered it.)"
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0067,
+   "finished": true,
+   "answer": "I don't see any files in the current directory. Could you provide more context? Are you asking about:\n\n- A specific simulator or formal verification tool?\n- Documentation or course material you're working with?\n- A particular system or methodology?\n\nIn general terms, when a simulator finds a bug under fault injection, the finding typically must also state **the specific fault or fault model that triggered the bug**\u2014so the bug can be reproduced and understood under the same conditions."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f \\\\( -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.pdf\\\" \\\\) | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0109,
+   "finished": true,
+   "answer": "Based on standard fault injection methodology: **the fault that was injected** (the mutation or fault condition that triggered the bug)."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0049,
+   "finished": true,
+   "answer": "I don't have enough context to answer this accurately. This sounds like a specific requirement from a simulator documentation or research paper about fault injection.\n\nCould you provide more context, such as:\n- What simulator or tool you're referring to?\n- Is this from documentation, a paper, or a specific standard?\n- Any relevant file or link?\n\nWith that information, I can give you the precise answer about what must be stated in a finding when a bug is detected under an injected fault."
+  }
+ ]
+}

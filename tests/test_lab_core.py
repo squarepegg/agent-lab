@@ -175,6 +175,42 @@ class Explain(unittest.TestCase):
         self.assertIn("redundancy", fix["note"])
 
 
+class FixKinds(unittest.TestCase):
+    def test_kind_says_why_there_is_or_is_not_a_fix(self):
+        self.assertEqual(L.explain_mutation(BRAIN, QS, {"op": "remove_text", "path": "facts/orders-timestamps-utc.md", "text": "UTC"})["fix"]["kind"], "redundant")
+        files = {**BRAIN, "facts/orphan.md": "---\ntitle: Orphan zebra quokka\n---\nzebra quokka platypus specific words\n"}
+        self.assertEqual(L.explain_mutation(files, QS, {"op": "delete_file", "path": "facts/orphan.md"})["fix"]["kind"], "fix")
+
+
+RECORDED = os.path.join(ROOT, "recorded")
+RUNS = json.load(open(os.path.join(RECORDED, "RUNS.json")))["files"]
+
+
+def run_file(skill, variant, model_part):
+    name = next(n for n, m in RUNS.items() if m["skill"] == skill and m["variant"] == variant and model_part in m["model"])
+    return json.load(open(os.path.join(RECORDED, name)))
+
+
+class GateRecorded(unittest.TestCase):
+    def test_recorded_runs_get_the_verdicts_the_lesson_depends_on(self):
+        want = {("doubt", None, "haiku"): "NO_DELTA", ("dst", "filler", "haiku"): "NO_DELTA", ("dst", "filler", "sonnet"): "REGRESSION",
+                ("evidence-gated", None, "sonnet"): "TOO_COSTLY", ("dst", None, "haiku"): "TOO_COSTLY"}
+        for (skill, variant, model), verdict in want.items():
+            self.assertEqual(L.gate_recorded(run_file(skill, variant, model))["verdict"], verdict, (skill, variant, model))
+
+    def test_no_recorded_run_is_adopted_and_the_real_gate_is_deterministic(self):
+        for name in RUNS:
+            res = json.load(open(os.path.join(RECORDED, name)))
+            g = L.gate_recorded(res)
+            self.assertNotEqual(g["verdict"], "ADOPT", name)
+            self.assertEqual(g, L.gate_recorded(res))
+
+    def test_thresholds_can_be_overridden_and_unknown_ones_are_ignored(self):
+        res = run_file("evidence-gated", None, "sonnet")
+        self.assertEqual(L.gate_recorded(res, {"max_cost_ratio": 99})["verdict"], "ADOPT")
+        self.assertEqual(L.gate_recorded(res, {"not_a_threshold": 1})["verdict"], "TOO_COSTLY")
+
+
 class AbFact(unittest.TestCase):
     GOOD = "---\ntitle: Fiscal calendar starts in February\ntags: [calendar]\nverified: true\n---\nOur fiscal year starts on 1 February; quarter boundaries differ from calendar quarters.\n"
 

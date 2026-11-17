@@ -1,17 +1,53 @@
 <!doctype html>
-<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>agent-lab · see how the map, evals and gate work</title><link rel="stylesheet" href="style.css"></head>
-<body>
-<div id="boot">Loading Python (Pyodide ~10 MB, cached after the first visit)…</div>
-<header id="top"><h1>agent-lab</h1><span class="sub" id="sub"></span>
+<html lang="en-CA" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>agent-lab · learn how AI agents get tested</title>
+<meta name="description" content="Predict what happens, then watch the real code answer. Evals, blind spots and the gate, with the real Python running in your browser.">
+<script>
+// Start Python before anything else: a module worker downloads and boots Pyodide off the main thread. Its messages are kept
+// here until app.js connects (web/lab.js connectLab). The page below is readable and lesson 1 is playable without it.
+(function () {
+  var P = (window.__py = { log: [], on: null, worker: null });
+  function got(m) { P.log.push(m); if (P.on) P.on(m); }
+  try {
+    P.worker = new Worker("pyworker.js", { type: "module" });
+    P.worker.onmessage = function (e) { got(e.data); };
+    P.worker.onerror = function (e) { got({ type: "error", message: e.message || "the Python worker failed to start" }); };
+  } catch (e) { got({ type: "error", message: String(e) }); }
+})();
+</script>
+<link rel="preload" as="fetch" crossorigin href="https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.asm.wasm">
+<link rel="icon" href="data:,">
+<link rel="preload" as="fetch" crossorigin href="https://cdn.jsdelivr.net/pyodide/v0.27.7/full/python_stdlib.zip">
+<link rel="modulepreload" crossorigin href="https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.mjs">
+<link rel="modulepreload" href="lab.js"><link rel="modulepreload" href="model.js"><link rel="modulepreload" href="lessons.js"><link rel="modulepreload" href="challenges.js"><link rel="modulepreload" href="codepanel.js">
+<link rel="stylesheet" href="style.css"></head>
+<body class="home">
+<header id="top"><h1>agent-lab</h1><span class="sub" id="sub">Guided lessons: predict what happens, then watch the real code answer.</span>
+  <span id="py" class="py load" role="status" aria-live="polite" title="The real Python runs in your browser. It loads in the background."><span class="bar"><i id="pyfill"></i></span><span id="pytxt">Python is loading</span></span>
   <button class="chip" id="level" title="beginner: plain-English notes. experienced: line counts, no hand-holding">level</button><button class="chip" id="find">find <kbd>⌘K</kbd></button><button class="chip" id="share">copy link</button><button class="chip" id="theme">light</button></header>
 <nav id="tools" aria-label="modes"></nav>
-<main id="stage"><svg id="svg" role="img" aria-label="interactive graph"><g id="vp"></g></svg>
+<main id="stage"><svg id="svg" role="img" aria-label="interactive graph"><g id="vp"></g></svg><div id="sum" aria-label="summary of the canvas"></div>
   <div id="caption" role="note"></div><div id="toast" role="status"></div><div id="hud"></div>
   <div id="zoom"><button class="chip" id="zin">+</button><button class="chip" id="zout">−</button><button class="chip" id="zfit">fit</button></div></main>
-<section id="home" aria-label="start"></section>
+<section id="home" aria-label="start"><div class="hm">
+  <!-- Static copy of the Start screen's first screenful, so there is something to read before any JavaScript or Python has loaded.
+       app.js replaces it with the same content plus progress (homeHtml). tests_js/model.test.mjs keeps the two in step. -->
+  <h1>Learn how AI agents get tested</h1>
+  <p class="hl">You <b>predict</b> what will happen. Then the real code runs in your browser and shows whether you were right. No model is called and nothing leaves the page.</p>
+  <ol class="ideas">
+    <li><b>An eval is a question plus a pass/fail check.</b><span>See what the check really looks at.</span></li>
+    <li><b>A passing suite can still be blind.</b><span>Break things on purpose and see what notices.</span></li>
+    <li><b>One run is not evidence.</b><span>A gate turns results into a verdict you can defend.</span></li>
+  </ol>
+  <div class="cta"><button class="btn lg" data-act="lcont">Start: What is an eval?</button><span class="mut">7 short lessons, about 3 minutes each</span></div>
+  <div class="mut" id="homepy">Lesson 1 works right now, from results recorded from the real code. Python is loading in the background; the other lessons start when it is ready.</div>
+  <div class="lesson preview"><div class="lh"><b>Or start right here · lesson 1, first prediction</b></div>
+    <div class="lt">An <b>eval</b> is a question plus a pass/fail check. This one asks: <i>Which time zone are order timestamps stored in?</i> It searches the files for <code>timestamps</code> and passes only if the result contains <code>UTC</code>.</div>
+    <div class="lq"><b>Predict.</b> The search finds the right file first: <code>orders-timestamps-utc.md</code>, whose title says the timestamps are UTC. Does the eval pass?</div>
+    <div class="choices two"><button class="btn alt" data-act="lprev" data-i="0">PASS</button><button class="btn alt" data-act="lprev" data-i="1">FAIL</button></div></div>
+</div></section>
 <aside id="drawer" aria-live="polite"></aside>
-<footer id="status"><span id="st1"></span><span id="st2"></span></footer>
+<footer id="status"><span id="st1"></span><span id="st2">deterministic · no model calls</span></footer>
 <div id="pal"><div><input id="pin" placeholder="jump to a file, eval or mode · or type words to search the brain" autocomplete="off"><div id="palist"></div></div></div>
 <script type="module" src="app.js"></script>
 </body></html>

@@ -1,0 +1,278 @@
+{
+ "skill": "doubt",
+ "samples": 3,
+ "arms": [
+  "with",
+  "without"
+ ],
+ "with_path": "skills/doubt",
+ "pi_args": [
+  "--model",
+  "amazon-bedrock/global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "--no-extensions",
+  "--no-mcp"
+ ],
+ "probes_sha256": "a60616737dfca4995044db0bbdede691bac98435344ff66242528293782edf91",
+ "date": "2026-11-16",
+ "cost_usd": 0.163,
+ "rows": [
+  {
+   "probe": "doubt-framing",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "fresh"
+   ],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/doubt/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0163,
+   "finished": true,
+   "answer": "**Isolation**: Pass only the **artifact** (the plan) + **contract** (what it must satisfy) \u2014 strip out your reasoning and CLAIM. No session context.\n\n**Adversarial prompt**: Use an explicit directive that tells it to **find what is wrong**, not validate. Frame it as \"Assume the author is overconfident. Look for unstated assumptions, edge cases, hidden coupling, ways the contract could be violated.\"\n\n(See `doubt-driven-development` skill, \"Cross-model escalation\" section, for the full adversarial prompt template and sandbox safety details.)"
+  },
+  {
+   "probe": "doubt-framing",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "fresh"
+   ],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/doubt/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0159,
+   "finished": true,
+   "answer": "**Line 1:** Pass only the **artifact** (code/decision) and **contract** (what it must satisfy)\u2014no session context, no your reasoning or conclusion.\n\n**Line 2:** Frame with an **adversarial prompt** instructing it to find problems (unstated assumptions, edge cases, hidden coupling), not validate\u2014this overrides any default personas."
+  },
+  {
+   "probe": "doubt-framing",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/doubt/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0157,
+   "finished": true,
+   "answer": "**Prompt:** Make it adversarial\u2014instruct the second model to find what's wrong, assume the author is overconfident, and look for unstated assumptions, edge cases, hidden coupling, and contract violations. Do NOT validate or summarize.\n\n**Context:** Pass only the ARTIFACT + CONTRACT stripped of your reasoning. Do NOT pass your CLAIM (hypothesis)\u2014the fresh reviewer must independently judge whether the artifact satisfies the contract, not confirm your conclusion."
+  },
+  {
+   "probe": "doubt-framing",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "adversarial"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.004,
+   "finished": true,
+   "answer": "The second model's **prompt** should include the full plan from the first model as context (paste it in or reference it), with an explicit review instruction (e.g., \"Review this plan for risks, gaps, and improvements\").\n\nIts **context** should be minimal/fresh to avoid bias\u2014don't inherit the first model's conversation history, just provide the plan and review criteria as new input."
+  },
+  {
+   "probe": "doubt-framing",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "adversarial",
+    "fresh"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0041,
+   "finished": true,
+   "answer": "**Prompt**: Have the second model critique the first model's plan by asking it to identify gaps, risks, and improvements against the original requirements.\n\n**Context**: Pass it the original requirements, the first model's plan, and any evaluation criteria (constraints, goals, quality standards)."
+  },
+  {
+   "probe": "doubt-framing",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "adversarial",
+    "fresh"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0048,
+   "finished": true,
+   "answer": "For a second model to review your plan effectively:\n\n1. **Prompt**: Instruct it to critique the plan systematically (feasibility, risks, dependencies, edge cases) and flag specific issues rather than just validate.\n2. **Context**: Feed it the original plan plus any requirements, constraints, existing code/architecture, and the original reasoning/context so it can evaluate against actual needs."
+  },
+  {
+   "probe": "doubt-not-summarize",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/doubt/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0161,
+   "finished": true,
+   "answer": "Based on the doubt-driven-development skill, two things the reviewer is explicitly told **NOT to do** are:\n\n1. **Do NOT validate** \u2014 the reviewer should not produce a balanced verdict approving the artifact\n2. **Do NOT summarize** \u2014 the reviewer should not recapitulate the content\n\nThese appear in the adversarial prompt in Step 3, which says: *\"Find issues, or state explicitly that you cannot find any after thorough examination.\"* The intent is to make the reviewer adversarial and issues-focused rather than approval-seeking or descriptive."
+  },
+  {
+   "probe": "doubt-not-summarize",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/doubt/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0164,
+   "finished": true,
+   "answer": "Based on the doubt-driven-development skill file, in the adversarial reviewer prompt (Step 3), the reviewer is explicitly told **NOT to do** these two things:\n\n1. **Do NOT validate** \u2014 The reviewer should not validate or approve the artifact\n2. **Do NOT summarize** \u2014 The reviewer should not summarize the artifact\n\nThe full instruction states: *\"Do NOT validate. Do NOT summarize. Find issues, or state explicitly that you cannot find any after thorough examination.\"*\n\nThis ensures the reviewer operates in an adversarial, issue-finding mode rather than providing balanced commentary or validation."
+  },
+  {
+   "probe": "doubt-not-summarize",
+   "split": "heldout",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/doubt/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0165,
+   "finished": true,
+   "answer": "Based on the doubt-driven-development skill file, in Step 3 (DOUBT \u2014 Invoke the fresh-context reviewer), the reviewer is explicitly told **NOT to do** two things in the adversarial prompt:\n\n1. **Do NOT validate** \u2014 The reviewer should not attempt to validate or approve the artifact; they should focus only on finding what is wrong with it.\n\n2. **Do NOT summarize** \u2014 The reviewer should not provide a summary of the artifact; instead, they should find issues or state explicitly that they cannot find any after thorough examination.\n\nThese constraints keep the reviewer focused on an adversarial, issues-only stance rather than producing a balanced assessment."
+  },
+  {
+   "probe": "doubt-not-summarize",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "validate",
+    "summarize"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -type f -name \\\"*doubt*\\\" 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type f -name \\\"*review*\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/extensions/subagent/agents/reviewer.md\"}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/extensions/subagent/prompts/implement-and-review.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"doubt-driven\\\\|doubt driven\\\" <machine-home>/.pi --include=\\\"*.md\\\" 2>/dev/null\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0261,
+   "finished": true,
+   "answer": "I wasn't able to find a document about \"doubt-driven review\" in the available files or Pi documentation. Could you provide:\n\n1. The name or path of the document you're referring to?\n2. Or, if you'd like to share the file, I can read it and identify the two things a reviewer is told NOT to do\n\nAlternatively, if this is a document you have locally, please let me know where it's located so I can examine it."
+  },
+  {
+   "probe": "doubt-not-summarize",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "validate",
+    "summarize"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find <cwd> -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <cwd>/\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0102,
+   "finished": true,
+   "answer": "I don't see any files in the current working directory. Could you clarify where I should look for information about \"doubt-driven review\"? \n\nIs this referring to:\n- A document or file you'd like me to examine?\n- A concept from the Pi documentation or another resource?\n- A specific skill or guide you have in mind?\n\nOnce you provide more context or point me to the right file, I'll be able to find the two things the reviewer is told NOT to do."
+  },
+  {
+   "probe": "doubt-not-summarize",
+   "split": "heldout",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "validate",
+    "summarize"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"doubt-driven review\\\" ~ 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"doubt\\\" ~ 2>/dev/null | grep -i review | head -10\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0165,
+   "finished": true,
+   "answer": "I don't see any files in the current directory or in a broader search that mention \"doubt-driven review.\" Could you please provide more context or share the document you're referring to? \n\nAre you asking about:\n- A document file you'd like me to examine?\n- A specific coding standard or practice guide?\n- Content from a particular resource or training material?\n\nOnce you share the relevant document or file, I'll be happy to identify the two things a reviewer is told NOT to do in a doubt-driven review."
+  }
+ ]
+}

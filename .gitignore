@@ -1,4 +1,6 @@
 web/bundle.json
+web/runs.json
+web/sw-manifest.js
 node_modules/
 __pycache__/
 *.pyc

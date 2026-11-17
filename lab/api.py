@@ -16,6 +16,7 @@ FNS = {
     "grade": lambda a: L.grade_answer(a["probe"], a["text"]),
     "trivial_pass": lambda a: L.trivial_pass(a["probe"]),
     "gate": lambda a: L.gate_from_grid(a["probes"], a["grid"], a["params"], a.get("samples", 3)),
+    "gate_run": lambda a: L.gate_recorded(a["res"], a.get("params")),
     "noise": lambda a: L.noise_sweep(a["probes"], a["rate_without"], a["rate_with"], a["samples"], a["params"], a.get("trials", 200)),
     "ab_skill": lambda a: L.ab_skill(a["text"], a["probes"], L.fixture_baseline(a["probes"], a.get("rates"), a.get("samples", 3)),
                                      a.get("samples", 3), a.get("params")),

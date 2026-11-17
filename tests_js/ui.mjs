@@ -13,6 +13,10 @@ const srv = createServer((req, res) => { const f = join(root, req.url === "/" ? 
 const url = `http://127.0.0.1:${srv.address().port}/`;
 const browser = await chromium.launch(process.env.CI ? {} : { executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
 const page = await browser.newPage({ viewport: { width: 1440, height: 860 } });
+// Handlers run through an async queue (act() in app.js): after every action wait for it to drain before asserting.
+const idle = () => page.evaluate(() => window.__lab?.idle?.()).catch(() => {});
+for (const [obj, names] of [[page, ["click", "fill", "selectOption", "dblclick"]], [page.locator("body").constructor.prototype, ["click", "fill", "selectOption", "hover", "dblclick"]]])
+  for (const n of names) { const orig = obj[n]; obj[n] = async function (...a) { const r = await orig.apply(this, a); await idle(); return r; }; }
 const errors = []; page.on("pageerror", (e) => errors.push(e.message)); page.on("console", (m) => m.type() === "error" && !/404/.test(m.text()) && errors.push(m.text()));
 const open = async (hash = "") => { await page.goto("about:blank"); await page.goto(url + hash); await page.waitForFunction(() => window.__lab?.ready, null, { timeout: 120000 }); };
 const mode = (m) => page.click(`#tools button[data-m=${m}]`);
@@ -23,7 +27,7 @@ const ORD = "facts/orders-timestamps-utc.md";
 // --- start screen: the default landing is a guided path, not the map
 await open();
 assert.match(await txt("#home"), /Learn how AI agents get tested/);
-assert.equal(await page.locator("#home [data-act=lstart]").count(), 6, "every lesson is on the path");
+assert.equal(await page.locator("#home [data-act=lstart]").count(), 7, "every lesson is on the path");
 assert.ok(await page.locator("#home [data-act=lcont]").isVisible(), "one obvious next step");
 assert.ok((await page.locator("#home [data-act=lcont]").boundingBox()).y < (await page.locator("#home [data-act=lvl]").first().boundingBox()).y, "Continue comes before the level choice");
 assert.match(await page.getAttribute("#home [data-act=lvl][data-l=beginner]", "class"), /\bon\b/, "the current level is marked");
@@ -66,8 +70,8 @@ assert.match(await txt("#drawer"), /no matches/); assert.match(await txt("#drawe
 await page.click("[data-act=edreset]");
 // a tweak's "try preset X" nudge appears only while you are NOT already on that preset
 await mode("gate"); await unfold("try"); await page.click("[data-act=edtweak][data-i='0']");
-assert.match(await txt("#drawer .note:last-of-type"), /Try the “Already good \(ceiling\)” preset/);
-await page.click("[data-act=preset][data-k='Already good (ceiling)']"); await page.click("[data-act=edtweak][data-i='0']");
+assert.match(await txt("#drawer .note:last-of-type"), /Try the “Already good” preset/);
+await page.click("[data-act=preset][data-k='Already good']"); await page.click("[data-act=edtweak][data-i='0']");
 assert.match(await txt("#drawer"), /Without it a skill can 'win'/); assert.doesNotMatch(await txt("#drawer"), /Try the “Already good/);
 await page.click("[data-act=edreset]");
 await page.click("[data-act=preset][data-k='Skill clearly helps']");
@@ -95,13 +99,13 @@ await page.click("[data-act=auto]");
 await page.waitForFunction(() => /score \d+\/\d+/.test(document.querySelector("#drawer").textContent), null, { timeout: 30000 });
 const score = async () => +(/score (\d+)\//.exec(await txt("#drawer"))[1]);
 const before = await score();
-await page.locator("tr.rowx:has(td.bad)").first().click(); // a survivor: why + verified fix
+await page.locator(".mrow.survived").first().click(); // a survivor: why + verified fix
 assert.match(await txt("#drawer"), /SURVIVED/);
 assert.match(await txt("#drawer"), /still passes|No eval's lookup/);
 assert.match(await txt("#drawer"), /how to fix/);
-await page.locator("tr.rowx:has(td.ok)").first().click(); // a kill: which check failed
+await page.locator(".mrow.killed").first().click(); // a kill: which check failed
 assert.match(await txt("#drawer"), /KILLED/); assert.match(await txt("#drawer"), /only that file supplied/);
-for (const r of await page.locator("tr.rowx:has(td.bad)").all()) { await r.click(); if (await page.locator("[data-act=applyfix]").count()) break; }
+for (const r of await page.locator(".mrow.survived").all()) { await r.click(); if (await page.locator("[data-act=applyfix]").count()) break; }
 await page.click("[data-act=applyfix]");
 assert.ok((await score()) > before, "applying the verified fix raises the mutation score");
 
@@ -110,15 +114,15 @@ await mode("gate");
 const fired = () => page.locator(".step.fired").getAttribute("data-step");
 assert.equal(await fired(), "ADOPT");
 await page.click("[data-act=preset][data-k='No effect']"); assert.equal(await fired(), "NO_DELTA");
-await page.click("[data-act=preset][data-k='Already good (ceiling)']"); assert.equal(await fired(), "CEILING");
-await page.click("[data-act=preset][data-k='Helps dev, hurts one']"); assert.equal(await fired(), "REGRESSION");
+await page.click("[data-act=preset][data-k='Already good']"); assert.equal(await fired(), "CEILING");
+await page.click("[data-act=preset][data-k='Helps most, hurts one']"); assert.equal(await fired(), "REGRESSION");
 await page.click("[data-act=preset][data-k='Skill clearly helps']");
 await page.locator("[data-gc]").first().click(); // flip one baseline sample: gain 12 -> 11, still ADOPT
 assert.equal(await fired(), "ADOPT");
 await page.fill("[data-gp=min_gain]", "99"); assert.equal(await fired(), "NO_DELTA");
 const hash = new URL(page.url()).hash; assert.match(hash, /g=/);
 await open(hash); assert.equal(await fired(), "NO_DELTA", "shared link restores the scenario");
-await page.click("[data-act=dumb]"); assert.match(await txt("#gpr"), /correct/);
+await unfold("grader"); await page.click("[data-act=dumb]"); assert.match(await txt("#gpr"), /correct/);
 
 // --- A/B fact: a good fact fits; a hijacking fact is flagged and breaks the eval it displaces
 await mode("abfact"); await page.click("[data-act=abfact]");
@@ -142,7 +146,7 @@ assert.match(await txt("#drawer"), /private string|description missing|name/);
 await page.keyboard.press("Control+k"); await page.fill("#pin", "pii"); await page.keyboard.press("Enter");
 assert.match(await txt("#drawer"), /pii-hashed-email|Email is only available hashed/);
 await page.click("#theme"); assert.equal(await page.getAttribute("html", "data-theme"), "light");
-await mode("about"); assert.match(await txt("#drawer"), /Not real here/);
+await mode("about"); assert.match(await txt("#drawer"), /What is not real here/);
 
 // --- step 3: walk every lesson at both levels; every prediction reveals a computed answer that is one of the choices
 for (const level of ["beginner", "experienced"]) {
@@ -193,7 +197,7 @@ assert.ok(Object.keys(pg).length >= 5 && Object.values(pg).every((x) => x.done))
 
   await start("score"); await check(); assert.ok(!(await solved()));
   await page.click("[data-act=auto]"); await page.waitForFunction(() => /score \d+\/\d+/.test(document.querySelector("#drawer").textContent), null, { timeout: 15000 });
-  for (const r of await page.locator("tr.rowx").all()) { await r.click(); if (await page.locator("[data-act=applyfix]").count()) { await page.click("[data-act=applyfix]"); break; } }
+  for (let i = 0; i < 4 && (await page.locator("[data-act=fixrow]").count()); i++) await page.locator("[data-act=fixrow]").first().click();
   await check(); assert.ok(await solved(), "score solved");
 
   await start("costly"); await check(); assert.ok(!(await solved()));

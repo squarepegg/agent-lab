@@ -1,0 +1,540 @@
+{
+ "skill": "evidence-gated",
+ "samples": 3,
+ "arms": [
+  "with",
+  "without"
+ ],
+ "with_path": "skills/evidence-gated",
+ "pi_args": [
+  "--model",
+  "amazon-bedrock/global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "--no-extensions",
+  "--no-mcp"
+ ],
+ "probes_sha256": "15c11ce601b064898c464e2e89307274ace3ea814692d9e61c2688bc205b2f7a",
+ "date": "2026-11-16",
+ "cost_usd": 0.306,
+ "rows": [
+  {
+   "probe": "eg-recommended",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0144,
+   "finished": true,
+   "answer": "When the verdict is DECISIVE: one valid option with none untested, or one option no worse on every metric and better on at least one."
+  },
+  {
+   "probe": "eg-recommended",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0147,
+   "finished": true,
+   "answer": "When there is a **DECISIVE verdict**: one valid option exists with none untested, or one valid option is no worse on every metric and better on at least one; otherwise present the table without a pick."
+  },
+  {
+   "probe": "eg-recommended",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0146,
+   "finished": true,
+   "answer": "Write '(Recommended)' only next to a **DECISIVE verdict**: one valid option with no untested options, or one valid option no worse on every metric and better on one."
+  },
+  {
+   "probe": "eg-recommended",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "decisive"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0034,
+   "finished": true,
+   "answer": "Write \"(Recommended)\" next to an option when it represents the best choice for most users or the most balanced trade-off for the typical use case."
+  },
+  {
+   "probe": "eg-recommended",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "decisive"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0031,
+   "finished": true,
+   "answer": "Write '(Recommended)' next to an option when that choice best balances the trade-offs and aligns with your specific priorities and constraints for the decision at hand."
+  },
+  {
+   "probe": "eg-recommended",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "decisive"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0032,
+   "finished": true,
+   "answer": "Write '(Recommended)' next to an option when it offers the best overall balance of trade-offs for your specific context, requirements, and constraints."
+  },
+  {
+   "probe": "eg-register",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0147,
+   "finished": true,
+   "answer": "The decision file must be **committed to git** before running the evaluation."
+  },
+  {
+   "probe": "eg-register",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0143,
+   "finished": true,
+   "answer": "The decision file must be committed to git before running the evaluation."
+  },
+  {
+   "probe": "eg-register",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": 100, \"offset\": 1, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0148,
+   "finished": true,
+   "answer": "The decision file must be **committed to git** before running the evaluation.\n\n(eval.py refuses an uncommitted or modified file, and registration must equal its committed version in HEAD.)"
+  },
+  {
+   "probe": "eg-register",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "commit"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -type f -name \\\"*decision*\\\" 2>/dev/null | head -20\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0093,
+   "finished": true,
+   "answer": "Could you provide more context? The current directory is empty. Are you referring to a specific skill, project, or documentation about architecture decisions? For example:\n- Is this related to an ADR (Architecture Decision Record) process?\n- Do you have a file path or project name I should look at?"
+  },
+  {
+   "probe": "eg-register",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "commit"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.py\\\" -o -name \\\"*.js\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0095,
+   "finished": true,
+   "answer": "I don't see any files in the current directory. Could you provide more context about:\n\n1. What decision file or system you're referring to (e.g., Architecture Decision Record, ADR, or a specific tool)?\n2. Can you point me to the file or documentation that describes this process?\n\nThis will help me give you the accurate one-line answer you're looking for."
+  },
+  {
+   "probe": "eg-register",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "commit"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -name \\\"*decision*\\\" -o -name \\\"*eval*\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"pwd && find . -type f 2>/dev/null\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0132,
+   "finished": true,
+   "answer": "I don't see any files in the current directory. Based on the directory name referencing a skill (\"skill-ab\"), this appears to be about Architecture Decisions. \n\nCould you provide more context or point me to the relevant files? Are there documentation files, README, or a specific project structure I should examine to answer your question about what must happen to the decision file before evaluation?"
+  },
+  {
+   "probe": "eg-irreversible",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0162,
+   "finished": true,
+   "answer": "For a hard-to-reverse choice like picking a datastore, the decision needs two extra committed files before it can be **DECISIVE**:\n\n1. **`attack_report`** \u2014 committed file from an independent attack round\n2. **`blind_check`** \u2014 committed file from an independent blind check\n\nAs stated in the evidence-gated-decisions skill:\n\n> **Irreversible decisions** (`reversible: false`) can't be DECISIVE without `attack_report` and `blind_check`: two different, non-empty, committed files, neither the decision file.\n\nThese are set in the decision file's `reversible: false` field. The framework's reasoning is that hard-to-reverse choices (like vendor/datastore picks) require higher evidence thresholds than reversible choices (config changes, internal layout). The attack round and blind check provide independent validation that the evaluated options really meet the criteria before commitment."
+  },
+  {
+   "probe": "eg-irreversible",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0161,
+   "finished": true,
+   "answer": "According to the evidence-gated-decisions skill, for a hard-to-reverse choice like picking a datastore, the two extra committed files needed to make the decision decisive are:\n\n1. **`attack_report`** \u2014 a committed file from an independent attack round\n2. **`blind_check`** \u2014 a committed file from an independent blind check\n\nFrom the skill:\n\n> Hard to reverse (store, vendor, public contract): set `reversible: false` and add `attack_report` and `blind_check` (committed files from an independent attack round and an independent blind check). `eval.py` will not return DECISIVE without both.\n\nThese additional evidence files are required because the choice is difficult to reverse. The decision file itself must set `reversible: false`, and then `eval.py` will refuse to return a DECISIVE verdict without both committed attack and blind-check files present."
+  },
+  {
+   "probe": "eg-irreversible",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0163,
+   "finished": true,
+   "answer": "For a hard-to-reverse choice like picking a datastore, the decision needs **two extra committed files** before it can be decisive:\n\n1. **`attack_report`** \u2014 from an independent attack round\n2. **`blind_check`** \u2014 from an independent blind check\n\nFrom the skill documentation:\n\n> Hard to reverse (store, vendor, public contract): set `reversible: false` and add `attack_report` and `blind_check` (committed files from an independent attack round and an independent blind check). `eval.py` will not return DECISIVE without both.\n\nThese files ensure that an irreversible decision (set as `reversible: false` in the decision file) has been stress-tested from two different angles\u2014one by an attacker trying to break the choice, and another by an independent reviewer with no context beyond the decision file itself."
+  },
+  {
+   "probe": "eg-irreversible",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "attack",
+    "blind"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0112,
+   "finished": true,
+   "answer": "I don't see any files in the current directory. Could you provide more context about what you're referring to? \n\nAre you asking about:\n1. An **Architecture Decision Record (ADR)** pattern for datastore selection?\n2. A specific document or pattern you've encountered?\n3. Files that should be in this directory?\n\nIf you have a document, file, or specific reference in mind, please share it, and I'll be able to identify the two extra committed files needed to make a hard-to-reverse datastore choice decisive."
+  },
+  {
+   "probe": "eg-irreversible",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "attack",
+    "blind"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp-parent> -type f -name \\\"*.md\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"pwd\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"hard-to-reverse\\\" ~ 2>/dev/null | head -5\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"committed files\\\" ~ 2>/dev/null | head -5\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0226,
+   "finished": true,
+   "answer": "I couldn't find any files in the current directory or related context. This question appears to reference a specific concept or document that I don't have access to in this environment.\n\nCould you provide more context? Specifically:\n1. What is the source of this question? (e.g., a specific article, documentation, or book)\n2. Is this related to a particular architecture decision framework or pattern?\n3. Are there any files you'd like me to examine that contain this information?\n\nThe phrase \"hard-to-reverse choice\" for picking a datastore with \"two extra committed files\" sounds like it could be referencing a specific architectural decision principle, but I'd need more information to give you an accurate answer."
+  },
+  {
+   "probe": "eg-irreversible",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "attack",
+    "blind"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0108,
+   "finished": true,
+   "answer": "The directory appears to be empty. Could you provide more context about where this question is from? \n\nThis sounds like it might be referencing a specific architectural principle or design pattern (possibly from a book, article, or architectural documentation). The phrasing about \"hard-to-reverse choice\" and \"two extra committed files\" for datastore selection reminds me of concepts from architectural decision records or Uncle Bob's Clean Architecture principles.\n\nCould you either:\n1. Share the source material or document you're referencing?\n2. Point me to a specific file or directory where this information might be?\n3. Provide more context about what project or framework this relates to?\n\nWith that information, I can give you a precise answer about what two committed files are needed for a decisive datastore decision."
+  },
+  {
+   "probe": "eg-requirement-tags",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "old-behaviour-only"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -type f -name \\\"*requirement*\\\" -o -name \\\"*tag*\\\" 2>/dev/null | head -20\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.01,
+   "finished": true,
+   "answer": "Could you provide more context? I need to know:\n1. What document or system are you referring to?\n2. Is this in a file in your project, or a general question about a tagging convention?\n\nIf you have a file with this information, please share its path or contents, and I'll be able to identify the specific tag that marks candidates to drop."
+  },
+  {
+   "probe": "eg-requirement-tags",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "old-behaviour-only"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -name \\\"*requirement*\\\" -o -name \\\"*tag*\\\" -o -name \\\"*drop*\\\" 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type f -name \\\"*.md\\\" 2>/dev/null | xargs grep -l \\\"tag.*drop\\\\|drop.*tag\\\\|requirement.*source\\\" 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -A 5 -B 5 \\\"tag.*drop\\\\|drop.*tag\\\\|requirement.*source\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-ai/README.md <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-codemode/README.md\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0251,
+   "finished": true,
+   "answer": "I don't see any relevant files in the standard Pi directories. Could you provide more context about where this tagging scheme is documented? Is this related to:\n\n- A specific skill or documentation file?\n- A requirements management system or process?\n- A project you're working on?\n\nOr if you can point me to a file or directory where this information exists, I can search for the specific tag that marks rows as candidates to drop."
+  },
+  {
+   "probe": "eg-requirement-tags",
+   "split": "heldout",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/skills/evidence-gated/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0189,
+   "finished": true,
+   "answer": "The tag is **`old-behaviour-only`**.\n\nAccording to the evidence-gated-decisions skill documentation, when tagging requirements by source, you use these tags: `product`, `law`, `vendor-contract`, `consumer`, `ops`, `old-behaviour-only`, `new-design-only`. \n\nThe documentation explicitly states: \"Old-behaviour-only rows are candidates to drop.\""
+  },
+  {
+   "probe": "eg-requirement-tags",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "old-behaviour-only"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find . -type f 2>/dev/null | head -20\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0102,
+   "finished": true,
+   "answer": "I don't see any files in the current directory. To answer your question about which tag marks rows that are candidates to drop when tagging requirements by source, I'll need you to either:\n\n1. **Provide the file or document** that contains this information (paste it or upload it)\n2. **Clarify the context** - is this referring to a specific methodology, framework, or document you're working with?\n\nCould you share the relevant file or provide more details about what system or document you're asking about?"
+  },
+  {
+   "probe": "eg-requirement-tags",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "old-behaviour-only"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"env | grep -i PI_ | head -20\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0098,
+   "finished": true,
+   "answer": "I don't have access to any files in the current working directory. To help you find which tag marks rows that are candidates to drop when tagging requirements by source, could you please:\n\n1. Provide the file or documentation that contains this information, or\n2. Share more context about what system/framework you're referring to (e.g., is this about a data cleaning process, requirements management system, etc.)\n\nIf you have a file you'd like me to examine, you can share its path and I'll look it up for you."
+  },
+  {
+   "probe": "eg-requirement-tags",
+   "split": "heldout",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "old-behaviour-only"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0094,
+   "finished": true,
+   "answer": "I don't see any files in the current directory. Could you please provide:\n\n1. The file path or name where this information is documented\n2. Or provide more context about which project/documentation you're referring to\n\nThis will help me locate the specific tag used for marking requirement rows as candidates to drop."
+  }
+ ]
+}

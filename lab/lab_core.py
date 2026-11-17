@@ -226,7 +226,7 @@ def suggest_fix(files, questions, mutation):
     stem = os.path.splitext(os.path.basename(path))[0]
     toks = _unique_tokens(files, path, within)
     if not toks:
-        return {"yaml": None, "verified": False, "note": (
+        return {"yaml": None, "verified": False, "kind": "redundant", "note": (
             f"Nothing in the {'removed text' if within else 'file'} is unique to {path}: other files already say it, so no eval can tell "
             "this edit apart. That is redundancy, not a weak eval. Accept it, or delete the duplicate so the fact lives in one place.")}
     base_ids = {q["id"] for q in questions}
@@ -244,9 +244,9 @@ def suggest_fix(files, questions, mutation):
             ok_base = run_question(files, q)["pass"]
             ok_broken = run_question(broken, q)["pass"]
             if ok_base and not ok_broken:
-                return {"yaml": yaml.safe_dump([q], sort_keys=False, default_flow_style=None).rstrip(), "verified": True, "eval": q,
+                return {"yaml": yaml.safe_dump([q], sort_keys=False, default_flow_style=None).rstrip(), "verified": True, "eval": q, "kind": "fix",
                         "note": f"Verified: passes on the real brain, fails once the edit is made. `{tok}` appears only in {path}."}
-    return {"yaml": None, "verified": False,
+    return {"yaml": None, "verified": False, "kind": "unreachable",
             "note": f"{path} has text no other file has ({', '.join(toks[:3])}), but no search query puts it first, so an eval cannot reach it. Add a title or tag containing those words."}
 
 
@@ -365,6 +365,14 @@ def gate_from_grid(probes, grid, params, samples=3):
             **{k: v for k, v in params.items() if not k.startswith("_")}}
     res = build_results("lab", probes, {a: {k: v[a] for k, v in grid.items()} for a in ("with", "without")}, samples,
                         costs={"with": params.get("_cand_cost", 0.01)})
+    return gate_decide(cand, res)
+
+
+def gate_recorded(res, params=None):
+    """The real gate on a RECORDED skill_ab results file (recorded/*.json: real model answers, real costs). Thresholds default to
+    gate.DEFAULTS; `params` may override them, exactly as a candidate file would."""
+    cand = {"id": "lab", "source": "recorded run", "claim": "lab", "skill": res.get("skill"), "samples": res.get("samples"),
+            **{k: v for k, v in (params or {}).items() if k in _gate.DEFAULTS}}
     return gate_decide(cand, res)
 
 
