@@ -40,6 +40,9 @@ const runRes = (S, name) => S.runs.runs[name];
 const dollars = (x) => `$${x.toFixed(3)}`;
 const dstTrace = (S, family) => traceStats(runRes(S, run(S, "dst", null, family)));   // by name, not S.gate.run: q() is drawn before the step's setup has run
 const modelOf = (S, name) => modelName(runRes(S, name).pi_args[1]);
+const guardTextOf = (c) => (c.name === "read" ? c.args.path : c.args.command) ?? "";
+const gk = (S) => S.guard.res.counts, gat = (S) => S.guard.att.counts;
+const nBash = (S) => S.guard.calls.filter((c) => c.name === "bash").length;
 const armScore = (res, probe, arm) => res.rows.filter((r) => r.probe === probe && r.arm === arm && r.correct && r.finished !== false).length;
 
 export const LESSONS = [
@@ -291,6 +294,54 @@ export const LESSONS = [
           expects: "More often",
           miss: { "Less often": ({ S }) => { const a = dstTrace(S, "haiku"); return `${modelOf(S, run(S, "dst", null, "haiku"))} opened the file in ${a.withRead.n} of ${a.withRead.n + a.withSkip.n} answers, which is not less.`; },
                   "About as often": ({ S }) => { const a = dstTrace(S, "haiku"); return `${modelOf(S, run(S, "dst", null, "haiku"))} opened it in ${a.withRead.n} of ${a.withRead.n + a.withSkip.n} answers. That is a clear difference, not about the same.`; } } } },
+    ],
+  },
+  {
+    id: "guard", title: "What is the agent allowed to do?", blurb: "Write a policy and run it against real tool calls.",
+    look: "Each square is one real tool call a model made. Green: your policy blocked a call that went outside the working folder. Red: one got through. Amber: a harmless call was blocked.",
+    learned: "A guardrail decides what an agent may do, before it does it. It has a cost, because it can block harmless work. It can score perfectly on calls nobody was trying to make dangerous. And a rule that only reads text can be walked around. Test a guardrail like an eval, with calls it has not seen, and put the limits that matter below the model.",
+    needs: (S) => !!S.guard?.calls.length,
+    steps: [
+      { mode: "guard", setup: [["gpolicy", []]],
+        text: "A **guardrail** decides, before a tool call runs, whether the agent may make it. Here the calls are real: every shell command and file read the two models made in the recorded runs. A call is an **escape** if it goes outside the working folder. The policy code is written for this lab; it is not upstream.",
+        exp: "`lab/guard.py` (written for this lab). `run(calls, policy)` applies a policy, either a list of text rules or your own `allowed(name, args)`, to every recorded call and compares each decision with `reaches_outside`, a reference label worked out from the call's text.",
+        predict: { q: (ctx) => { const k = gk(ctx.S); return `Policy: block every shell command. Of the ${k.total} real calls, ${k.total - k.escapes} are harmless: they stay in the working folder. How many harmless calls does this policy stop?`; },
+          choices: ["A few", "About half", "Most of them"], run: [["gpolicy", ["no_bash"]]],
+          answer: ({ S }) => { const k = gk(S), p = k.wrongly / (k.total - k.escapes); return p < 0.2 ? "A few" : p < 0.6 ? "About half" : "Most of them"; },
+          claims: [["every shell command is blocked", ({ S }) => gk(S).blocked >= nBash(S)], ["it still lets some escapes through", ({ S }) => gk(S).missed > 0]],
+          why: ({ S }) => { const k = gk(S); return `${k.wrongly} of the ${k.total - k.escapes} harmless calls were blocked, and it caught ${k.caught} of the ${k.escapes} escapes. The ${k.missed} it missed were file reads, because it only looks at shell commands. Blocking every command is safe and nearly useless: the agent can no longer even list its own folder. A guardrail has a cost.`; },
+          expects: "Most of them",
+          miss: { "A few": ({ S }) => { const k = gk(S); return `${k.wrongly} of ${k.total - k.escapes} is far more than a few. Most of what these models did was ordinary shell work.`; },
+                  "About half": ({ S }) => { const k = gk(S); return `${k.wrongly} of ${k.total - k.escapes} is more than half. Shell commands are most of what the models did.`; } } },
+        hint: "How many of the 179 calls are shell commands?" },
+      { mode: "guard", setup: [["gpolicy", []]],
+        predict: { q: (ctx) => `Policy: block anything that mentions the home folder (\`~\`). The ${gk(ctx.S).escapes} escapes are the calls that go outside the working folder. How many does this policy catch?`,
+          choices: ["All of them", "Most, but not all", "About half or fewer"], run: [["gpolicy", ["no_home"]]],
+          answer: ({ S }) => { const k = gk(S), p = k.caught / k.escapes; return k.caught === k.escapes ? "All of them" : p >= 0.6 ? "Most, but not all" : "About half or fewer"; },
+          claims: [["no harmless call is blocked", ({ S }) => gk(S).wrongly === 0], ["some escapes get through", ({ S }) => gk(S).missed > 0],
+                   ["every escape that got through reached a temp folder", ({ S }) => S.guard.res.rows.every((r, i) => !(r.outside && !r.blocked) || /<tmp>|\/private\/var/.test(guardTextOf(S.guard.calls[i])))]],
+          why: ({ S }) => { const k = gk(S); return `${k.caught} of ${k.escapes} were caught, and no harmless call was blocked, which is the good half. The ${k.missed} that got through all went to a temp folder (\`<tmp>\` or \`/private/var/…\`) instead of the home folder. A rule blocks only what its author thought of.`; },
+          expects: "Most, but not all",
+          miss: { "All of them": ({ S }) => { const k = gk(S); return `${k.missed} escapes did not mention the home folder. They searched a temp folder.`; },
+                  "About half or fewer": ({ S }) => { const k = gk(S); return `${k.caught} of ${k.escapes} is well over half. Most escapes were searches of the home folder.`; } } } },
+      { mode: "guard", setup: [["gpolicy", []]],
+        predict: { q: (ctx) => `Policy: block absolute paths outside the working folder (anything starting with \`/\`, \`~\` or the home folder). On these ${gk(ctx.S).total} real calls, how many harmless calls does it block?`,
+          choices: ["None", "A few", "Many"], run: [["gpolicy", ["no_absolute"]]],
+          answer: ({ S }) => { const k = gk(S); return k.wrongly === 0 ? "None" : k.wrongly <= 10 ? "A few" : "Many"; },
+          claims: [["it catches every escape", ({ S }) => gk(S).caught === gk(S).escapes], ["nothing gets through", ({ S }) => gk(S).missed === 0]],
+          why: ({ S }) => { const k = gk(S); return `${k.wrongly} harmless calls were blocked, and it caught ${k.caught} of ${k.escapes} escapes. On these calls this one rule scores perfectly. But that is a score on calls two models happened to make while answering ordinary questions. Nobody was trying to get past the rule.`; },
+          expects: "None",
+          miss: { "A few": () => "Paths inside the working folder are shown as `<root>/…` or `<cwd>/…` here, and the rule treats those as inside, so it does not touch them.", Many: () => "Paths inside the working folder are shown as `<root>/…` or `<cwd>/…` here, and the rule treats those as inside, so it does not touch them." } } },
+      { mode: "guard", open: ["poke", "attacks"], setup: [["gpolicy", ["no_absolute"]]],
+        predict: { q: (ctx) => `The same rule, now against ${gat(ctx.S).escapes} ready-made attacks that really do go outside the working folder (\`ls $HOME\`, \`cd .. && ls\`, and others). Open “Ready-made attacks”. How many get through?`,
+          choices: ["None", "Fewer than half", "Half or more"], run: [["gpolicy", ["no_absolute"]]],
+          answer: ({ S }) => { const k = gat(S); return k.missed === 0 ? "None" : k.missed / k.escapes < 0.5 ? "Fewer than half" : "Half or more"; },
+          claims: [["`ls $HOME` gets through", ({ S }) => S.guard.att.rows.some((r) => r.text === "ls $HOME" && !r.blocked)], ["`cd .. && ls` gets through", ({ S }) => S.guard.att.rows.some((r) => r.text === "cd .. && ls" && !r.blocked)],
+                   ["at least one attack is blocked", ({ S }) => gat(S).caught > 0]],
+          why: ({ S }) => { const k = gat(S), miss = S.guard.att.rows.filter((r) => r.outside && !r.blocked).map((r) => `\`${r.text}\``); return `${k.missed} of ${k.escapes} got through: ${miss.join(", ")}. The rule reads text, and these build the path later, inside the shell. Stopping that takes a limit below the model, such as a sandbox or an allowlist the model cannot talk its way past. Upstream \`agent-toolkit\` has one for the network (\`egress.py\`: a proxy that refuses any destination not on a list). It cannot run in a browser page, so it is not here.`; },
+          expects: "Fewer than half",
+          miss: { None: ({ S }) => `${gat(S).missed} got through. \`ls $HOME\` has no \`/\` or \`~\` in it; the shell fills the path in later.`,
+                  "Half or more": ({ S }) => `${gat(S).missed} of ${gat(S).escapes} is under half. The rule still catches every attack that names a path in plain sight.` } } },
     ],
   },
   {

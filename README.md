@@ -4,7 +4,7 @@ An interactive companion to [agent-knowledge-map](https://github.com/squarepegg/
 [agent-toolkit](https://github.com/squarepegg/agent-toolkit). A static site that runs the **real, unmodified** upstream Python
 (`brain.py`, `eval_run.py`, `gate.py`, `skill_ab.py`, `check_skills.py`) in your browser with Pyodide. No server, no secrets, no model calls.
 
-One canvas, seven modes (left toolbar; `⌘K` jumps to anything; scenarios live in the URL):
+One canvas, eight modes (left toolbar; `⌘K` jumps to anything; scenarios live in the URL):
 
 | Mode | What you do |
 |---|---|
@@ -14,6 +14,7 @@ One canvas, seven modes (left toolbar; `⌘K` jumps to anything; scenarios live 
 | The gate | The real `gate.decide` as a decision path: flip sample outcomes and thresholds and watch which rule fires. Probe grader playground. |
 | A/B a fact | Drop a new fact onto the map: BREAKS / POLLUTES / NOT_FINDABLE / FIT by rule. |
 | A/B a skill | Real `check_skills` lint, text coverage of the probes, then the real gate. |
+| Guardrails | Write a policy (switches, or your own Python `allowed(name, args)`) and run it against the 179 real tool calls from the recorded runs. Squares show what was caught, missed or blocked by mistake; type a command to try to get past it. The policy engine, `lab/guard.py`, is written for this lab and is not upstream code. |
 | About | Which upstream files run here, with hashes. |
 
 ## Levels and the real-code panel
@@ -27,7 +28,7 @@ restored; syntax errors and endless loops (400k-line budget) are reported in the
 
 **Start** (the landing page): pick your level, then follow the path: see how an agent is graded, test the tests, decide what to trust. One button continues where you left off; free-explore modes and the challenges are below the path.
 
-**Lessons**: 8 guided lessons (what is an eval, ranking, mutation testing, the gate, skill A/B, real models recorded, what happened in each answer, why one run isn't enough). The trace lesson is the observability one: in the Gate, a recorded run has a fold with one row per answer (passed, opened the skill file, tool calls, cost) and the lesson asks where the extra cost came from. It is built only from the recorded runs; guardrails are not covered because upstream has no runnable guardrail code. Each asks you to **predict** before it
+**Lessons**: 9 guided lessons (what is an eval, ranking, mutation testing, the gate, skill A/B, real models recorded, what happened in each answer, what the agent is allowed to do, why one run isn't enough). The trace lesson is the observability one: in the Gate, a recorded run has a fold with one row per answer (passed, opened the skill file, tool calls, cost) and the lesson asks where the extra cost came from. It is built only from the recorded runs. The guardrails lesson uses the same runs' tool calls: 179 real calls, 22 of which go outside the working folder (the reference label is this lab's definition, worked out from the call's text). Its policy engine is lab-written and rule-based; it says nothing about prompt injection, personal data or model-based guardrails. Upstream `agent-toolkit` has a real egress allowlist (`egress.py`), but its decision is inside an async socket handler, so it cannot run here and the lesson only points to it. Each asks you to **predict** before it
 runs the real code. The answer is computed from that run, never written in advance, and the page refuses a lesson whose answer is not one of its choices.
 While a lesson runs, the drawer shows only the lesson card. A strip above the canvas says what to look at (`look` in `web/lessons.js`), the mode's controls sit in a **Poke at it yourself** fold and the Python folds are closed unless a step lists them in `open`. After you answer a prediction, **Show the Python that ran** opens the lines the real code executed. Leaving a lesson resets whatever it set up. Progress is in localStorage.
 

@@ -119,7 +119,7 @@ test("challenges: unique ids, goals, 3 hints for graded ones, code challenges ha
 test("lessons: every lesson says what to look at, and step.open only names real folds", () => {
   for (const l of LESSONS) {
     assert.ok(l.look && l.look.length > 20, `${l.id} has a look caption`);
-    for (const st of l.steps) for (const f of st.open || []) assert.ok(["poke", "code", "try", "trace"].includes(f), `${l.id}: unknown fold ${f}`);
+    for (const st of l.steps) for (const f of st.open || []) assert.ok(["poke", "code", "try", "trace", "attacks"].includes(f), `${l.id}: unknown fold ${f}`);
   }
 });
 
@@ -148,10 +148,10 @@ test("runGrid turns a recorded results file into the hand-set grid shape; an unf
   assert.deepEqual(runGrid({ rows }), { a: { without: [true], with: [false, true] } });
 });
 
-test("lessons: eight, unique ids, and the steps built on recorded runs have expected answers and a written miss for every other choice", () => {
-  assert.equal(LESSONS.length, 8);
-  assert.equal(new Set(LESSONS.map((l) => l.id)).size, 8);
-  for (const st of ["recorded", "trace"].flatMap((id) => LESSONS.find((l) => l.id === id).steps)) {
+test("lessons: nine, unique ids, and the steps built on recorded runs have expected answers and a written miss for every other choice", () => {
+  assert.equal(LESSONS.length, 9);
+  assert.equal(new Set(LESSONS.map((l) => l.id)).size, 9);
+  for (const st of ["recorded", "trace", "guard"].flatMap((id) => LESSONS.find((l) => l.id === id).steps)) {
     const p = st.predict; assert.ok(p.choices.includes(p.expects));
     for (const c of p.choices.filter((x) => x !== p.expects)) assert.ok(p.miss[c], `${p.expects}: no miss for ${c}`);
   }

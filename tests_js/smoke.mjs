@@ -35,6 +35,10 @@ const name = Object.keys(recorded.files).find((n) => n.startsWith("doubt--") && 
 const gr = lab.call("gate_run", { res: JSON.parse(readFileSync(new URL("../recorded/" + name, import.meta.url))) });
 assert.equal(gr.verdict, "NO_DELTA", "the real gate judges a recorded run under Pyodide");
 
+const calls = [{ name: "bash", args: { command: "cat ~/.ssh/config" } }, { name: "bash", args: { command: "ls -la" } }];
+const gd = lab.call("guard_run", { calls, policy: { rules: ["no_home"] } });
+assert.deepEqual([gd.counts.caught, gd.counts.wrongly, gd.counts.missed], [1, 0, 0], "the guard policy engine runs under Pyodide");
+
 const err = lab.call("run_evals", { files, questions: "not: [valid" });
 assert.ok(err.error, "bad yaml is reported, not thrown");
 assert.ok(lab.call("nope", {}).error);

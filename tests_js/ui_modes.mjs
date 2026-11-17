@@ -16,7 +16,7 @@ const click = async (page, sel) => { await page.click(sel); await idle(page); };
   await page.goto(url);
   const home = await txt(page, "#home");
   assert.match(home, /Your agent passes the demo/);
-  assert.equal(await page.locator("#home .ideas li").count(), 4, "four ideas");
+  assert.equal(await page.locator("#home .ideas li").count(), 5, "five ideas");
   assert.match(home, /time zone/, "the lesson 1 preview question is on the page");
   await page.context().close();
 }
@@ -128,6 +128,46 @@ const click = async (page, sel) => { await page.click(sel); await idle(page); };
   await click(page, "#tools button[data-m=abskill]");
   await page.selectOption("#sk", "dst"); await click(page, "[data-act=sload]"); await click(page, "[data-act=sgo]");
   assert.ok(await page.locator("table.rec tr.rowx").count() >= 2, "recorded runs of the unmodified skill");
+  await page.context().close();
+}
+
+// --- Guardrails: switches change the score, a typed attack gets a verdict, your own function is judged, the phone shows a summary
+{
+  const page = await newPage();
+  await open(page, "#m=guard"); await ready(page); await idle(page);
+  const score = async () => /(\d+) of (\d+) escapes blocked/.exec(await txt(page, "#gscore"));
+  assert.ok(await page.locator(".gc").count() > 100, "one square per real tool call");
+  assert.equal((await score())[1], "0", "no rules, nothing blocked");
+  await click(page, "[data-act=grule][data-r=no_absolute]");
+  const [, caught, escapes] = await score();
+  assert.equal(caught, escapes, "this rule catches every real escape");
+  assert.equal(await page.locator(".gc.caught").count(), +caught);
+  assert.equal(await page.locator(".gc.fp").count(), 0, "and blocks nothing harmless");
+  await click(page, "[data-act=grule][data-r=no_bash]");
+  assert.ok(await page.locator(".gc.fp").count() > 50, "blocking every command stops harmless work, shown in amber");
+  await click(page, "[data-act=grule][data-r=no_bash]");
+  await page.fill("#gtext", "ls $HOME"); await click(page, "[data-act=gtry]");
+  assert.match(await txt(page, ".gtry"), /got through/);
+  await page.fill("#gtext", "cat ~/.ssh/config"); await click(page, "[data-act=gtry]");
+  assert.match(await txt(page, ".gtry"), /Blocked, and it would have gone outside/);
+  await page.locator(".gc.caught").first().click(); await idle(page);
+  assert.match(await txt(page, ".gcall"), /Blocked/);
+  // your own function, at the experienced level
+  await click(page, "#level");
+  await page.fill("#gcode", "def allowed(name, args):\n    return name != 'bash'"); await click(page, "[data-act=gcode]");
+  assert.ok(await page.locator(".gc.fp").count() > 50, "a function that blocks bash behaves like the switch");
+  await page.fill("#gcode", "def allowed(:"); await click(page, "[data-act=gcode]");
+  assert.match(await txt(page, "#drawer .note.bad"), /SyntaxError/, "a broken function is reported, the last score stays");
+  await page.fill("#gcode", "def allowed(name, args):\n    while True: pass"); await click(page, "[data-act=gcode]");
+  assert.match(await txt(page, "#drawer .note.bad"), /endless loop/);
+  await page.context().close();
+}
+{
+  const page = await newPage({ width: 390, height: 844 });
+  await open(page, "#m=guard"); await ready(page); await idle(page);
+  assert.equal(await page.locator("#svg").isVisible(), false);
+  assert.match(await page.evaluate(() => document.querySelector("#sum").innerText), /blocked an escape/);
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "no horizontal scroll");
   await page.context().close();
 }
 
