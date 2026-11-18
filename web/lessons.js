@@ -455,6 +455,13 @@ export const LESSONS = [
   },
 ];
 
+// The three adventures. Every lesson belongs to exactly one; `door` is the question the Start screen asks. Order is the order played.
+export const PILLARS = [
+  { id: "observability", door: "What happened?", name: "Observability", blurb: "Read what the agent actually did, one answer at a time.", lessons: ["trace"] },
+  { id: "guardrails", door: "Should it have been allowed?", name: "Guardrails", blurb: "Write a rule for what an agent may do or say, then test it on real calls.", lessons: ["guard", "scrub"] },
+  { id: "evals", door: "Did it actually work?", name: "Evals", blurb: "Check the answers, break your own checks, then decide whether a result can be trusted.", lessons: ["eval", "rank", "break", "gate", "skill", "recorded", "noise"] },
+];
+
 // Every `why` makes causal claims. Each claim is a predicate over the real run; the UI shows the explanation only when all hold,
 // otherwise it says the explanation is out of date, so a vendor refresh cannot leave a lesson that lies.
 export async function checkClaims(predict, ctx) {

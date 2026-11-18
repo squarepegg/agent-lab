@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { extractFunc, annotate, coverage, MODE_CODE, TWEAKS, applyTweak, lineDiff, brief } from "../web/codepanel.js";
 import fs from "node:fs";
-import { LESSONS, checkClaims } from "../web/lessons.js";
+import { LESSONS, PILLARS, checkClaims } from "../web/lessons.js";
 import { CHALLENGES } from "../web/challenges.js";
 import { parseHits, buildGraph, layout, neighbors, gateSteps, plainReason, runGrid, traceStats, PLAIN_VERDICT, encodeGate, decodeGate, GATE_ORDER, clip } from "../web/model.js";
 import { PYODIDE, callKey } from "../web/lab.js";
@@ -168,12 +168,18 @@ test("callKey: stable, and differs when the arguments differ", () => {
   assert.notEqual(callKey("gate", { a: 1 }), callKey("trace", { a: 1 }));
 });
 
-test("index.html: the static shell says what lesson 1 step 1 says, and every preload comes from the Pyodide the code loads", () => {
+test("PILLARS: every lesson is in exactly one pillar, in lesson order, and the static shell names the same doors", () => {
+  const ids = PILLARS.flatMap((p) => p.lessons);
+  assert.deepEqual([...ids].sort(), LESSONS.map((l) => l.id).sort(), "a partition of the lessons");
+  assert.equal(PILLARS.length, 3);
+  const order = (p) => p.lessons.map((id) => LESSONS.findIndex((l) => l.id === id));
+  for (const p of PILLARS) assert.deepEqual(order(p), [...order(p)].sort((a, b) => a - b), `${p.id} plays in lesson order`);
+  const shell = fs.readFileSync(new URL("../web/index.html", import.meta.url), "utf8").replace(/<[^>]+>/g, "").replace(/\s+/g, " ");
+  for (const p of PILLARS) for (const t of [p.door, p.name, p.blurb]) assert.ok(shell.includes(t), `static shell: ${t}`);
+});
+
+test("index.html: every preload comes from the Pyodide the code loads", () => {
   const html = fs.readFileSync(new URL("../web/index.html", import.meta.url), "utf8");
-  const shell = html.replace(/<[^>]+>/g, "").replace(/&[a-z#0-9]+;/g, " ").replace(/\s+/g, " ");
-  const strip = (t) => t.replace(/[`*]/g, "").replace(/\s+/g, " ");
-  assert.ok(shell.includes(strip(LESSONS[0].steps[0].predict.q)), "predict question");
-  assert.ok(shell.includes(strip(LESSONS[0].steps[0].text)), "step text");
   const urls = [...html.matchAll(/<link rel="(?:module)?preload"[^>]*href="(https?:[^"]+)"/g)].map((m) => m[1]);
   assert.ok(urls.length >= 3);
   for (const u of urls) assert.ok(u.startsWith(PYODIDE), u);

@@ -123,16 +123,21 @@ details.fold[open]>summary{border-bottom:1px solid var(--border)}details.fold>:n
 body.home #home{display:block}body.home #stage,body.home #drawer{display:none}
 .hm{max-width:820px;margin:0 auto}.hm h1{font-size:24px;letter-spacing:-.02em;margin:0 0 8px}.hm .hl{font-size:13.5px;color:var(--muted);margin:0 0 20px;max-width:64ch}
 .hm h2{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:28px 0 8px}
-.hm .cta{display:flex;align-items:center;gap:14px;margin:8px 0 6px;flex-wrap:wrap}.btn.lg{font-size:14px;padding:11px 20px;border-radius:10px;margin:0}
-.stage{margin:10px 0}.stage>summary{display:flex;gap:12px;align-items:center;cursor:pointer;list-style:none}.stage>summary::-webkit-details-marker{display:none}.stage .st{display:flex;flex-direction:column;gap:2px}.stage .st b{font-size:13.5px}.stage .box{margin:8px 0 0 42px}.stage .n{width:30px;height:30px;border-radius:50%;border:1px solid var(--acc);color:var(--acc);display:grid;place-items:center;font-weight:800}
-.stage.done .n{background:var(--acc);color:#020617}.stage .box{border:1px solid var(--border);background:var(--mask);border-radius:12px;padding:4px 14px 8px}
 .lrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border)}.lrow:first-of-type{margin-top:8px}.lrow .t{flex:1}.lrow .t b{display:block}.lrow .btn{margin:0;flex:none}
 .lrow.next .btn{box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 30%,transparent)}
 .lrow .ck{width:18px;flex:none;color:var(--pass);text-align:center}
+.doors,.cfs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 6px}
+.door{display:flex;flex-direction:column;gap:5px;text-align:left;border:1px solid var(--border);background:var(--mask);border-radius:12px;padding:16px;color:var(--ink);font:inherit;font-size:12px}
+button.door{cursor:pointer}button.door:hover,button.door:focus-visible{border-color:var(--acc)}.door .dq{font-size:16px;font-weight:800;letter-spacing:-.01em;line-height:1.25}
+.door .dn{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--acc)}.door .dp{margin-top:auto;padding-top:8px;color:var(--acc);font-size:11.5px}.door.done .dp{color:var(--pass)}
+.cf b{display:flex;justify-content:space-between;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.sq{display:flex;gap:6px;flex-wrap:wrap}.sq button{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--mask);color:var(--muted);cursor:pointer;font:inherit;font-size:11.5px;font-weight:700}
+.sq button.d{background:var(--acc);border-color:var(--acc);color:#020617}.sq button.n{border-color:var(--acc);color:var(--acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 25%,transparent)}.sq button:hover{border-color:var(--acc)}
+.doors-end .choices .btn{display:flex;flex-direction:column;gap:2px}
 .mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}.mgrid button{text-align:left;border:1px solid var(--border);background:var(--mask);border-radius:10px;padding:10px 12px;cursor:pointer;color:var(--ink);font-size:11.5px}
 .mgrid button:hover{border-color:var(--acc)}.mgrid b{display:block;margin-bottom:2px;font-size:12px}
 #stage.cap #toast{top:54px}
-.who{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 4px}.who .chip.on{border-color:var(--acc);color:var(--acc)}
+.who{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:22px 0 14px}.who .chip.on{border-color:var(--acc);color:var(--acc)}
 @media(max-width:900px){#home{grid-column:2;grid-row:2/4;padding:24px 16px}}   /* after the desktop #home rule so it wins */
 
 /* Python status in the top bar */
@@ -142,12 +147,8 @@ body.home #home{display:block}body.home #stage,body.home #drawer{display:none}
 @keyframes shim{from{background-position:-40px 0}to{background-position:64px 0}}
 .py.need{border-color:var(--warn);color:var(--warn)}.py.ready{color:var(--pass);border-color:color-mix(in srgb,var(--pass) 40%,var(--border))}.py.ready .bar{display:none}.py.fail{color:var(--fail);border-color:var(--fail)}.py.fail .bar{display:none}
 /* start screen: three ideas and the first question */
-.ideas{list-style:none;counter-reset:idea;padding:0;margin:0 0 20px;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-.ideas li{counter-increment:idea;padding:0 0 0 32px;position:relative}   /* plain text, not cards: nothing here can be clicked */
-.ideas li::before{content:counter(idea);position:absolute;left:0;top:0;width:22px;height:22px;border-radius:50%;border:1px solid var(--acc);color:var(--acc);display:grid;place-items:center;font-weight:800;font-size:11px}
-.ideas b{display:block;font-size:12.5px;line-height:1.35}.ideas span{color:var(--muted);display:block;margin-top:4px}
 .lesson .lnav{position:sticky;bottom:0;padding:8px 0 2px;margin-top:6px;background:color-mix(in srgb,var(--acc) 7%,var(--mask));box-shadow:0 -8px 8px -4px color-mix(in srgb,var(--acc) 7%,var(--mask))}
-.lesson.preview{margin:16px 0 18px;max-width:64ch}.choices.two{flex-direction:row}.choices.two .btn{text-align:center;font-size:13px}
+
 #homepy{margin:6px 0 2px;max-width:64ch}
 /* lessons: what made the wrong pick tempting, where the answer came from, what was learned */
 .lt.miss{border-left:2px solid var(--warn);padding-left:10px}
@@ -190,7 +191,7 @@ button.sc{cursor:pointer}.sc i{width:8px;height:8px;border-radius:50%;background
   #drawer{grid-column:1;grid-row:3;border-left:0;padding:12px}#status{display:none}
   #tools{grid-column:1;grid-row:4;flex-direction:row;align-items:stretch;border-right:0;border-top:1px solid var(--border);padding:4px 6px;overflow-x:auto;gap:2px}
   #tools button{flex:1 0 54px;height:auto;padding:5px 2px 4px}#tools .lbl{display:block;font-size:10px;white-space:nowrap}#tools .grp,#tools .sp{display:none}
-  #home{grid-column:1;grid-row:2/4;padding:18px 14px}.hm h1{font-size:21px}.ideas{grid-template-columns:1fr}
+  #home{grid-column:1;grid-row:2/4;padding:18px 14px}.hm h1{font-size:21px}.doors,.cfs{grid-template-columns:1fr}
   .btn{padding:9px 14px}.btn.sm{padding:7px 12px}.cell{width:28px;height:28px;line-height:26px}textarea,input,select{font-size:16px}   /* 16px: iOS does not zoom the page on focus */
   td,th{font-size:12px}.code{font-size:11px}
 }

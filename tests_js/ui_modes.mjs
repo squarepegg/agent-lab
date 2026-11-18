@@ -3,29 +3,22 @@
 import assert from "node:assert/strict";
 import { LESSONS } from "../web/lessons.js";
 import { newPage, open, ready, idle, errors, done } from "./harness.mjs";
-import { url, root } from "./harness.mjs";
-import { readFileSync } from "node:fs";
+import { url } from "./harness.mjs";
 
 const txt = (page, sel) => page.textContent(sel);
 const PARAMS = /min_gain|ceiling|regress_by|max_cost_ratio|_cand_cost|heldout|max_unfinished/;
 const click = async (page, sel) => { await page.click(sel); await idle(page); };
 const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(summary[data-fold=${k}])[open]`).count())) await click(page, `summary[data-fold=${k}]`); };
 
-// --- JavaScript off: the static shell already says what the site is
+// --- JavaScript off: the static shell already says what the site is and names the three doors
 {
   const page = await newPage({ javaScriptEnabled: false });
   await page.goto(url);
   const home = await txt(page, "#home");
   assert.match(home, /Your agent passes the demo/);
-  assert.equal(await page.locator("#home .ideas li").count(), 5, "five ideas");
-  assert.match(home, /time zone/, "the lesson 1 preview question is on the page");
+  assert.equal(await page.locator("#home .door").count(), 3, "three doors");
+  for (const q of ["What happened?", "Should it have been allowed?", "Did it actually work?"]) assert.ok(home.includes(q), q);
   await page.context().close();
-}
-
-// --- the shell text matches lesson 1 step 1, and the preloads point at the Pyodide the code loads
-{
-  const html = readFileSync(root + "index.html", "utf8"), q = LESSONS[0].steps[0].predict.q.replace(/[`*]/g, "");
-  assert.ok(html.replace(/<[^>]+>/g, "").includes(q.slice(0, 40)), "static preview question matches lesson 1");
 }
 
 // --- CDN blocked: lesson 1 plays to Finish from recorded results; the next lesson says Python is unavailable
@@ -33,16 +26,16 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
   const page = await newPage({ quiet: true });
   await page.context().route("**/cdn.jsdelivr.net/**", (r) => r.abort());
   await open(page);
-  await click(page, "#home [data-act=lcont]");
+  await click(page, "#home [data-act=door][data-p=evals]");
   for (let g = 0; g < 12; g++) {
     const pick = page.locator("#drawer [data-act=lpick]:not([disabled])");
     if (await pick.count()) { await pick.first().click(); await idle(page); assert.match(await txt(page, "#drawer .src"), /recorded from the real code/, `step ${g}`); }
     const next = page.locator("#drawer .lesson [data-act=lnext]"), last = (await next.textContent()).includes("Finish");
     await click(page, "#drawer .lesson [data-act=lnext]"); if (last) break;
   }
-  assert.ok(await page.locator("#home").isVisible(), "lesson 1 reached Finish without Python");
+  assert.equal(await page.locator("#drawer .doors-end").count(), 1, "lesson 1 reached Finish without Python and offers the next doors");
   assert.equal(await page.evaluate(() => __lab.ready), false);
-  await click(page, "#home [data-act=lstart][data-id=rank]");
+  await click(page, "#drawer [data-act=lstart][data-id=rank]");
   await click(page, "#drawer [data-act=lpick] >> nth=0");
   assert.match(await txt(page, "#drawer .lesson .note"), /could not load/i, "the next lesson says why it cannot be answered");
   await page.context().close();
@@ -55,7 +48,7 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
   await open(page);
   assert.equal(await page.evaluate(() => __lab.ready), false);
   assert.match(await txt(page, "#py"), /\d+\s*%|loading|Python/i, "a progress chip is visible");
-  await click(page, "#home [data-act=lcont]"); await click(page, "#drawer [data-act=lpick] >> nth=0");
+  await click(page, "#home [data-act=door][data-p=evals]"); await click(page, "#drawer [data-act=lpick] >> nth=0");
   assert.equal(await page.evaluate(() => __lab.ready), false, "answered before Python was ready");
   assert.match(await txt(page, "#drawer"), /Correct|Not quite/);
   await page.context().close();
@@ -241,7 +234,7 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
 // --- a lesson answer shows the reason short, with the rest one click away
 {
   const page = await newPage();
-  await open(page); await click(page, "#home [data-act=lcont]");
+  await open(page); await click(page, "#home [data-act=door][data-p=evals]");
   await click(page, "#drawer [data-act=lpick] >> nth=0");
   const full = await page.evaluate(() => document.querySelector("#drawer .lesson").textContent.length);
   const seen = await page.evaluate(() => document.querySelector("#drawer .lesson").innerText.length);
@@ -257,7 +250,7 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
   const page = await newPage();
   await open(page); await ready(page);
   for (const L of LESSONS) {
-    await open(page); await page.evaluate(() => document.querySelectorAll("#home details.stage").forEach((d) => (d.open = true))); await click(page, `[data-act=lstart][data-id=${L.id}]`);
+    await open(page); await click(page, `#home [data-act=lstart][data-id=${L.id}]`);
     for (let i = 0; i < L.steps.length; i++) {
       const st = L.steps[i];
       if (st.setup?.some(([a]) => a === "grun")) assert.match(await txt(page, "#svg"), /recorded run:/, `${L.id} step ${i + 1}: the canvas shows the recorded run, not the hand-set one`);
@@ -280,13 +273,13 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
 {
   const page = await newPage();
   await page.addInitScript(() => { const boom = () => { throw new Error("blocked"); }; Object.defineProperty(window, "localStorage", { get: boom }); });
-  await open(page); await click(page, "#home [data-act=lcont]");
+  await open(page); await click(page, "#home [data-act=door][data-p=evals]");
   for (let g = 0; g < 12; g++) {
     const pick = page.locator("#drawer [data-act=lpick]:not([disabled])"); if (await pick.count()) await pick.first().click(); await idle(page);
     const next = page.locator("#drawer .lesson [data-act=lnext]"), last = (await next.textContent()).includes("Finish");
     await click(page, "#drawer .lesson [data-act=lnext]"); if (last) break;
   }
-  assert.ok(await page.locator("#home").isVisible(), "finished with storage blocked");
+  assert.equal(await page.locator("#drawer .doors-end").count(), 1, "finished with storage blocked");
   await page.context().close();
 }
 

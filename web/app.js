@@ -1,5 +1,5 @@
 import { connectLab } from "./lab.js";
-import { LESSONS, checkClaims, noise } from "./lessons.js";
+import { LESSONS, PILLARS, checkClaims, noise } from "./lessons.js";
 import { CHALLENGES } from "./challenges.js";
 import { extractFunc, annotate, coverage, MODE_CODE, NOTES, TWEAKS, applyTweak, lineDiff, brief } from "./codepanel.js";
 import { buildGraph, layout, neighbors, gateSteps, clip, encodeGate, decodeGate, FILE_KINDS, PLAIN_VERDICT, plainReason, costs, runGrid, traceStats, slimRun, modelName } from "./model.js";
@@ -202,9 +202,9 @@ function pyState() {
     if (S.stale) { S.stale = false; act(drawer); }   // light up the Python lines that had to wait
   }
 }
-const homePy = () => (lab.failed ? `<span class="bad">Python could not load, so only lesson 1 works. Reload to try again.</span>`
+const homePy = () => (lab.failed ? `<span class="bad">Python could not load, so only the first Evals lesson works. Reload to try again.</span>`
   : lab.ready ? ""   // the header chip already says so
-  : `Lesson 1 works right now, from results recorded from the real code. Python is loading in the background (${Math.round(lab.pct * 100)}%); the other lessons start when it is ready.`);
+  : `The first Evals lesson works right now, from results recorded from the real code. Python is loading in the background (${Math.round(lab.pct * 100)}%); the other lessons start when it is ready.`);
 
 // ---------------- drawer
 const setStatus = () => {
@@ -215,7 +215,7 @@ const setStatus = () => {
 const foldOpen = (key, def) => S.fold[key] ?? def;
 const fold = (key, title, html, def) => (html ? `<details class="fold" ${foldOpen(key, def) ? "open" : ""}><summary data-fold="${key}" data-def="${def ? 1 : 0}"><span>${title}</span></summary>${html}</details>` : "");
 function caption() {
-  const look = S.lesson ? (lstep()[1].look ?? lstep()[0].look) : "";
+  const look = S.lesson && !S.lesson.finished ? (lstep()[1].look ?? lstep()[0].look) : "";
   const on = !!look, was = $("stage").classList.contains("cap");
   $("caption").innerHTML = on ? `<b>look at</b><span title="${esc(look)}">${esc(look)}</span>` : ""; $("caption").classList.toggle("on", on); $("stage").classList.toggle("cap", on);
   if (on !== was && S.size && S.mode !== "start") fit(...S.size);   // the strip takes height from the canvas
@@ -243,6 +243,7 @@ async function drawer() {
   document.body.classList.toggle("home", S.mode === "start");
   setStatus(); caption();
   if (S.mode === "start") { $("home").innerHTML = homeHtml(); d.innerHTML = ""; return; }
+  if (S.lesson?.finished) { d.innerHTML = doorsCard(); bindDrawer(); return; }
   const lesson = !!S.lesson, guided = lesson || !!S.chal, step = lesson ? lstep()[1] : null;
   const body = DRAW[S.mode]?.() ?? "", cp = codePanel(), ec = editCell();
   let h = lessonCard() + chalCard();
@@ -433,11 +434,13 @@ async function lessonPick(i) {
   await drawer();
 }
 async function lessonNav(d) {
-  const [Lz] = lstep(), L = S.lesson, next = L.i + d;
+  const [Lz] = lstep(), L = S.lesson;
+  if (L.finished) { L.finished = false; await enterStep(); return; }   // Back from the doors: the last step again
+  const next = L.i + d;
   if (next < 0) return;
   if (next >= Lz.steps.length) {
     const n = L.total; saveProg((p) => (p[L.id] = { done: true, right: L.right, total: n })); store.del("lab.resume");
-    const msg = n ? `${L.right}/${n} predicted` : "done"; await leaveGuided(); await setMode("start"); toast(`lesson complete · ${msg}`, "pass"); return;
+    L.finished = true; await drawer(); $("drawer").scrollTop = 0; return;   // the doors card: where next?
   }
   L.i = next; await enterStep();
 }
@@ -456,8 +459,21 @@ function splitWhy(t) {
   while ((m = re.exec(t))) { const head = t.slice(0, m.index + 1); if (head.length >= 60 && (head.match(/`/g) || []).length % 2 === 0) { const rest = t.slice(m.index + 1).trim(); return rest.length >= 80 ? [head, rest] : [t, ""]; } }
   return [t, ""];
 }
+// End of a lesson: the next door in this adventure and the doors into the others, each at its next unplayed lesson.
+function doorsCard() {
+  const L = S.lesson, Lz = LESSONS.find((l) => l.id === L.id), me = pillarOf(L.id), q = prog()[L.id];
+  const go = (l, head, sub) => `<button class="btn alt" data-act="lstart" data-id="${l.id}"><b>${esc(head)}</b><span class="mut">${esc(sub)}</span></button>`;
+  const same = nextIn(me, L.id), others = PILLARS.filter((p) => p !== me && nextIn(p));
+  let h = `<div class="lesson doors-end"><div class="lh"><b>${esc(Lz.title)}: done</b><span class="mut">${q?.total ? `${q.right}/${q.total} predicted` : ""}</span></div><div class="lq"><b>Where next?</b></div><div class="choices">`;
+  if (same) h += go(same, `More ${me.name.toLowerCase()}: ${same.title}`, same.blurb);
+  h += others.map((p) => go(nextIn(p), p.door, `${p.name}: ${nextIn(p).title}`)).join("");
+  if (!same && !others.length) h += `<div class="lt ok">All three adventures done.</div>`;
+  else if (!same) h = h.replace("<b>Where next?</b>", `<b>${esc(me.name)} done. Where next?</b>`);
+  return h + `</div><div class="row lnav"><button class="btn alt" data-act="lback">← Back</button><button class="btn" data-act="lexit">Case file</button></div></div>`;
+}
 function lessonCard() {
   if (!S.lesson) return "";
+  if (S.lesson.finished) return doorsCard();
   const [Lz, st] = lstep(), L = S.lesson, beg = S.level === "beginner", n = Lz.steps.length, pr = st.predict, ans = L.answered[L.i], picked = !!ans;
   const label = (c) => (pr.show ? pr.show(c, beg) : c);
   let h = `<div class="lesson"><div class="lh"><b>${esc(Lz.title)}</b><span class="dots" title="step ${L.i + 1} of ${n}">${Array.from({ length: n }, (_, i) => `<i class="${i < L.i ? "d" : i === L.i ? "c" : ""}"></i>`).join("")}</span><button class="chip" data-act="lexit">exit</button></div>`;
@@ -520,32 +536,25 @@ function chalCard() {
   h += `<div class="row"><button class="btn" data-act="ccheck">Check</button>${C.hints < c.hints.length ? `<button class="btn alt" data-act="chint">Hint (${C.hints}/${c.hints.length})</button>` : ""}</div></div>`;
   return h;
 }
-// ---------------- Start screen: a path, not a toolbox. Its first screenful is also the static shell in index.html.
-const IDEAS = [
-  ["How do you check an agent's answer?", "An eval is a question plus a pass/fail check. See what the check really looks at.", ["eval", "rank"]],
-  ["Can you trust the check?", "A passing suite can still be blind. Break things on purpose and see what notices.", ["break"]],
-  ["Can you trust one run?", "One run is not evidence. A gate turns results into a verdict you can defend.", ["gate", "skill", "recorded", "noise"]],
-  ["Can you see what happened?", "A score says how often. A trace says what happened in each answer.", ["trace"]],
-  ["Can you limit what it does and says?", "A guardrail decides what an agent may do or say. Test it like anything else.", ["guard", "scrub"]],
-];
+// ---------------- Start screen: three doors (one per pillar) and a case file of every lesson. Its first screenful is also the static shell in index.html.
+const pillarLessons = (p) => p.lessons.map((id) => lessons().find((l) => l.id === id)).filter(Boolean);
+const pillarOf = (id) => PILLARS.find((p) => p.lessons.includes(id));
+const nextIn = (p, after) => { const pr = prog(), ls = pillarLessons(p), at = after ? ls.findIndex((l) => l.id === after) : -1; return [...ls.slice(at + 1), ...ls.slice(0, at + 1)].find((l) => !pr[l.id]?.done); };
 function homeHtml() {
-  const p = prog(), all = lessons(), next = all.find((l) => !p[l.id]?.done), done = all.filter((l) => p[l.id]?.done).length;
-  const res = store.json("lab.resume"), at = res && next && res.id === next.id && res.i > 0 ? res.i : 0, first = !done && !at;
-  const lessonRow = (l) => { const q = p[l.id], up = next && l.id === next.id;
-    return `<div class="lrow ${up ? "next" : ""}"><span class="ck">${q?.done ? "✔" : ""}</span><div class="t"><b>${esc(l.title)}</b><span class="mut">${q?.done && l.learned ? esc(l.learned) : `${esc(l.blurb)} · ${l.steps.length} steps`}${q?.done && q.total ? ` · ${q.right}/${q.total} predicted` : ""}</span></div><button class="btn ${up ? "" : "alt"}" data-act="lstart" data-id="${l.id}">${q?.done ? "Redo" : up ? (done || at ? "Continue" : "Start") : "Start"}</button></div>`; };
+  const pr = prog(), res = store.json("lab.resume");
+  const door = (p) => { const ls = pillarLessons(p), n = ls.filter((l) => pr[l.id]?.done).length, up = nextIn(p), mid = !!up && res?.id === up.id && res.i > 0;
+    return `<button class="door ${up ? "" : "done"}" data-act="door" data-p="${p.id}"><span class="dq">${esc(p.door)}</span><span class="dn">${esc(p.name)}</span><span class="mut">${esc(p.blurb)}</span><span class="dp">${up ? (n || mid ? "Continue" : "Start") : "Done, play again"} · ${n}/${ls.length} lessons</span></button>`; };
+  const board = (p) => `<div class="cf"><b>${esc(p.name)}</b><div class="sq">${pillarLessons(p).map((l, i) => { const q = pr[l.id], up = nextIn(p)?.id === l.id;
+    return `<button class="${q?.done ? "d" : ""} ${up ? "n" : ""}" data-act="lstart" data-id="${l.id}" title="${esc(l.title)}${q?.done && q.total ? ` · ${q.right}/${q.total} predicted` : ""}" aria-label="${esc(l.title)}${q?.done ? ", done" : ""}">${q?.done ? "✔" : i + 1}</button>`; }).join("")}</div></div>`;
   const beg = S.level === "beginner";
   let h = `<div class="hm"><h1>Your agent passes the demo. How do you know it's good?</h1>
-    <p class="hl">Guardrails limit what an agent may do. Observability shows what it did. Evals measure how well it does. This site is about <b>evals</b>: you <b>predict</b> what the real code will do, then watch it run.</p>`;
-  h += (next ? `<div class="cta"><button class="btn lg" data-act="lcont">${done || at ? "Continue" : "Start"}: ${esc(next.title)}${at ? ` · step ${at + 1} of ${next.steps.length}` : ""}</button><span class="mut">${first ? `${all.length} short lessons, about 3 minutes each · no model is called · nothing leaves the page` : `${done}/${all.length} lessons done`}</span></div>`
-            : `<div class="cta"><span class="ok">✔ all ${all.length} lessons done.</span><span class="mut">Try the challenges below, or poke around freely.</span></div>`) + `<div class="mut" id="homepy">${homePy()}</div>`;
-  h += `<div class="who"><span class="mut">Pitched at</span><button data-act="lvl" data-l="beginner" class="chip ${beg ? "on" : ""}" title="Plain words, a hint on each question, notes beside the code.">new to evals or Python</button><button data-act="lvl" data-l="experienced" class="chip ${beg ? "" : "on"}" title="Terse: upstream names, line counts, a full editor.">I write Python</button></div>`;
-  h += `<h2>The path · ${IDEAS.length} ideas, ${all.length} short lessons</h2>` + IDEAS.map(([t, why, ids], i) => {
-    const ls = ids.map((id) => all.find((l) => l.id === id)).filter(Boolean), fin = ls.every((l) => p[l.id]?.done);
-    const open = foldOpen("stage" + i, !!next && ids.includes(next.id));   // only the idea you are on is open
-    return `<details class="stage ${fin ? "done" : ""}" ${open ? "open" : ""}><summary data-fold="stage${i}" data-def="${next && ids.includes(next.id) ? 1 : 0}"><span class="n">${fin ? "✔" : i + 1}</span><span class="st"><b>${esc(t)}</b><span class="mut">${esc(why)}</span></span></summary><div class="box">${ls.map(lessonRow).join("")}</div></details>`; }).join("");
-  h += `<h2>Practice</h2><details class="fold" ${foldOpen("practice", false) ? "open" : ""}><summary data-fold="practice" data-def="0">${CHALLENGES.length} challenges · do the thing, press Check, the real code judges <span class="mut">${CHALLENGES.filter((c) => p["chal:" + c.id]?.done).length}/${CHALLENGES.length} solved</span></summary>` +
-    CHALLENGES.map((c) => `<div class="lrow"><span class="ck">${p["chal:" + c.id]?.done ? "✔" : ""}</span><div class="t"><b>${esc(c.title)}</b><span class="mut">${c.code ? "edit code" : "in " + MODES.find((m) => m[0] === c.mode)[1]}</span></div><button class="btn alt" data-act="cstart" data-id="${c.id}">${p["chal:" + c.id]?.done ? "Again" : "Start"}</button></div>`).join("") + `</details>`;
-  h += `<h2>Or explore freely</h2><div class="mgrid">${MODES.filter((m) => !["start", "about"].includes(m[0])).map((m) => `<button data-act="go" data-m="${m[0]}"><b>${esc(m[1])}</b><span class="mut">${esc(m[3])}</span></button>`).join("")}</div></div>`;
+    <p class="hl">Pick a question. You predict what the real code will do, then watch it run. No model is called; nothing leaves the page.</p>
+    <div class="doors">${PILLARS.map(door).join("")}</div><div class="mut" id="homepy">${homePy()}</div>
+    <h2>Case file</h2><div class="cfs">${PILLARS.map(board).join("")}</div>
+    <div class="who"><span class="mut">Pitched at</span><button data-act="lvl" data-l="beginner" class="chip ${beg ? "on" : ""}" title="Plain words, a hint on each question, notes beside the code.">new to evals or Python</button><button data-act="lvl" data-l="experienced" class="chip ${beg ? "" : "on"}" title="Terse: upstream names, line counts, a full editor.">I write Python</button></div>`;
+  h += `<details class="fold" ${foldOpen("tools", false) ? "open" : ""}><summary data-fold="tools" data-def="0"><span>Or play with the tools · ${CHALLENGES.length} challenges <span class="mut">${CHALLENGES.filter((c) => pr["chal:" + c.id]?.done).length}/${CHALLENGES.length} solved</span></span></summary>` +
+    CHALLENGES.map((c) => `<div class="lrow"><span class="ck">${pr["chal:" + c.id]?.done ? "✔" : ""}</span><div class="t"><b>${esc(c.title)}</b><span class="mut">${c.code ? "edit code" : "in " + MODES.find((m) => m[0] === c.mode)[1]}</span></div><button class="btn alt" data-act="cstart" data-id="${c.id}">${pr["chal:" + c.id]?.done ? "Again" : "Start"}</button></div>`).join("") +
+    `<div class="mgrid">${MODES.filter((m) => !["start", "about"].includes(m[0])).map((m) => `<button data-act="go" data-m="${m[0]}"><b>${esc(m[1])}</b><span class="mut">${esc(m[3])}</span></button>`).join("")}</div></details></div>`;
   return h;
 }
 const MUT_KIND = { fix: "Blind spot.", redundant: "Duplicate, not a blind spot.", unreachable: "Blind spot that no search reaches yet." };
@@ -679,7 +688,7 @@ const ACT = {
   lexit() { return setMode("start"); },
   go(t) { return setMode(t.dataset.m); },
   async showcode() { S.fold.code = true; await drawer(); $("drawer").querySelector('summary[data-fold="code"]')?.scrollIntoView({ block: "nearest" }); },
-  lcont() { const p = prog(), n = lessons().find((l) => !p[l.id]?.done), r = store.json("lab.resume"); if (n) return startLesson(n.id, r && r.id === n.id ? r.i : 0); },
+  door(t) { const p = PILLARS.find((x) => x.id === t.dataset.p), n = nextIn(p) ?? pillarLessons(p)[0], r = store.json("lab.resume"); if (n) return startLesson(n.id, r && r.id === n.id && !prog()[n.id]?.done ? r.i : 0); },
   async lvl(t) { S.level = t.dataset.l; store.set("lab.level", S.level); $("level").textContent = "level: " + S.level; await relevel(); },
   ctab(t) { S.tab[S.mode] = +t.dataset.i; return drawer(); },
   async save() { S.files[S.sel] = $("fbody").value; await refresh(); renderGraph(); toast("saved to this tab", ""); await drawer(); },

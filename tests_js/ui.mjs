@@ -24,16 +24,34 @@ const node = (id) => page.locator(`.node[data-id="${id}"]`);
 const txt = (sel) => page.textContent(sel);
 const ORD = "facts/orders-timestamps-utc.md";
 
-// --- start screen: the default landing is a guided path, not the map
+// --- start screen: three doors and a case file, not a syllabus
 await open();
 assert.match(await txt("#home"), /Your agent passes the demo/);
-assert.equal(await page.locator("#home [data-act=lstart]").count(), 10, "every lesson is on the path");
-assert.ok(await page.locator("#home [data-act=lcont]").isVisible(), "one obvious next step");
-assert.ok((await page.locator("#home [data-act=lcont]").boundingBox()).y < (await page.locator("#home [data-act=lvl]").first().boundingBox()).y, "Continue comes before the level choice");
+assert.deepEqual(await page.locator("#home [data-act=door]").evaluateAll((b) => b.map((x) => x.querySelector(".dq").textContent)), ["What happened?", "Should it have been allowed?", "Did it actually work?"], "three doors, in the order of the story");
+assert.equal(await page.locator("#home [data-act=lstart]").count(), 10, "the case file has a square for every lesson");
+assert.deepEqual(await page.locator("#home .cf").evaluateAll((c) => c.map((x) => x.querySelectorAll("button").length)), [1, 2, 7], "squares per pillar");
 assert.match(await page.getAttribute("#home [data-act=lvl][data-l=beginner]", "class"), /\bon\b/, "the current level is marked");
+assert.ok((await page.locator("#home [data-act=door]").last().boundingBox()).y < (await page.locator("#home [data-act=lvl]").first().boundingBox()).y, "the doors come before the level choice");
 assert.ok(!(await page.locator("#stage").isVisible()) && !(await page.locator("#drawer").isVisible()), "no canvas or drawer on the start screen");
+assert.equal(await page.locator("#home [data-act=go]:visible").count(), 0, "the tools are folded away until asked for");
+await page.click("#home summary[data-fold=tools]");
 await page.click("#home [data-act=go][data-m=explore]");
 assert.ok(await page.locator("#stage").isVisible() && !(await page.locator("#home").isVisible()), "free explore opens the map");
+// each door opens its own adventure at its first lesson, and the end of a lesson offers the other doors
+for (const [p, id] of [["observability", "trace"], ["guardrails", "guard"], ["evals", "eval"]]) {
+  await open(); await page.click(`#home [data-act=door][data-p=${p}]`);
+  assert.equal(await page.evaluate(() => __lab.S.lesson.id), id, `the ${p} door opens ${id}`);
+  assert.ok(await page.locator("#drawer [data-act=lpick]").count() > 0, `${id}: a prediction is on screen after one click`);
+}
+await open(); await page.click("#home [data-act=door][data-p=observability]");
+for (let g = 0; g < 4; g++) { const pick = page.locator("#drawer [data-act=lpick]:not([disabled])"); if (await pick.count()) await pick.first().click(); if ((await txt("#drawer .lesson [data-act=lnext]")).includes("Finish")) break; await page.click("#drawer [data-act=lnext]"); }
+await page.click("#drawer [data-act=lnext]");
+assert.deepEqual(await page.locator("#drawer .doors-end [data-act=lstart]").evaluateAll((b) => b.map((x) => x.dataset.id)), ["guard", "eval"], "observability is done: the doors lead to the next lesson of the other two adventures");
+assert.equal(await page.locator("#drawer details.fold").count(), 0, "the doors card is alone in the drawer");
+await page.click("#drawer [data-act=lstart][data-id=guard]");
+assert.equal(await page.evaluate(() => __lab.S.lesson.id), "guard");
+await page.click("#drawer [data-act=lexit]");
+assert.equal(await page.locator("#home .cf button.d").count(), 1, "the case file marks what you finished");
 await open("#m=explore");
 // --- map: nodes, edges, hover traces neighbours, click opens file, search shows ranks
 assert.ok((await page.locator(".node").count()) >= 15);
@@ -153,7 +171,7 @@ for (const level of ["beginner", "experienced"]) {
   await open(); if ((await txt("#level")).includes(level)) {} else await page.click("#level");
   assert.match(await txt("#level"), new RegExp(level));
   for (const id of await page.evaluate(() => [...document.querySelectorAll("#tools")].length && window.__lab.lessons)) {
-    await mode("start"); await page.evaluate(() => document.querySelectorAll("#home details.stage").forEach((d) => (d.open = true))); await page.click(`[data-act=lstart][data-id=${id}]`);
+    await mode("start"); await page.click(`#home [data-act=lstart][data-id=${id}]`);
     assert.ok(await page.locator("#caption.on").isVisible(), `${id}: the canvas says what to look at`);
     assert.equal(await page.locator("#drawer details.fold[open]").count(), LESSONS.find((l) => l.id === id).steps[0].open?.length ?? 0, `${id}: only the folds step 1 asks for are open`);
     for (let guard = 0; guard < 12; guard++) {
@@ -176,8 +194,9 @@ for (const level of ["beginner", "experienced"]) {
       await page.click("#drawer [data-act=lnext]");
       if (done) break;
     }
-    assert.equal(await page.locator("#drawer .lesson").count(), 0, `${id} finished`);
-    assert.ok(await page.locator("#home").isVisible(), `${id}: finishing returns to the start screen`);
+    assert.equal(await page.locator("#drawer [data-act=lpick]").count(), 0, `${id} finished`);
+    assert.equal(await page.locator("#drawer .doors-end").count(), 1, `${id}: finishing shows where to go next`);
+    assert.match(await txt("#drawer .doors-end"), /Where next\?|done\. Where next\?|All three adventures done/, `${id}: the doors card asks`);
   }
 }
 const pg = await page.evaluate(() => JSON.parse(localStorage.getItem("lab.progress")));
@@ -185,7 +204,7 @@ assert.ok(Object.keys(pg).length >= 5 && Object.values(pg).every((x) => x.done))
 
 // --- step 4: every challenge is unsolved at first and solved by its reference solution, judged by the real code
 {
-  const start = async (id) => { await open(); await page.click("summary[data-fold=practice]"); await page.click(`[data-act=cstart][data-id=${id}]`); };
+  const start = async (id) => { await open(); await page.click("summary[data-fold=tools]"); await page.click(`[data-act=cstart][data-id=${id}]`); };
   const check = async () => { await page.click("#drawer [data-act=ccheck]"); };
   const solved = async () => /Solved/.test(await txt("#drawer .lesson"));
   await start("survivor"); await check(); assert.ok(!(await solved()), "unsolved before any edit");
