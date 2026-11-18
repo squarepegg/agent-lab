@@ -417,13 +417,15 @@ async function startLesson(id, at = 0) {
   await resetAll(); S.chal = null; S.lesson = { id, i: Math.min(at, Lz.steps.length - 1), right: 0, total: 0, answered: {} };
   await enterStep();
 }
+// A step marked `blind` keeps its recorded answer off the canvas until the learner has picked, so the prediction is not read off the squares.
+const blindNow = () => { if (!S.lesson) return false; const [, st] = lstep(); return !!st?.blind && !S.lesson.answered[S.lesson.i]; };
 async function enterStep() {
   S.fold = {};   // each step starts with its own defaults (step.open lists the folds a step needs)
   const [, st] = lstep(), ans = S.lesson.answered[S.lesson.i];
   pt("step", { lesson: S.lesson.id, i: S.lesson.i, case: S.case });
   store.set("lab.resume", JSON.stringify({ id: S.lesson.id, i: S.lesson.i }));
   S.gate.peek = null;
-  await setMode(st.mode, true); await runActs(st.setup);
+  await setMode(st.mode, true); if (!blindNow()) await runActs(st.setup);
   if (ans) { await runActs(st.predict.run); await explainStep(); }
   await drawer(); $("drawer").scrollTop = 0;
 }
@@ -445,7 +447,7 @@ async function lessonPick(i) {
   if (!st.predict.choices.includes(correct)) throw new Error(`lesson bug: answer ${JSON.stringify(correct)} is not one of the choices`);
   L.answered[L.i] = { picked: choice, correct, src: lab.ready ? "live" : "recorded" }; L.total++; if (choice === correct) L.right++;
   pt("answer", { lesson: L.id, i: L.i, right: choice === correct });
-  await explainStep();
+  await explainStep(); renderScene();
   toast(choice === correct ? "you called it" : "not quite: the reason is below", choice === correct ? "pass" : "warn");
   await drawer();
 }
@@ -1252,7 +1254,7 @@ async function tapSquare(i) {
 function summary() {
   const box = $("sum"); if (!phone() || S.mode === "start") { box.innerHTML = ""; return; }
   const sc = MODES.find((m) => m[0] === S.mode)[2], beg = S.level === "beginner";
-  if (sc === "scene-trace") { const T = S.tl, r = tlAnswer(); box.innerHTML = T && r ? `<h4>Trace <span>${esc(r.probe)} · ${r.arm === "with" ? "with" : "without"} the skill</span></h4><div class="mut">${T.calls.length} tool calls, ${tlOut()} reaching outside the working folder · ${r.correct ? "passed" : "failed"} the check · $${r.cost_usd}</div>${psq(T.calls.map((c, i) => ({ cls: T.labels[i]?.outside ? "ask" : "in", label: `${i + 1}. ${c.name} ${guardText(c).slice(0, 60)}`, sel: T.sel === i, focus: traceFocus()?.i === i, noted: !!noteFor(traceKey(i)) })))}` : ""; return; }
+  if (sc === "scene-trace") { const T = S.tl, r = blindNow() ? null : tlAnswer(); box.innerHTML = T && r ? `<h4>Trace <span>${esc(r.probe)} · ${r.arm === "with" ? "with" : "without"} the skill</span></h4><div class="mut">${T.calls.length} tool calls, ${tlOut()} reaching outside the working folder · ${r.correct ? "passed" : "failed"} the check · $${r.cost_usd}</div>${psq(T.calls.map((c, i) => ({ cls: T.labels[i]?.outside ? "ask" : "in", label: `${i + 1}. ${c.name} ${guardText(c).slice(0, 60)}`, sel: T.sel === i, focus: traceFocus()?.i === i, noted: !!noteFor(traceKey(i)) })))}` : ""; return; }
   const steps = (g) => gateSteps(g, beg).map((s, i) => `<div class="sstep ${s.state} ${s.state === "fired" ? (s.verdict === "ADOPT" ? "good" : "bad") : ""}"><b>${i + 1} · ${esc(s.name)}</b><span>${esc(s.question)}</span><em>${s.state === "fired" ? (s.verdict === "ADOPT" ? "→ adopt" : "yes → stop here") : s.state === "no" ? "no" : ""}</em></div>`).join("");
   let h = "";
   if (sc === "scene-graph" && S.graph) {
@@ -1289,7 +1291,7 @@ async function setAnswer(run, r) {
   S.tl = { run, probe: r.probe, arm: r.arm, n: r.n, calls, labels: g.rows, sel: null };
 }
 async function ensureTl() {
-  if (S.tl || !S.runs) return;
+  if (S.tl || !S.runs || blindNow()) return;
   const f = featured(S); if (f) await setAnswer(f.run, f.without);
 }
 const tlAnswer = () => S.tl && S.runs.runs[S.tl.run].rows.find((r) => r.probe === S.tl.probe && r.arm === S.tl.arm && r.n === S.tl.n);
@@ -1297,6 +1299,7 @@ const tlOut = () => S.tl.labels.filter((x) => x.outside).length;
 function renderTrace() {
   const root = vp(); root.replaceChildren(); S.ref = { nodes: new Map(), edges: [] }; S.graph = null;
   const T = S.tl, r = tlAnswer();
+  if (blindNow()) { root.append(el("text", { class: "col", x: 0, y: 20 }, "the recorded answer appears here once you pick")); fit(400, 40); return; }
   if (!T || !r) { root.append(el("text", { class: "col", x: 0, y: 20 }, "no recorded run is loaded")); fit(400, 40); return; }
   const cols = 20, step = 34, n = T.calls.length, rows = Math.max(1, Math.ceil(n / cols)), y0 = 24 + rows * step + 12;
   root.append(el("text", { class: "col", x: 0, y: 10 }, `${modelName(S.runs.runs[T.run].pi_args[1])} · ${r.probe} · ${r.arm === "with" ? "with" : "without"} the skill · try ${r.n + 1}`));
@@ -1314,6 +1317,7 @@ function renderTrace() {
   fit(cols * step, y0 + (sel ? 56 : 42));
 }
 function traceDrawer() {
+  if (blindNow()) return `<div class="mut">Make your pick first; the recorded answer appears on the canvas.</div>`;
   const T = S.tl, R = S.runs, r = tlAnswer(); if (!T || !r) return `<div class="mut">No recorded runs are loaded.</div>`;
   const res = R.runs[T.run], sel = T.sel != null ? T.calls[T.sel] : null;
   let h = `<select id="tlrun">${Object.keys(R.meta.files).map((n) => `<option value="${esc(n)}" ${n === T.run ? "selected" : ""}>recorded: ${esc(runLabel(n))}</option>`).join("")}</select>

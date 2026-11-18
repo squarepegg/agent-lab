@@ -56,6 +56,10 @@ for (const [p, id] of [["observability", "timeline"], ["guardrails", "guard"], [
   assert.ok(await page.locator("#drawer [data-act=lpick]").count() > 0, `${id}: a prediction is on screen after one click`);
 }
 await open(); await door("observability");
+assert.equal(await page.locator("#svg rect.gc").count(), 0, "the recorded answer is not on the canvas before the pick");
+await page.locator("#drawer [data-act=lpick]:not([disabled])").first().click();
+assert.ok(await page.locator("#svg rect.gc.ask").count() > 0, "the squares appear once the pick is made");
+await open(); await door("observability");
 for (let g = 0; g < 4; g++) { const pick = page.locator("#drawer [data-act=lpick]:not([disabled])"); if (await pick.count()) await pick.first().click(); if ((await txt("#drawer .lesson [data-act=lnext]")).includes("Finish")) break; await page.click("#drawer [data-act=lnext]"); }
 await page.click("#drawer [data-act=lnext]");
 assert.deepEqual(await page.locator("#drawer .doors-end [data-act=lstart]").evaluateAll((b) => b.map((x) => x.dataset.id)), ["trace", "guard", "dstgate"], "one observability beat done: the next beat here, and the next beat of the other two adventures");
@@ -148,7 +152,7 @@ await page.click("[data-act=gtab][data-t=output]"); await page.locator("#svg rec
 await page.fill("#nnote", "Leaks here."); await page.click("[data-act=notesave]");
 assert.match(await page.evaluate(() => __lab.notesMarkdown()), /Secrets, fair enough\.[\s\S]*Leaks here\./, "both notes are in the export");
 await page.evaluate(() => localStorage.clear());
-await open(); await door("observability");
+await open(); await door("observability"); await page.click("#drawer [data-act=lpick] >> nth=0");
 await page.locator("#svg rect.gc").nth(2).click();
 assert.equal(await page.locator("#nnote").count(), 1, "inside a lesson there is one note box");
 assert.equal(await page.locator("#drawer > .pin #nnote").count(), 1, "and it sits under the lesson card, not in a fold");
