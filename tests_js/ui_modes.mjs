@@ -9,6 +9,9 @@ import { url } from "./harness.mjs";
 const txt = (page, sel) => page.textContent(sel);
 const PARAMS = /min_gain|ceiling|regress_by|max_cost_ratio|_cand_cost|heldout|max_unfinished/;
 const click = async (page, sel) => { await page.click(sel); await idle(page); };
+// A door opens that adventure's page; its highlighted button starts the next lesson. `startLesson` goes straight to one, for the walks over every lesson.
+const door = async (page, p) => { await click(page, `#home [data-act=door][data-p=${p}]`); await click(page, "#home .adv [data-act=lstart].go"); };
+const startLesson = async (page, id) => { await page.evaluate((i) => __lab.start(i), id); await idle(page); };
 const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(summary[data-fold=${k}])[open]`).count())) await click(page, `summary[data-fold=${k}]`); };
 
 // --- JavaScript off: the static shell already says what the site is and names the three doors
@@ -27,7 +30,7 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
   const page = await newPage({ quiet: true });
   await page.context().route("**/cdn.jsdelivr.net/**", (r) => r.abort());
   await open(page);
-  await click(page, "#home [data-act=door][data-p=evals]");
+  await door(page, "evals");
   for (let g = 0; g < 12; g++) {
     const pick = page.locator("#drawer [data-act=lpick]:not([disabled])");
     if (await pick.count()) { await pick.first().click(); await idle(page); assert.match(await txt(page, "#drawer .src"), /recorded from the real code/, `step ${g}`); }
@@ -49,7 +52,7 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
   await open(page);
   assert.equal(await page.evaluate(() => __lab.ready), false);
   assert.match(await txt(page, "#py"), /\d+\s*%|loading|Python/i, "a progress chip is visible");
-  await click(page, "#home [data-act=door][data-p=evals]"); await click(page, "#drawer [data-act=lpick] >> nth=0");
+  await door(page, "evals"); await click(page, "#drawer [data-act=lpick] >> nth=0");
   assert.equal(await page.evaluate(() => __lab.ready), false, "answered before Python was ready");
   assert.match(await txt(page, "#drawer"), /Correct|Not quite/);
   await page.context().close();
@@ -257,7 +260,7 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
 // --- a lesson answer shows the reason short, with the rest one click away
 {
   const page = await newPage();
-  await open(page); await click(page, "#home [data-act=lstart][data-id=eval]");
+  await open(page); await startLesson(page, "eval");
   await click(page, "#drawer [data-act=lpick] >> nth=0");
   const full = await page.evaluate(() => document.querySelector("#drawer .lesson").textContent.length);
   const seen = await page.evaluate(() => document.querySelector("#drawer .lesson").innerText.length);
@@ -273,7 +276,7 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
   const page = await newPage();
   await open(page); await ready(page);
   for (const L of LESSONS) {
-    await open(page); const c = caseOf(L.id); if (c && c !== "dst") await click(page, `#home [data-act=case][data-id=${c}]`); await click(page, `#home [data-act=lstart][data-id=${L.id}]`);
+    await open(page); await startLesson(page, L.id);
     for (let i = 0; i < L.steps.length; i++) {
       const st = L.steps[i];
       if (st.setup?.some(([a]) => a === "grun")) assert.match(await txt(page, "#svg"), /recorded run:/, `${L.id} step ${i + 1}: the canvas shows the recorded run, not the hand-set one`);
@@ -296,7 +299,7 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
 {
   const page = await newPage();
   await page.addInitScript(() => { const boom = () => { throw new Error("blocked"); }; Object.defineProperty(window, "localStorage", { get: boom }); });
-  await open(page); await click(page, "#home [data-act=door][data-p=evals]");
+  await open(page); await door(page, "evals");
   for (let g = 0; g < 12; g++) {
     const pick = page.locator("#drawer [data-act=lpick]:not([disabled])"); if (await pick.count()) await pick.first().click(); await idle(page);
     const next = page.locator("#drawer .lesson [data-act=lnext]"), last = (await next.textContent()).includes("Finish");

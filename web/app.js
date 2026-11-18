@@ -487,7 +487,7 @@ function doorsCard() {
   const closed = !PILLARS.some((p) => nextIn(p)), other = CASES.find((c) => c.id !== S.case && PILLARS.some((p) => (p.beats[c.id] || []).some((id) => !prog()[id]?.done && lessons().some((l) => l.id === id))));
   let h = `<div class="lesson doors-end"><div class="lh"><b>${esc(Lz.title)}: done</b><span class="mut">${q?.total ? `${q.right}/${q.total} predicted` : ""}</span></div><div class="lq"><b>${closed ? "Case closed. Where next?" : !beat && !inDeeper ? `${esc(me.name)} done. Where next?` : "Where next?"}</b></div><div class="choices">${doors.join("")}`;
   if (closed && other) h += `<button class="btn alt" data-act="case" data-id="${other.id}"><b>Open another case</b><span class="mut">${esc(other.title)}</span></button>`;
-  return h + `</div><div class="row lnav"><button class="btn alt" data-act="lback">← Back</button><button class="btn" data-act="lexit">Case file</button></div></div>`;
+  return h + `</div><div class="row lnav"><button class="btn alt" data-act="lback">← Back</button><button class="btn" data-act="lexit">Back to ${esc(me.name)}</button></div></div>`;
 }
 function lessonCard() {
   if (!S.lesson) return "";
@@ -565,12 +565,28 @@ const caseOfLesson = (id) => CASES.find((c) => PILLARS.some((p) => p.beats[c.id]
 const firstUndone = (ls, after) => { const pr = prog(), at = after ? ls.findIndex((l) => l.id === after) : -1; return [...ls.slice(at + 1), ...ls.slice(0, at + 1)].find((l) => !pr[l.id]?.done); };
 const nextIn = (p, after) => firstUndone(pillarLessons(p), after);
 const nextDeeper = (p) => firstUndone(deeperOf(p));
+// One adventure's own page. Lessons of the current case appear as you go (the ones you've done, then the next); advanced lessons are tucked into a fold
+// that turns up once you've started. Nothing here is a menu of everything at once.
+function advHtml(p) {
+  const pr = prog(), res = store.json("lab.resume"), cs = CASES.find((c) => c.id === S.case), ls = pillarLessons(p), up = nextIn(p), k = up ? ls.indexOf(up) : ls.length - 1;
+  const shown = ls.filter((l, i) => i <= k || pr[l.id]?.done), hidden = ls.length - shown.length;
+  const row = (l) => { const q = pr[l.id], isNext = up?.id === l.id, mid = isNext && res?.id === l.id && res.i > 0;
+    return `<div class="lrow ${isNext ? "next" : ""}"><span class="ck">${q?.done ? "✔" : ""}</span><div class="t"><b>${esc(l.title)}</b><span class="mut">${esc(l.blurb)}${q?.done && q.total ? ` · ${q.right} of ${q.total} guessed right` : ""}</span></div><button class="btn ${isNext ? "go" : "alt"}" data-act="lstart" data-id="${l.id}">${q?.done ? "Redo" : mid ? "Continue" : "Start"}</button></div>`; };
+  const dp = deeperOf(p), showDeep = dp.length && (ls.some((l) => pr[l.id]?.done) || dp.some((l) => pr[l.id]?.done));
+  const deepHtml = showDeep ? `<details class="fold" ${foldOpen("adv" + p.id, false) ? "open" : ""}><summary data-fold="adv${p.id}" data-def="0"><span>Advanced · ${dp.length} lessons <span class="mut">optional: the machinery behind the first lessons</span></span></summary>${dp.map(row).join("")}</details>` : "";
+  return `<div class="hm adv"><button class="chip" data-act="advback">← The three questions</button>
+    <h1>${esc(p.door)}</h1><div class="dn">${esc(p.name)}</div><p class="hl">${esc(p.blurb)}</p>
+    <div class="case"><span class="mut">Case</span> <b>${esc(cs.title)}</b></div>
+    <div class="lrows">${shown.map(row).join("")}</div>
+    ${hidden ? `<div class="mut">${hidden} more ${hidden === 1 ? "lesson turns" : "lessons turn"} up as you go.</div>` : ""}
+    ${up ? "" : `<div class="ok">That's this adventure done for this case. Try another adventure, or another case from the start screen.</div>`}
+    ${deepHtml}</div>`;
+}
 function homeHtml() {
   const pr = prog(), res = store.json("lab.resume"), cs = CASES.find((c) => c.id === S.case);
+  if (S.adv) return advHtml(PILLARS.find((x) => x.id === S.adv));
   const door = (p) => { const ls = pillarLessons(p), n = ls.filter((l) => pr[l.id]?.done).length, up = nextIn(p), mid = !!up && res?.id === up.id && res.i > 0;
     return `<button class="door ${up ? "" : "done"}" data-act="door" data-p="${p.id}"><span class="dq">${esc(p.door)}</span><span class="dn">${esc(p.name)}</span><span class="mut">${esc(p.blurb)}</span><span class="dp">${up ? (n || mid ? "Continue" : "Start") : "Done, play again"} · ${n}/${ls.length} ${ls.length === 1 ? "lesson" : "lessons"}</span></button>`; };
-  const sq = (l, i, deeper, up) => { const q = pr[l.id]; return `<button class="${q?.done ? "d" : ""} ${up ? "n" : ""} ${deeper ? "x" : ""}" data-act="lstart" data-id="${l.id}" title="${esc(l.title)}${deeper ? " (deeper)" : ""}${q?.done && q.total ? ` · ${q.right}/${q.total} predicted` : ""}" aria-label="${esc(l.title)}${deeper ? ", deeper" : ""}${q?.done ? ", done" : ""}">${q?.done ? "✔" : deeper ? "+" : i + 1}</button>`; };
-  const board = (p) => `<div class="cf"><b>${esc(p.name)}</b><div class="sq">${pillarLessons(p).map((l, i) => sq(l, i, false, nextIn(p)?.id === l.id)).join("")}${deeperOf(p).map((l, i) => sq(l, i, true, false)).join("")}</div></div>`;
   const beg = S.level === "beginner";
   // What needs you, in order: the lesson you left half done, then adventures in progress, then ones not started, then finished ones.
   const rank = (p) => (!nextIn(p) ? 2 : pillarLessons(p).some((l) => pr[l.id]?.done) ? 0 : 1);
@@ -582,7 +598,7 @@ function homeHtml() {
     ${resume}
     <div class="case"><span class="mut">Case</span> <b>${esc(cs.title)}</b> <span class="mut">${esc(cs.line)}</span>${CASES.filter((c) => c !== cs).map((c) => `<button class="chip" data-act="case" data-id="${c.id}" title="${esc(c.line)}">${esc(c.title)}</button>`).join("")}</div>
     <div class="doors">${[...PILLARS].sort((a, b) => rank(a) - rank(b)).map(door).join("")}</div><div class="mut" id="homepy">${homePy()}</div>
-    <h2>Case file</h2><div class="cfs">${PILLARS.map(board).join("")}</div>${notesHtml}
+    ${notesHtml}
     <div class="who"><span class="mut">Starting from</span><button data-act="lvl" data-l="beginner" class="chip ${beg ? "on" : ""}" title="Plain words, a hint on each question and notes beside the code.">new to evals or Python</button><button data-act="lvl" data-l="experienced" class="chip ${beg ? "" : "on"}" title="Terse: upstream names, line counts and a full editor.">I write Python</button></div>`;
   if (PT) h += `<div class="mut">Playtest log, kept on this device and never sent: ${(store.json("lab.ptlog") || []).length} events <button class="chip" data-act="ptdl">Download</button> <button class="chip" data-act="ptclear">Clear</button></div>`;
   h += `<details class="fold" ${foldOpen("tools", false) ? "open" : ""}><summary data-fold="tools" data-def="0"><span>Or just poke at the tools · ${CHALLENGES.length} challenges <span class="mut">${CHALLENGES.filter((c) => pr["chal:" + c.id]?.done).length}/${CHALLENGES.length} solved</span></span></summary>` +
@@ -721,11 +737,12 @@ const ACT = {
   ccheck() { return chalCheck(); },
   chint() { S.chal.hints++; return drawer(); },
   cexit() { return setMode("start"); },
-  lexit() { return setMode("start"); },
+  lexit() { const p = S.lesson && pillarOf(S.lesson.id); S.adv = p ? p.id : null; return setMode("start"); },   // back to that adventure's page
   go(t) { return setMode(t.dataset.m); },
   async showcode() { S.fold.code = true; await drawer(); $("drawer").querySelector('summary[data-fold="code"]')?.scrollIntoView({ block: "nearest" }); },
-  door(t) { const p = PILLARS.find((x) => x.id === t.dataset.p), n = nextIn(p) ?? pillarLessons(p)[0], r = store.json("lab.resume"); if (n) { pt("door", { pillar: p.id, lesson: n.id }); return startLesson(n.id, r && r.id === n.id && !prog()[n.id]?.done ? r.i : 0); } },
-  case(t) { S.case = t.dataset.id; store.set("lab.case", S.case); pt("case", { case: S.case }); return S.mode === "start" && !S.lesson ? drawer() : setMode("start"); },
+  door(t) { S.adv = t.dataset.p; pt("door", { pillar: S.adv }); return drawer(); },
+  advback() { S.adv = null; return drawer(); },
+  case(t) { S.case = t.dataset.id; S.adv = null; store.set("lab.case", S.case); pt("case", { case: S.case }); return S.mode === "start" && !S.lesson ? drawer() : setMode("start"); },
   ptdl() { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(store.json("lab.ptlog") || [], null, 1)], { type: "application/json" })); a.download = "agent-lab-playtest.json"; a.click(); URL.revokeObjectURL(a.href); },
   ptclear() { store.del("lab.ptlog"); return drawer(); },
   notesave() { const t = $("nnote"); if (!t) return; const text = t.value.trim(), rest = notes().filter((n) => n.key !== t.dataset.key); store.set("lab.notes", JSON.stringify(text ? [...rest, { key: t.dataset.key, label: t.dataset.label, text, t: Date.now() }] : rest)); if (text) pt("note", { key: t.dataset.key }); renderScene(); return drawer(); },
@@ -1353,7 +1370,7 @@ function wire() {
   const btn = (m) => `<button data-m="${m}" title="${esc(MODES.find((x) => x[0] === m)[3])}" aria-label="${esc(MODES.find((x) => x[0] === m)[1])}"><svg viewBox="0 0 24 24">${ICON[m]}</svg><span class="lbl">${NAV[m]}</span></button>`;
   $("tools").innerHTML = btn("start") + `<div class="grp">explore</div>` + ["explore", "evals", "break", "gate", "trace", "abfact", "abskill", "guard"].map(btn).join("") + `<div class="sp"></div>` + btn("about");
   $("home").onclick = panelClick;
-  $("tools").onclick = (e) => { const m = e.target.closest("button")?.dataset.m; if (m) act(() => setMode(m)); };
+  $("tools").onclick = (e) => { const m = e.target.closest("button")?.dataset.m; if (m) act(() => { if (m === "start") S.adv = null; return setMode(m); }); };
   $("sum").onclick = (e) => { const id = e.target.closest("[data-node]")?.dataset.node; if (id) act(() => onNode(id)); const sq = e.target.closest("[data-psq]"); if (sq) act(() => tapSquare(+sq.dataset.psq)); };
   $("find").onclick = palOpen;
   $("pin").oninput = () => { pal.items = palItems($("pin").value); pal.sel = 0; palRender(); };
@@ -1382,7 +1399,7 @@ async function boot() {
   lab = connectLab(window.__py, recorded, { record: RECORD, onState: pyState });
   S.files = structuredClone(bundle.brain); S.questions = bundle.questions; S.skills = bundle.skills; { const c = store.get("lab.case"); if (CASES.some((x) => x.id === c)) S.case = c; }
   initGuard();   // before the lesson list below: the guard lessons are offered only once their tool calls exist
-  window.__lab = { call: (n, a) => lab.call(n, a), ready: lab.ready, interactive: false, idle, S, lab, notesMarkdown, lessons: lessons().map((l) => l.id) };
+  window.__lab = { call: (n, a) => lab.call(n, a), ready: lab.ready, interactive: false, idle, S, lab, notesMarkdown, start: (id) => act(() => startLesson(id)), lessons: lessons().map((l) => l.id) };
   wire(); pyState();
   const m = HASH0.match(/m=(\w+)/)?.[1]; const start = /[#&](g|run)=/.test(HASH0) ? "gate" : MODES.some((x) => x[0] === m) ? m : "start";
   // The Start screen needs no Python at all. Everything else needs the map, the evals and the gate: recorded, so instant.

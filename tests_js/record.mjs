@@ -36,8 +36,10 @@ async function play(begin, pick) {
 const rec = {};
 const grab = async () => Object.assign(rec, await page.evaluate(() => __lab.lab.rec));
 await fresh(); await grab();
-for (const id of ["dstgate", "eval"]) for (const pick of [0, 1]) {   // the first beat of the Evals door, and the "basics first" lesson it links to
-  await play(() => page.click(`[data-act=lstart][data-id=${id}]`), pick); await grab();
+// The first lesson of the Evals door (door, then its Start button), and the "Basics first" lesson it links to (the same, then that link).
+const viaDoor = async () => { await page.click("[data-act=door][data-p=evals]"); await page.click("#home .adv [data-act=lstart].go"); };
+for (const id of ["dstgate", "eval"]) for (const pick of [0, 1]) {
+  await play(async () => { await viaDoor(); if (id === "eval") await page.click("#drawer [data-act=lstart][data-id=eval]"); }, pick); await grab();
 }
 const bundle = JSON.parse(readFileSync(join(root, "bundle.json"), "utf8"));
 const vendor = createHash("sha256").update(Object.values(bundle.vendor.files).map((f) => f.sha256).sort().join("\n")).digest("hex");
