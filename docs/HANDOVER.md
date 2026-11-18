@@ -60,7 +60,6 @@ env -u CI node ui.mjs && env -u CI node ui_modes.mjs && env -u CI node record.mj
 - No guided tweaks for `answer`, `tally`, lint tabs (beginners are pointed to experienced level).
 - Edits only affect the Try-it cell; the canvas stays on real code (redrawing from an edit was deliberately not built).
 - Screenshot helper pattern: small playwright script in `tests_js/` (needs its `node_modules`), written to `/tmp`, then deleted.
-- `ui.mjs` walks `__lab.lessons`, which `boot()` builds before `initGuard()` runs, so the guard lessons that need `S.guard.calls` are not in that list; `ui_modes.mjs` walks `LESSONS` directly and does cover them.
 - No human has played steps 2 to 7 of `docs/UX-REVIEW.md`. Do that next, with `?playtest=1`.
 
 ## Style the user wants

@@ -1091,7 +1091,7 @@ function callsDrawer() {
     <input id="gtext" value="${esc(G.text)}" placeholder="cat ~/.ssh/config" aria-label="a command or path to try"><button class="btn" data-act="gtry">Try</button></div>`;
   let t = "";
   if (G.try) { const x = G.try, ok = x.blocked === x.outside; t = `<div class="card gtry"><div class="${ok ? "ok" : "bad"}"><b>${x.blocked ? (x.outside ? "✔ Blocked, and it would have gone outside." : "✘ Blocked by mistake: it stays inside.") : x.outside ? "✘ It got through, and it goes outside." : "✔ Allowed, and it stays inside."}</b></div><div class="mut">${esc(x.why)}.</div></div>`; }
-  h += fold("gtry", "Try to get past it", tryRow + t, true);
+  h += fold("gtry", "Try to get past it", tryRow + t, !S.lesson);
   if (G.att) h += fold("gatt", "Ready-made attacks", `<div class="mut">Click one to run it.</div><table class="tr"><tr><th>call</th><th>policy</th><th>really outside?</th><th></th></tr>${G.att.rows.map((a, i) => `<tr class="rowx" data-act="gattack" data-i="${i}"><td><code>${esc(a.text.slice(0, 44))}</code></td><td>${a.blocked ? "blocked" : "allowed"}</td><td>${a.outside ? "yes" : "no"}</td><td class="${a.blocked === a.outside ? "ok" : "bad"}">${a.blocked === a.outside ? "✔" : "✘"}</td></tr>`).join("")}</table>`, !!(S.lesson && lstep()[1].open?.includes("attacks")));
   // Everything else, one fold: other rules, the real guardrail, your own Python.
   const more = `<div class="mut">Which guardrail</div><div class="row"><button class="btn alt ${real ? "" : "on"}" data-act="gengine" data-e="lab">Rules written for this lab</button><button class="btn alt ${real ? "on" : ""}" data-act="gengine" data-e="upstream">The real one: guard_hook.py</button></div>`
@@ -1322,6 +1322,7 @@ async function boot() {
   [bundle, recorded, S.runs] = await Promise.all([get("bundle.json"), get("recorded.json").catch(() => ({ calls: {} })), get("runs.json").catch(() => null)]);
   lab = connectLab(window.__py, recorded, { record: RECORD, onState: pyState });
   S.files = structuredClone(bundle.brain); S.questions = bundle.questions; S.skills = bundle.skills; { const c = store.get("lab.case"); if (CASES.some((x) => x.id === c)) S.case = c; }
+  initGuard();   // before the lesson list below: the guard lessons are offered only once their tool calls exist
   window.__lab = { call: (n, a) => lab.call(n, a), ready: lab.ready, interactive: false, idle, S, lab, lessons: lessons().map((l) => l.id) };
   wire(); pyState();
   const m = HASH0.match(/m=(\w+)/)?.[1]; const start = /[#&](g|run)=/.test(HASH0) ? "gate" : MODES.some((x) => x[0] === m) ? m : "start";
