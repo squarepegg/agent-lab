@@ -266,7 +266,7 @@ const INTRO = {
 };
 function beginnerIntro() {
   const i = INTRO[S.mode]; if (S.level !== "beginner" || !i) return "";
-  return `<div class="note"><b>What am I looking at?</b> ${i[0]}${i[1] ? `<br><b>Try:</b> ${i[1]}` : ""}</div>`;
+  return (i[1] ? `<div class="try"><b>Try</b> ${i[1]}</div>` : "") + fold("intro", "What am I looking at?", `<div class="mut">${i[0]}</div>`, false);
 }
 function traceSpec() {
   const f = S.files, q = S.questions;
@@ -526,14 +526,14 @@ function homeHtml() {
     return `<div class="lrow ${up ? "next" : ""}"><span class="ck">${q?.done ? "✔" : ""}</span><div class="t"><b>${esc(l.title)}</b><span class="mut">${q?.done && l.learned ? esc(l.learned) : `${esc(l.blurb)} · ${l.steps.length} steps`}${q?.done && q.total ? ` · ${q.right}/${q.total} predicted` : ""}</span></div><button class="btn ${up ? "" : "alt"}" data-act="lstart" data-id="${l.id}">${q?.done ? "Redo" : up ? (done || at ? "Continue" : "Start") : "Start"}</button></div>`; };
   const beg = S.level === "beginner";
   let h = `<div class="hm"><h1>Your agent passes the demo. How do you know it's good?</h1>
-    <p class="hl">Guardrails limit what an agent may do. Observability shows what it did. Evals measure how well it does. This site is about <b>evals</b>: you <b>predict</b> what the real code will do, then watch it run in your browser. No model is called and nothing leaves the page.</p>`;
-  h += (next ? `<div class="cta"><button class="btn lg" data-act="lcont">${done || at ? "Continue" : "Start"}: ${esc(next.title)}${at ? ` · step ${at + 1} of ${next.steps.length}` : ""}</button><span class="mut">${first ? `${all.length} short lessons, about 3 minutes each` : `${done}/${all.length} lessons done`}</span></div>`
+    <p class="hl">Guardrails limit what an agent may do. Observability shows what it did. Evals measure how well it does. This site is about <b>evals</b>: you <b>predict</b> what the real code will do, then watch it run.</p>`;
+  h += (next ? `<div class="cta"><button class="btn lg" data-act="lcont">${done || at ? "Continue" : "Start"}: ${esc(next.title)}${at ? ` · step ${at + 1} of ${next.steps.length}` : ""}</button><span class="mut">${first ? `${all.length} short lessons, about 3 minutes each · no model is called · nothing leaves the page` : `${done}/${all.length} lessons done`}</span></div>`
             : `<div class="cta"><span class="ok">✔ all ${all.length} lessons done.</span><span class="mut">Try the challenges below, or poke around freely.</span></div>`) + `<div class="mut" id="homepy">${homePy()}</div>`;
-  h += `<div class="who"><span class="mut">Pitched at</span><button data-act="lvl" data-l="beginner" class="chip ${beg ? "on" : ""}">new to evals or Python</button><button data-act="lvl" data-l="experienced" class="chip ${beg ? "" : "on"}">I write Python</button>
-    <span class="mut">${beg ? "Plain words, a hint on each question, notes beside the code." : "Terse: upstream names, line counts, a full editor."}</span></div>`;
+  h += `<div class="who"><span class="mut">Pitched at</span><button data-act="lvl" data-l="beginner" class="chip ${beg ? "on" : ""}" title="Plain words, a hint on each question, notes beside the code.">new to evals or Python</button><button data-act="lvl" data-l="experienced" class="chip ${beg ? "" : "on"}" title="Terse: upstream names, line counts, a full editor.">I write Python</button></div>`;
   h += `<h2>The path · ${IDEAS.length} ideas, ${all.length} short lessons</h2>` + IDEAS.map(([t, why, ids], i) => {
     const ls = ids.map((id) => all.find((l) => l.id === id)).filter(Boolean), fin = ls.every((l) => p[l.id]?.done);
-    return `<div class="stage ${fin ? "done" : ""}"><div class="n">${fin ? "✔" : i + 1}</div><div class="box"><b>${esc(t)}</b><div class="mut">${esc(why)}</div>${ls.map(lessonRow).join("")}</div></div>`; }).join("");
+    const open = foldOpen("stage" + i, !!next && ids.includes(next.id));   // only the idea you are on is open
+    return `<details class="stage ${fin ? "done" : ""}" ${open ? "open" : ""}><summary data-fold="stage${i}" data-def="${next && ids.includes(next.id) ? 1 : 0}"><span class="n">${fin ? "✔" : i + 1}</span><span class="st"><b>${esc(t)}</b><span class="mut">${esc(why)}</span></span></summary><div class="box">${ls.map(lessonRow).join("")}</div></details>`; }).join("");
   h += `<h2>Practice</h2><details class="fold" ${foldOpen("practice", false) ? "open" : ""}><summary data-fold="practice" data-def="0">${CHALLENGES.length} challenges · do the thing, press Check, the real code judges <span class="mut">${CHALLENGES.filter((c) => p["chal:" + c.id]?.done).length}/${CHALLENGES.length} solved</span></summary>` +
     CHALLENGES.map((c) => `<div class="lrow"><span class="ck">${p["chal:" + c.id]?.done ? "✔" : ""}</span><div class="t"><b>${esc(c.title)}</b><span class="mut">${c.code ? "edit code" : "in " + MODES.find((m) => m[0] === c.mode)[1]}</span></div><button class="btn alt" data-act="cstart" data-id="${c.id}">${p["chal:" + c.id]?.done ? "Again" : "Start"}</button></div>`).join("") + `</details>`;
   h += `<h2>Or explore freely</h2><div class="mgrid">${MODES.filter((m) => !["start", "about"].includes(m[0])).map((m) => `<button data-act="go" data-m="${m[0]}"><b>${esc(m[1])}</b><span class="mut">${esc(m[3])}</span></button>`).join("")}</div></div>`;
@@ -830,8 +830,8 @@ function gateDrawer() {
       return `<span class="cell ${b ? "t" : "f"} ${on ? "on" : ""}" ${res ? `data-act="gpeek"` : "data-gc"} data-p="${esc(q.id)}" data-a="${a}" data-i="${i}">${b ? "✔" : "✘"}</span>`; }).join("")}</td>`).join("") + "</tr>").join("")}</table>`;
   h += peekCard();
   if (res) h += fold("trace", beg ? "What happened in each answer?" : "trace: one row per recorded answer", traceHtml(res, beg), !!(S.lesson && lstep()[1].open?.includes("trace")));
-  h += `<h3>${beg ? "the bar the skill must clear" : "thresholds"}</h3><div class="params">${Object.entries(G.params).filter(([k]) => !(k.startsWith("_") && (beg || res))).map(([k, v]) => `<label class="fld">${beg ? esc(PARAM_PLAIN[k] ?? k) : `<code>${k}</code>`}<input data-gp="${k}" value="${v}" inputmode="decimal"></label>`).join("")}</div>
-    ${beg ? `<div class="mut">These are set before the run. Moving them afterwards would be choosing the verdict.</div>` : ""}`;
+  h += fold("bar", beg ? "The bar the skill must clear" : "thresholds", `<div class="params">${Object.entries(G.params).filter(([k]) => !(k.startsWith("_") && (beg || res))).map(([k, v]) => `<label class="fld">${beg ? esc(PARAM_PLAIN[k] ?? k) : `<code>${k}</code>`}<input data-gp="${k}" value="${v}" inputmode="decimal"></label>`).join("")}</div>
+    ${beg ? `<div class="mut">These are set before the run. Moving them afterwards would be choosing the verdict.</div>` : ""}`, !!S.chal || (!!S.lesson && !!lstep()[1].open?.includes("poke") && false));
   if (!res) h += fold("grader", beg ? "How is one answer marked right or wrong?" : "probe grader", `<div class="row"><select id="gpg">${G.probes.map((q, i) => `<option value="${i}" ${i === G.pg ? "selected" : ""}>${esc(q.id)}</option>`).join("")}</select></div>
     <pre>${esc(p.q)}\n\nexpect (every group, any inside): ${esc(JSON.stringify(p.expect))}</pre><textarea id="gpa" style="min-height:60px" placeholder="type an answer"></textarea>
     <div class="row"><button class="btn alt" data-act="dumb">fill the dumbest passing answer</button><span id="gpr"></span></div>`, (!beg && !S.lesson) || S.chal?.id === "opposite");
@@ -885,6 +885,8 @@ function scrubTexts() {
   return out;
 }
 const guardPolicy = () => (S.guard.engine === "upstream" ? { upstream: S.guard.up } : S.guard.useCode ? { code: S.guard.code } : { rules: S.guard.rules });
+// With no policy switched on, "got through" means nothing yet: the calls that tried to leave the folder are outlined, not alarming.
+const guardNothing = () => S.guard.engine !== "upstream" && !S.guard.useCode && !S.guard.rules.length;
 const guardText = (c) => (c.name === "read" ? c.args.path : c.args.command) ?? "";
 async function computeGuard() {
   const G = S.guard; if (!G.calls.length) return;
@@ -944,7 +946,7 @@ async function guardTry() {
 }
 function renderGuard() {
   const root = vp(); root.replaceChildren(); S.ref = { nodes: new Map(), edges: [] }; S.graph = null;
-  const G = S.guard, cols = 24, step = 22;
+  const G = S.guard, cols = 24, step = 22, nothing = guardNothing();
   if (G.tab === "output") return renderScrub(root);
   if (G.tab === "log") return renderLive(root);
   if (!G.calls.length) { root.append(el("text", { class: "col", x: 0, y: 20 }, "the recorded runs did not load")); fit(400, 40); return; }
@@ -954,7 +956,7 @@ function renderGuard() {
     const idx = G.calls.map((_, i) => i).filter((i) => G.calls[i].name === tool);
     y += 34; root.append(el("text", { class: "col", x: 0, y }, `${tool === "bash" ? "shell commands" : "files read"} · ${idx.length}`)); y += 10;
     idx.forEach((i, k) => {
-      const r = G.res?.rows[i], c = r ? (r.blocked ? (r.outside ? "caught" : "fp") : r.outside ? "miss" : "fine") : "fine";
+      const r = G.res?.rows[i], c = r ? (r.blocked ? (r.outside ? "caught" : "fp") : r.outside ? (nothing ? "esc" : "miss") : "fine") : "fine";
       const g = el("rect", { class: `gc ${c} ${G.sel === i ? "sel" : ""}`, x: (k % cols) * step, y: y + Math.floor(k / cols) * step, width: 18, height: 18, rx: 4 }, el("title", {}, guardText(G.calls[i]).slice(0, 120)));
       g.addEventListener("click", (e) => { e.stopPropagation(); act(() => { G.sel = i; renderScene(); return drawer(); }); });
       root.append(g);
@@ -1011,31 +1013,37 @@ function callsDrawer() {
   if (!G.calls.length) return `<div class="note bad">The recorded runs did not load, so there are no real tool calls to test a policy against.</div>`;
   if (!k || !meta) return `<div class="mut">Loading Python…</div>`;
   const label = (id) => meta.rules.find((r) => r.id === id)?.label ?? id;
-  let h = `<div class="verdict ${k.missed === 0 && k.wrongly === 0 ? "good" : "bad"}" id="gscore"><div class="vl">your policy, on ${k.total} real tool calls</div><div class="big">${k.caught} of ${k.escapes} escapes blocked</div>
-    <div class="vw">${k.missed ? `${k.missed} got through.` : "None got through."} ${k.wrongly ? `${k.wrongly} harmless calls were blocked.` : "No harmless call was blocked."} An escape is a call that goes outside the working folder.${k.asked || k.denied ? ` (${k.denied} denied, ${k.asked} would ask you first.)` : ""}</div></div>`;
-  const real = G.engine === "upstream";
-  h += `<h3>which guardrail</h3><div class="row"><button class="btn alt ${real ? "" : "on"}" data-act="gengine" data-e="lab">Rules written for this lab</button><button class="btn alt ${real ? "on" : ""}" data-act="gengine" data-e="upstream">The real one: guard_hook.py</button></div>`;
+  const real = G.engine === "upstream", nothing = !real && !G.useCode && !G.rules.length;
+  // The score first, in plain words. With nothing switched on it is an invitation, not a failure.
+  let h = nothing ? `<div class="verdict" id="gscore"><div class="vl">${k.total} real tool calls, ${k.escapes} of them tried to leave the working folder</div><div class="big">Nothing is blocked yet</div><div class="vw">Switch a rule on and watch the squares change.</div></div>`
+    : `<div class="verdict ${k.missed === 0 && k.wrongly === 0 ? "good" : "bad"}" id="gscore"><div class="vl">your policy, on ${k.total} real tool calls</div><div class="big">${k.caught} of ${k.escapes} escapes blocked</div>
+    <div class="vw">${k.missed ? `${k.missed} got through.` : "None got through."} ${k.wrongly ? `${k.wrongly} harmless calls were blocked.` : "No harmless call was blocked."}${k.asked || k.denied ? ` (${k.denied} denied, ${k.asked} would ask you first.)` : ""}</div></div>`;
+  const rule = (r) => `<button class="btn alt ${!G.useCode && G.rules.includes(r.id) ? "on" : ""}" data-act="grule" data-r="${r.id}">${esc(r.label)}</button>`;
+  const FIRST = ["no_bash", "no_home", "no_absolute"];
   if (real) {
     const U = meta.upstream, up = G.up;
-    h += `<div class="mut">${beg ? "This is the guardrail from the agent-knowledge-map repo, unmodified. Each rule can allow a call, ask you first, or deny it." : "`vendor/guard_hook.py` unmodified: `merge` and `decide`. Each rule is allow, ask or deny; a call is blocked here when the answer is not allow."}</div>
-      <div class="rules">${U.rules.map((r) => `<button class="btn alt ${up.rules[r] === "allow" ? "" : "on"}" data-act="gdial" data-r="${r}" title="click to change">${esc(r)}: ${esc(up.rules[r])}</button>`).join("")}</div>
-      <div class="rules"><button class="btn alt ${up.allow_paths.length ? "on" : ""}" data-act="gallow">${up.allow_paths.length ? "The skill folder is an allowed place" : "Allow the skill folder as a place"}</button></div>`;
-    h += fold("gyaml", beg ? "The policy file" : "policy file (YAML)", `<div class="mut">This is the file format upstream reads (<code>.agent-guard.yaml</code>). Edit it and press Apply.</div><textarea id="gyaml" style="min-height:170px">${esc(G.yaml)}</textarea><div class="row"><button class="btn" data-act="gapply">Apply</button></div>`, !beg && !S.lesson);
-  } else h += `<h3>your policy</h3><div class="mut">${beg ? "Switch rules on. A call is blocked if any switched-on rule matches it." : "A call is blocked if any switched-on rule matches. Or write the policy as Python below."}</div>
-    <div class="rules">${meta.rules.map((r) => `<button class="btn alt ${!G.useCode && G.rules.includes(r.id) ? "on" : ""}" data-act="grule" data-r="${r.id}">${esc(r.label)}</button>`).join("")}</div>`;
+    h += `<div class="mut">The real guardrail (<code>guard_hook.py</code>): each rule can allow, ask or deny. Click a rule to change it.</div><div class="rules">${U.rules.map((r) => `<button class="btn alt ${up.rules[r] === "allow" ? "" : "on"}" data-act="gdial" data-r="${r}">${esc(r)}: ${esc(up.rules[r])}</button>`).join("")}</div>`;
+  } else h += `<div class="rules">${meta.rules.filter((r) => FIRST.includes(r.id)).map(rule).join("")}</div>`;
   if (G.err) h += `<div class="note bad">${esc(G.err)}</div>`;
   const c = G.sel != null ? G.calls[G.sel] : null, r = c && G.res.rows[G.sel];
   if (c && r) h += `<div class="card gcall"><div class="mut">${esc(c.name)} · ${esc(c.probe)} · ${c.arm === "with" ? "with" : "without"} the skill, try ${c.n + 1}</div><pre>${esc(guardText(c))}</pre>
     <div>${r.blocked ? `<b>${r.action === "ask" ? "Asks you first" : "Blocked"}</b>${r.by && r.by !== "your function" ? ` by “${esc(label(r.by))}”${r.reason ? `: ${esc(r.reason)}` : ""}` : ""}.` : "<b>Allowed.</b>"}</div>
     <div class="${r.outside ? "bad" : "ok"}">${r.outside ? "✘ Goes outside the working folder: " : "✔ Stays inside: "}${esc(r.why)}.</div></div>`;
-  else h += `<div class="mut">Click a square to read that call.</div>`;
-  h += `<h3>try to get past it</h3><div class="mut">Type a command or a file path. Your policy decides first. Then the lab says whether it really goes outside the working folder.</div>
-    <div class="row"><select id="gtool"><option value="bash" ${G.tool !== "read" ? "selected" : ""}>a shell command</option><option value="read" ${G.tool === "read" ? "selected" : ""}>a file to read</option></select></div>
-    <input id="gtext" class="wide" value="${esc(G.text)}" placeholder="cat ~/.ssh/config" aria-label="a command or path to try"><div class="row"><button class="btn" data-act="gtry">Try it</button></div>`;
-  if (G.try) { const t = G.try, ok = t.blocked === t.outside; h += `<div class="card gtry"><div class="${ok ? "ok" : "bad"}"><b>${t.blocked ? (t.outside ? "✔ Blocked, and it would have gone outside." : "✘ Blocked by mistake: it stays inside.") : t.outside ? "✘ It got through, and it goes outside." : "✔ Allowed, and it stays inside."}</b></div><div class="mut">${esc(t.why)}.</div></div>`; }
-  if (G.att) h += fold("gatt", beg ? "Ready-made attacks" : "ready-made attacks", `<div class="mut">Thirteen calls to try against your policy. Click one to run it.</div><table class="tr"><tr><th>call</th><th>policy</th><th>really outside?</th><th></th></tr>${G.att.rows.map((a, i) => `<tr class="rowx" data-act="gattack" data-i="${i}"><td><code>${esc(a.text.slice(0, 44))}</code></td><td>${a.blocked ? "blocked" : "allowed"}</td><td>${a.outside ? "yes" : "no"}</td><td class="${a.blocked === a.outside ? "ok" : "bad"}">${a.blocked === a.outside ? "✔" : "✘"}</td></tr>`).join("")}</table>`, !!(S.lesson && lstep()[1].open?.includes("attacks")));
-  h += fold("gpy", beg ? "Write your own rule in Python" : "Write the policy as Python", `<textarea id="gcode" style="min-height:150px">${esc(G.code)}</textarea><div class="row"><button class="btn" data-act="gcode">Run my function</button><button class="btn alt" data-act="guse">Back to the switches</button></div>${G.useCode ? `<div class="mut">Your function is deciding now; the switches are off.</div>` : ""}`, !beg && !S.lesson);
-  h += `<div class="note"><b>What this is.</b> ${real ? "The real guardrail is upstream's <code>guard_hook.py</code>, run unmodified; the recorded paths are put back onto a made-up machine so it can resolve them." : "These rules and the Python option are code written for this lab, not upstream."} Both are rule-based: real systems also use sandboxes and model-based checks. The calls are real; “goes outside” is this lab's definition, worked out from the call's text.</div>`;
+  else h += `<div class="mut">Click any square to read that call.</div>`;
+  const tryRow = `<div class="mut">Type a command or a file path and see if your policy stops it.</div><div class="row tryrow"><select id="gtool" aria-label="kind"><option value="bash" ${G.tool !== "read" ? "selected" : ""}>command</option><option value="read" ${G.tool === "read" ? "selected" : ""}>file</option></select>
+    <input id="gtext" value="${esc(G.text)}" placeholder="cat ~/.ssh/config" aria-label="a command or path to try"><button class="btn" data-act="gtry">Try</button></div>`;
+  let t = "";
+  if (G.try) { const x = G.try, ok = x.blocked === x.outside; t = `<div class="card gtry"><div class="${ok ? "ok" : "bad"}"><b>${x.blocked ? (x.outside ? "✔ Blocked, and it would have gone outside." : "✘ Blocked by mistake: it stays inside.") : x.outside ? "✘ It got through, and it goes outside." : "✔ Allowed, and it stays inside."}</b></div><div class="mut">${esc(x.why)}.</div></div>`; }
+  h += fold("gtry", "Try to get past it", tryRow + t, true);
+  if (G.att) h += fold("gatt", "Ready-made attacks", `<div class="mut">Click one to run it.</div><table class="tr"><tr><th>call</th><th>policy</th><th>really outside?</th><th></th></tr>${G.att.rows.map((a, i) => `<tr class="rowx" data-act="gattack" data-i="${i}"><td><code>${esc(a.text.slice(0, 44))}</code></td><td>${a.blocked ? "blocked" : "allowed"}</td><td>${a.outside ? "yes" : "no"}</td><td class="${a.blocked === a.outside ? "ok" : "bad"}">${a.blocked === a.outside ? "✔" : "✘"}</td></tr>`).join("")}</table>`, !!(S.lesson && lstep()[1].open?.includes("attacks")));
+  // Everything else, one fold: other rules, the real guardrail, your own Python.
+  const more = `<div class="mut">Which guardrail</div><div class="row"><button class="btn alt ${real ? "" : "on"}" data-act="gengine" data-e="lab">Rules written for this lab</button><button class="btn alt ${real ? "on" : ""}" data-act="gengine" data-e="upstream">The real one: guard_hook.py</button></div>`
+    + (real ? `<div class="rules"><button class="btn alt ${G.up.allow_paths.length ? "on" : ""}" data-act="gallow">${G.up.allow_paths.length ? "The skill folder is an allowed place" : "Allow the skill folder as a place"}</button></div>
+      <div class="mut">The policy file upstream reads (<code>.agent-guard.yaml</code>). Edit it and press Apply.</div><textarea id="gyaml" style="min-height:150px">${esc(G.yaml)}</textarea><div class="row"><button class="btn" data-act="gapply">Apply</button></div>`
+    : `<div class="mut">More rules</div><div class="rules">${meta.rules.filter((r) => !FIRST.includes(r.id)).map(rule).join("")}</div>
+      <div class="mut">Or write the policy as Python</div><textarea id="gcode" style="min-height:130px">${esc(G.code)}</textarea><div class="row"><button class="btn" data-act="gcode">Run my function</button><button class="btn alt" data-act="guse">Back to the switches</button></div>${G.useCode ? `<div class="mut">Your function is deciding now; the switches are off.</div>` : ""}`)
+    + `<div class="mut">${real ? "The real guardrail is upstream's <code>guard_hook.py</code>, run unmodified; the recorded paths are put back onto a made-up machine so it can resolve them." : "These rules and the Python option are code written for this lab, not upstream."} Both are rule-based; real systems also use sandboxes and model-based checks. “Goes outside” is this lab's definition, worked out from the call's text.</div>`;
+  h += fold("gmore", "More: other rules, the real guardrail, your own code", more, !!S.lesson && !!lstep()[1].open?.includes("more") || real || G.useCode || G.rules.some((x) => !FIRST.includes(x)));
   return h;
 }
 
@@ -1125,7 +1133,7 @@ function summary() {
 // ---------------- scene switch
 function renderScene() {
   const sc = MODES.find((m) => m[0] === S.mode)[2];
-  const leg = (sc === "scene-guard" && S.guard?.tab === "log") ? [["dim", "allowed"], ["warn", "asked"], ["fail", "denied"]] : (sc === "scene-guard" && S.guard?.tab === "output") ? [["fail", "still leaks"], ["pass", "cleaned"], ["warn", "word replaced"], ["dim", "nothing to do"]] : { "scene-graph": [["fact", "fact"], ["workstream", "workstream"], ["decision", "decision"], ["catalog", "catalog"], ["pass", "pass"], ["fail", "fail"]], "scene-gate": [["pass", "adopt"], ["fail", "stop"], ["dim", "not reached"]], "scene-skill": [["skill", "skill"], ["pass", "covered"], ["fail", "not covered"]], "scene-about": [["fact", "knowledge map"], ["skill", "toolkit"]], "scene-guard": [["pass", "blocked an escape"], ["fail", "escape got through"], ["warn", "harmless but blocked"], ["dim", "allowed, harmless"]], "scene-home": [] }[sc];
+  const leg = (sc === "scene-guard" && S.guard?.tab === "log") ? [["dim", "allowed"], ["warn", "asked"], ["fail", "denied"]] : (sc === "scene-guard" && S.guard?.tab === "output") ? [["fail", "still leaks"], ["pass", "cleaned"], ["warn", "word replaced"], ["dim", "nothing to do"]] : { "scene-graph": [["fact", "fact"], ["workstream", "workstream"], ["decision", "decision"], ["catalog", "catalog"], ["pass", "pass"], ["fail", "fail"]], "scene-gate": [["pass", "adopt"], ["fail", "stop"], ["dim", "not reached"]], "scene-skill": [["skill", "skill"], ["pass", "covered"], ["fail", "not covered"]], "scene-about": [["fact", "knowledge map"], ["skill", "toolkit"]], "scene-guard": guardNothing() ? [["fail", "tried to leave the folder"], ["dim", "stayed inside"]] : [["pass", "blocked an escape"], ["fail", "escape got through"], ["warn", "harmless but blocked"], ["dim", "allowed, harmless"]], "scene-home": [] }[sc];
   $("hud").innerHTML = leg.map(([c, t]) => `<span><i style="background:var(--${c})"></i>${t}</span>`).join("");
   if (sc === "scene-home") return;
   if (sc === "scene-graph") renderGraph(); else if (sc === "scene-gate") renderGate(); else if (sc === "scene-skill") renderSkill(); else if (sc === "scene-guard") renderGuard(); else renderAbout();

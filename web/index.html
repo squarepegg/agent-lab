@@ -33,7 +33,7 @@
   <!-- Static copy of the Start screen's first screenful, so there is something to read before any JavaScript or Python has loaded.
        app.js replaces it with the same content plus progress (homeHtml). tests_js/model.test.mjs keeps the two in step. -->
   <h1>Your agent passes the demo. How do you know it's good?</h1>
-  <p class="hl">Guardrails limit what an agent may do. Observability shows what it did. Evals measure how well it does. This site is about <b>evals</b>: you <b>predict</b> what the real code will do, then watch it run in your browser. No model is called and nothing leaves the page.</p>
+  <p class="hl">Guardrails limit what an agent may do. Observability shows what it did. Evals measure how well it does. This site is about <b>evals</b>: you <b>predict</b> what the real code will do, then watch it run.</p>
   <ol class="ideas">
     <li><b>How do you check an agent's answer?</b><span>An eval is a question plus a pass/fail check. See what the check really looks at.</span></li>
     <li><b>Can you trust the check?</b><span>A passing suite can still be blind. Break things on purpose and see what notices.</span></li>
@@ -41,7 +41,7 @@
     <li><b>Can you see what happened?</b><span>A score says how often. A trace says what happened in each answer.</span></li>
     <li><b>Can you limit what it does and says?</b><span>A guardrail decides what an agent may do or say. Test it like anything else.</span></li>
   </ol>
-  <div class="cta"><button class="btn lg" data-act="lcont">Start: What is an eval?</button><span class="mut">10 short lessons, about 3 minutes each</span></div>
+  <div class="cta"><button class="btn lg" data-act="lcont">Start: What is an eval?</button><span class="mut">10 short lessons, about 3 minutes each · no model is called · nothing leaves the page</span></div>
   <div class="mut" id="homepy">Lesson 1 works right now, from results recorded from the real code. Python is loading in the background; the other lessons start when it is ready.</div>
   <div class="lesson preview"><div class="lh"><b>Or start right here · lesson 1, first prediction</b></div>
     <div class="lt">An <b>eval</b> is a question plus a pass/fail check. This one asks: <i>Which time zone are order timestamps stored in?</i> It searches the files for <code>timestamps</code> and passes only if the result contains <code>UTC</code>.</div>

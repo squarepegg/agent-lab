@@ -119,7 +119,7 @@ await page.click("[data-act=preset][data-k='Helps most, hurts one']"); assert.eq
 await page.click("[data-act=preset][data-k='Skill clearly helps']");
 await page.locator("[data-gc]").first().click(); // flip one baseline sample: gain 12 -> 11, still ADOPT
 assert.equal(await fired(), "ADOPT");
-await page.fill("[data-gp=min_gain]", "99"); assert.equal(await fired(), "NO_DELTA");
+await unfold("bar"); await page.fill("[data-gp=min_gain]", "99"); assert.equal(await fired(), "NO_DELTA");
 const hash = new URL(page.url()).hash; assert.match(hash, /g=/);
 await open(hash); assert.equal(await fired(), "NO_DELTA", "shared link restores the scenario");
 await unfold("grader"); await page.click("[data-act=dumb]"); assert.match(await txt("#gpr"), /correct/);
@@ -153,7 +153,7 @@ for (const level of ["beginner", "experienced"]) {
   await open(); if ((await txt("#level")).includes(level)) {} else await page.click("#level");
   assert.match(await txt("#level"), new RegExp(level));
   for (const id of await page.evaluate(() => [...document.querySelectorAll("#tools")].length && window.__lab.lessons)) {
-    await mode("start"); await page.click(`[data-act=lstart][data-id=${id}]`);
+    await mode("start"); await page.evaluate(() => document.querySelectorAll("#home details.stage").forEach((d) => (d.open = true))); await page.click(`[data-act=lstart][data-id=${id}]`);
     assert.ok(await page.locator("#caption.on").isVisible(), `${id}: the canvas says what to look at`);
     assert.equal(await page.locator("#drawer details.fold[open]").count(), LESSONS.find((l) => l.id === id).steps[0].open?.length ?? 0, `${id}: only the folds step 1 asks for are open`);
     for (let guard = 0; guard < 12; guard++) {

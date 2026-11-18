@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 const txt = (page, sel) => page.textContent(sel);
 const PARAMS = /min_gain|ceiling|regress_by|max_cost_ratio|_cand_cost|heldout|max_unfinished/;
 const click = async (page, sel) => { await page.click(sel); await idle(page); };
+const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(summary[data-fold=${k}])[open]`).count())) await click(page, `summary[data-fold=${k}]`); };
 
 // --- JavaScript off: the static shell already says what the site is
 {
@@ -137,7 +138,7 @@ const click = async (page, sel) => { await page.click(sel); await idle(page); };
   await open(page, "#m=guard"); await ready(page); await idle(page);
   const score = async () => /(\d+) of (\d+) escapes blocked/.exec(await txt(page, "#gscore"));
   assert.ok(await page.locator(".gc").count() > 100, "one square per real tool call");
-  assert.equal((await score())[1], "0", "no rules, nothing blocked");
+  assert.match(await txt(page, "#gscore"), /Nothing is blocked yet/, "no rules: an invitation, not a failing score");
   await click(page, "[data-act=grule][data-r=no_absolute]");
   const [, caught, escapes] = await score();
   assert.ok(+caught >= 0.99 * +escapes, "this rule catches nearly every real escape");
@@ -147,6 +148,7 @@ const click = async (page, sel) => { await page.click(sel); await idle(page); };
   assert.ok(await page.locator(".gc.fp").count() > 50, "blocking every command stops harmless work, shown in amber");
   await click(page, "[data-act=grule][data-r=no_bash]");
   // the real guardrail (vendor/guard_hook.py): it asks, it does not interrupt harmless calls, a dial changes the result, a policy file can be applied
+  await unfold(page, "gmore");
   await click(page, "[data-act=gengine][data-e=upstream]");
   assert.match(await txt(page, "#gscore"), /would ask you first/);
   assert.equal(await page.locator(".gc.fp").count(), 0, "the real guardrail interrupts no harmless call");
@@ -155,7 +157,6 @@ const click = async (page, sel) => { await page.click(sel); await idle(page); };
   assert.match(await txt(page, "#gscore"), /\d+ denied/);
   await click(page, "[data-act=gallow]");   // take the skill folder away: reading the skill is now interrupted
   assert.ok(await page.locator(".gc.fp").count() > 0);
-  await click(page, "summary[data-fold=gyaml]");
   await page.fill("#gyaml", "rules: {outside_workdir: nope}"); await click(page, "[data-act=gapply]");
   assert.match(await txt(page, "#drawer .note.bad"), /must be allow, ask or deny/);
   await page.fill("#gyaml", "rules: {indirection: ask}\nallow_paths: ['/private/lab-rec-q7x2']"); await click(page, "[data-act=gapply]");
@@ -242,7 +243,7 @@ const click = async (page, sel) => { await page.click(sel); await idle(page); };
   const page = await newPage();
   await open(page); await ready(page);
   for (const L of LESSONS) {
-    await open(page); await click(page, `[data-act=lstart][data-id=${L.id}]`);
+    await open(page); await page.evaluate(() => document.querySelectorAll("#home details.stage").forEach((d) => (d.open = true))); await click(page, `[data-act=lstart][data-id=${L.id}]`);
     for (let i = 0; i < L.steps.length; i++) {
       const st = L.steps[i];
       if (st.setup?.some(([a]) => a === "grun")) assert.match(await txt(page, "#svg"), /recorded run:/, `${L.id} step ${i + 1}: the canvas shows the recorded run, not the hand-set one`);
