@@ -90,6 +90,7 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
   const n = await page.evaluate(() => __lab.S.tl.calls.length);
   assert.equal(await page.locator("#svg").isVisible(), false, "no canvas on a phone");
   assert.equal(await page.locator("#sum .psq").count(), n, "one tappable square per tool call");
+  assert.equal(await page.locator("#sum .psq.focus").count(), 1, "the phone rings the same square as the canvas");
   const box = await page.locator("#sum .psq").first().boundingBox();
   assert.ok(box.width >= 24 && box.height >= 24, `a square is a tap target (${box.width}x${box.height})`);
   await click(page, "#sum .psq >> nth=4");

@@ -572,11 +572,17 @@ function homeHtml() {
   const sq = (l, i, deeper, up) => { const q = pr[l.id]; return `<button class="${q?.done ? "d" : ""} ${up ? "n" : ""} ${deeper ? "x" : ""}" data-act="lstart" data-id="${l.id}" title="${esc(l.title)}${deeper ? " (deeper)" : ""}${q?.done && q.total ? ` · ${q.right}/${q.total} predicted` : ""}" aria-label="${esc(l.title)}${deeper ? ", deeper" : ""}${q?.done ? ", done" : ""}">${q?.done ? "✔" : deeper ? "+" : i + 1}</button>`; };
   const board = (p) => `<div class="cf"><b>${esc(p.name)}</b><div class="sq">${pillarLessons(p).map((l, i) => sq(l, i, false, nextIn(p)?.id === l.id)).join("")}${deeperOf(p).map((l, i) => sq(l, i, true, false)).join("")}</div></div>`;
   const beg = S.level === "beginner";
+  // What needs you, in order: the lesson you left half done, then adventures in progress, then ones not started, then finished ones.
+  const rank = (p) => (!nextIn(p) ? 2 : pillarLessons(p).some((l) => pr[l.id]?.done) ? 0 : 1);
+  const rl = res && lessons().find((l) => l.id === res.id && !pr[l.id]?.done), ns = notes();
+  const resume = rl ? `<div class="resume"><span class="mut">Pick up where you left off</span><b>${esc(rl.title)}</b><span class="mut">step ${res.i + 1} of ${rl.steps.length}</span><button class="btn" data-act="lstart" data-id="${rl.id}">Continue</button></div>` : "";
+  const notesHtml = ns.length ? `<details class="fold" ${foldOpen("notes", false) ? "open" : ""}><summary data-fold="notes" data-def="0"><span>Your notes · ${ns.length}</span></summary>${ns.map((n) => `<div class="lrow"><div class="t"><b>${esc(n.text)}</b><span class="mut">${esc(n.label)}</span></div><button class="btn alt sm" data-act="notedel" data-key="${esc(n.key)}">Remove</button></div>`).join("")}<div class="row"><button class="btn alt" data-act="notesdl">Download as markdown</button><button class="btn alt" data-act="notesclear">Clear all</button></div></details>` : "";
   let h = `<div class="hm"><h1>Your agent passes the demo. How do you know it's good?</h1>
     <p class="hl">Pick a question, guess what the real code will do, then watch it run. Guessing wrong is fine: it's the useful bit. No model is called and nothing leaves the page.</p>
+    ${resume}
     <div class="case"><span class="mut">Case</span> <b>${esc(cs.title)}</b> <span class="mut">${esc(cs.line)}</span>${CASES.filter((c) => c !== cs).map((c) => `<button class="chip" data-act="case" data-id="${c.id}" title="${esc(c.line)}">${esc(c.title)}</button>`).join("")}</div>
-    <div class="doors">${PILLARS.map(door).join("")}</div><div class="mut" id="homepy">${homePy()}</div>
-    <h2>Case file</h2><div class="cfs">${PILLARS.map(board).join("")}</div>
+    <div class="doors">${[...PILLARS].sort((a, b) => rank(a) - rank(b)).map(door).join("")}</div><div class="mut" id="homepy">${homePy()}</div>
+    <h2>Case file</h2><div class="cfs">${PILLARS.map(board).join("")}</div>${notesHtml}
     <div class="who"><span class="mut">Starting from</span><button data-act="lvl" data-l="beginner" class="chip ${beg ? "on" : ""}" title="Plain words, a hint on each question and notes beside the code.">new to evals or Python</button><button data-act="lvl" data-l="experienced" class="chip ${beg ? "" : "on"}" title="Terse: upstream names, line counts and a full editor.">I write Python</button></div>`;
   if (PT) h += `<div class="mut">Playtest log, kept on this device and never sent: ${(store.json("lab.ptlog") || []).length} events <button class="chip" data-act="ptdl">Download</button> <button class="chip" data-act="ptclear">Clear</button></div>`;
   h += `<details class="fold" ${foldOpen("tools", false) ? "open" : ""}><summary data-fold="tools" data-def="0"><span>Or just poke at the tools · ${CHALLENGES.length} challenges <span class="mut">${CHALLENGES.filter((c) => pr["chal:" + c.id]?.done).length}/${CHALLENGES.length} solved</span></span></summary>` +
@@ -722,6 +728,10 @@ const ACT = {
   case(t) { S.case = t.dataset.id; store.set("lab.case", S.case); pt("case", { case: S.case }); return S.mode === "start" && !S.lesson ? drawer() : setMode("start"); },
   ptdl() { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(store.json("lab.ptlog") || [], null, 1)], { type: "application/json" })); a.download = "agent-lab-playtest.json"; a.click(); URL.revokeObjectURL(a.href); },
   ptclear() { store.del("lab.ptlog"); return drawer(); },
+  notesave() { const t = $("nnote"); if (!t) return; const text = t.value.trim(), rest = notes().filter((n) => n.key !== t.dataset.key); store.set("lab.notes", JSON.stringify(text ? [...rest, { key: t.dataset.key, label: t.dataset.label, text, t: Date.now() }] : rest)); if (text) pt("note", { key: t.dataset.key }); renderScene(); return drawer(); },
+  notedel(t) { store.set("lab.notes", JSON.stringify(notes().filter((n) => n.key !== t.dataset.key))); renderScene(); return drawer(); },
+  notesclear() { store.del("lab.notes"); return drawer(); },
+  notesdl() { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([notesMarkdown()], { type: "text/markdown" })); a.download = "agent-lab-notes.md"; a.click(); URL.revokeObjectURL(a.href); },
   async lvl(t) { S.level = t.dataset.l; store.set("lab.level", S.level); $("level").textContent = "level: " + S.level; await relevel(); },
   ctab(t) { S.tab[S.mode] = +t.dataset.i; return drawer(); },
   async save() { S.files[S.sel] = $("fbody").value; await refresh(); renderGraph(); toast("saved to this tab", ""); await drawer(); },
@@ -1011,7 +1021,7 @@ function renderGuard() {
     y += 34; root.append(el("text", { class: "col", x: 0, y }, `${tool === "bash" ? "shell commands" : "files read"} · ${idx.length}`)); y += 10;
     idx.forEach((i, k) => {
       const r = G.res?.rows[i], c = r ? (r.blocked ? (r.outside ? "caught" : "fp") : r.outside ? (nothing ? "esc" : "miss") : "fine") : "fine";
-      const g = el("rect", { class: `gc ${c} ${G.sel === i ? "sel" : ""}`, x: (k % cols) * step, y: y + Math.floor(k / cols) * step, width: 18, height: 18, rx: 4 }, el("title", {}, guardText(G.calls[i]).slice(0, 120)));
+      const g = el("rect", { class: `gc ${c} ${G.sel === i ? "sel" : ""} ${noteFor(callKey(G.calls[i])) ? "noted" : ""} ${guardFocus()?.i === i ? "focus" : ""}`, x: (k % cols) * step, y: y + Math.floor(k / cols) * step, width: 18, height: 18, rx: 4 }, el("title", {}, guardText(G.calls[i]).slice(0, 120)));
       g.addEventListener("click", (e) => { e.stopPropagation(); act(() => { G.sel = i; renderScene(); return drawer(); }); });
       root.append(g);
     });
@@ -1083,10 +1093,12 @@ function callsDrawer() {
   } else h += `<div class="rules">${meta.rules.filter((r) => FIRST.includes(r.id)).map(rule).join("")}</div>`;
   if (G.err) h += `<div class="note bad">${esc(G.err)}</div>`;
   const c = G.sel != null ? G.calls[G.sel] : null, r = c && G.res.rows[G.sel];
-  if (c && r) h += `<div class="card gcall"><div class="mut">${esc(c.name)} · ${esc(c.probe)} · ${c.arm === "with" ? "with" : "without"} the skill, try ${c.n + 1}</div><pre>${esc(guardText(c))}</pre>
+  if (c && r) {
+    h += `<div class="card gcall"><div class="mut">${esc(c.name)} · ${esc(c.probe)} · ${c.arm === "with" ? "with" : "without"} the skill, try ${c.n + 1}</div><pre>${esc(guardText(c))}</pre>
     <div>${r.blocked ? `<b>${r.action === "ask" ? "Asks you first" : "Blocked"}</b>${r.by && r.by !== "your function" ? ` by “${esc(label(r.by))}”${r.reason ? `: ${esc(r.reason)}` : ""}` : ""}.` : "<b>Allowed.</b>"}</div>
     <div class="${r.outside ? "bad" : "ok"}">${r.outside ? "✘ Goes outside the working folder: " : "✔ Stays inside: "}${esc(r.why)}.</div></div>`;
-  else h += `<div class="mut">Click any square to read that call.</div>`;
+    h += noteBox(callKey(c), callLabel(c));
+  } else { const fo = guardFocus(); h += fo ? `<div class="mut">Start with the ringed square: ${esc(fo.why)}.</div>` : `<div class="mut">Click any square to read that call.</div>`; }
   const tryRow = `<div class="mut">Type a command or a file path and see if your policy stops it.</div><div class="row tryrow"><select id="gtool" aria-label="kind"><option value="bash" ${G.tool !== "read" ? "selected" : ""}>command</option><option value="read" ${G.tool === "read" ? "selected" : ""}>file</option></select>
     <input id="gtext" value="${esc(G.text)}" placeholder="cat ~/.ssh/config" aria-label="a command or path to try"><button class="btn" data-act="gtry">Try</button></div>`;
   let t = "";
@@ -1156,14 +1168,40 @@ function renderAbout() {
   root.append(nodeEl({ id: "py", kind: "eval", title: "Pyodide (WebAssembly Python)", sub: "no server · no model calls · no secrets", pass: true }, { x: 560, y: mid, w: 300, h: 38 }));
   fit(900, 50 + entries.length * 50);
 }
+// ---------------- guidance: where to start looking, and notes you pin to a square
+// The ringed square is where to start. Trace: the first call that leaves the folder, else the first call. Guardrails: the first escape your policy let
+// through, else the first harmless call it blocked, else the first call that tries to leave the folder.
+function traceFocus() {
+  const T = S.tl; if (!T?.calls.length) return null;
+  const o = T.labels.findIndex((x) => x.outside);
+  return o >= 0 ? { i: o, why: `call ${o + 1}, the first one to leave the working folder` } : { i: 0, why: "call 1, the first thing it did" };
+}
+function guardFocus() {
+  const G = S.guard, rows = G.res?.rows; if (!rows || G.tab !== "calls") return null;
+  const nothing = guardNothing(); if (guardFocus.c?.rows === rows && guardFocus.c.nothing === nothing) return guardFocus.c.v;
+  const pick = (f, why) => { const i = rows.findIndex(f); return i < 0 ? null : { i, why }; };
+  const v = (nothing ? null : pick((r) => r.outside && !r.blocked, "the first escape your policy let through") ?? pick((r) => r.blocked && !r.outside, "the first harmless call it blocked by mistake")) ?? pick((r) => r.outside, "the first call that tries to leave the working folder");
+  guardFocus.c = { rows, nothing, v }; return v;
+}
+const notes = () => store.json("lab.notes") || [];
+const noteFor = (key) => notes().find((n) => n.key === key);
+const traceKey = (i) => `trace:${S.tl.run}:${S.tl.probe}:${S.tl.arm}:${S.tl.n}:${i}`;
+const callKey = (c) => `guard:${c.run}:${c.probe}:${c.arm}:${c.n}:${guardText(c).slice(0, 120)}`;
+const traceLabel = (i) => `${S.tl.probe}, ${S.tl.arm === "with" ? "with" : "without"} the skill, call ${i + 1}: ${guardText(S.tl.calls[i]).slice(0, 80)}`;
+const callLabel = (c) => `${c.probe}, ${c.arm === "with" ? "with" : "without"} the skill: ${guardText(c).slice(0, 80)}`;
+function noteBox(key, label) {
+  const n = noteFor(key);
+  return `<div class="nbox"><label class="fld">Your note<textarea id="nnote" data-key="${esc(key)}" data-label="${esc(label)}" placeholder="What do you notice here? One line is plenty.">${esc(n?.text ?? "")}</textarea></label><div class="row"><button class="btn sm" data-act="notesave">${n ? "Update note" : "Pin note"}</button>${n ? `<button class="btn sm alt" data-act="notedel" data-key="${esc(n.key)}">Remove</button>` : ""}</div></div>`;
+}
+function notesMarkdown() { return `# agent-lab notes\n\nNotes pinned to recorded tool calls. Written in the browser and kept on this device.\n\n` + notes().map((n) => `## ${n.label}\n\n${n.text}\n`).join("\n"); }
 // On a phone the squares stay: the same squares as the canvas, as buttons you tap. Tapping does what clicking the canvas square does.
-const psq = (items) => `<div class="psqs ${items.length > 120 ? "many" : ""}">${items.map((x, i) => `<button class="psq ${x.cls} ${x.sel ? "sel" : ""}" data-psq="${i}" aria-label="${esc(x.label)}"></button>`).join("")}</div>`;
+const psq = (items) => `<div class="psqs ${items.length > 120 ? "many" : ""}">${items.map((x, i) => `<button class="psq ${x.cls} ${x.sel ? "sel" : ""} ${x.focus ? "focus" : ""} ${x.noted ? "noted" : ""}" data-psq="${i}" aria-label="${esc(x.label)}"></button>`).join("")}</div>`;
 function guardSquares() {
   const G = S.guard, O = G.out;
   if (G.tab === "log") return G.live?.res ? psq(G.live.res.rows.map((r, i) => ({ cls: r.action === "allow" ? "fine" : r.action, label: `${r.action} ${r.rule} ${r.text}`.slice(0, 80), sel: G.live.sel === i }))) : "";
   if (G.tab === "output") return O.res ? psq(O.texts.map((t, i) => { const st = O.res.rows[i].status; return { cls: st === "leak" ? (O.opts.length ? "miss" : "esc") : st === "fixed" ? "caught" : st === "damaged" ? "fp" : "fine", label: t.text.slice(0, 80), sel: O.sel === i }; })) : "";
   const nothing = guardNothing();
-  return G.calls.length ? psq(G.calls.map((c, i) => { const r = G.res?.rows[i]; return { cls: r ? (r.blocked ? (r.outside ? "caught" : "fp") : r.outside ? (nothing ? "esc" : "miss") : "fine") : "fine", label: guardText(c).slice(0, 80), sel: G.sel === i }; })) : "";
+  return G.calls.length ? psq(G.calls.map((c, i) => { const r = G.res?.rows[i]; return { cls: r ? (r.blocked ? (r.outside ? "caught" : "fp") : r.outside ? (nothing ? "esc" : "miss") : "fine") : "fine", label: guardText(c).slice(0, 80), sel: G.sel === i, focus: guardFocus()?.i === i, noted: !!noteFor(callKey(c)) }; })) : "";
 }
 async function tapSquare(i) {
   const sc = MODES.find((m) => m[0] === S.mode)[2], G = S.guard;
@@ -1177,7 +1215,7 @@ async function tapSquare(i) {
 function summary() {
   const box = $("sum"); if (!phone() || S.mode === "start") { box.innerHTML = ""; return; }
   const sc = MODES.find((m) => m[0] === S.mode)[2], beg = S.level === "beginner";
-  if (sc === "scene-trace") { const T = S.tl, r = tlAnswer(); box.innerHTML = T && r ? `<h4>Trace <span>${esc(r.probe)} · ${r.arm === "with" ? "with" : "without"} the skill</span></h4><div class="mut">${T.calls.length} tool calls, ${tlOut()} reaching outside the working folder · ${r.correct ? "passed" : "failed"} the check · $${r.cost_usd}</div>${psq(T.calls.map((c, i) => ({ cls: T.labels[i]?.outside ? "ask" : "in", label: `${i + 1}. ${c.name} ${guardText(c).slice(0, 60)}`, sel: T.sel === i })))}` : ""; return; }
+  if (sc === "scene-trace") { const T = S.tl, r = tlAnswer(); box.innerHTML = T && r ? `<h4>Trace <span>${esc(r.probe)} · ${r.arm === "with" ? "with" : "without"} the skill</span></h4><div class="mut">${T.calls.length} tool calls, ${tlOut()} reaching outside the working folder · ${r.correct ? "passed" : "failed"} the check · $${r.cost_usd}</div>${psq(T.calls.map((c, i) => ({ cls: T.labels[i]?.outside ? "ask" : "in", label: `${i + 1}. ${c.name} ${guardText(c).slice(0, 60)}`, sel: T.sel === i, focus: traceFocus()?.i === i, noted: !!noteFor(traceKey(i)) })))}` : ""; return; }
   const steps = (g) => gateSteps(g, beg).map((s, i) => `<div class="sstep ${s.state} ${s.state === "fired" ? (s.verdict === "ADOPT" ? "good" : "bad") : ""}"><b>${i + 1} · ${esc(s.name)}</b><span>${esc(s.question)}</span><em>${s.state === "fired" ? (s.verdict === "ADOPT" ? "→ adopt" : "yes → stop here") : s.state === "no" ? "no" : ""}</em></div>`).join("");
   let h = "";
   if (sc === "scene-graph" && S.graph) {
@@ -1226,13 +1264,14 @@ function renderTrace() {
   const cols = 20, step = 34, n = T.calls.length, rows = Math.max(1, Math.ceil(n / cols)), y0 = 24 + rows * step + 12;
   root.append(el("text", { class: "col", x: 0, y: 10 }, `${modelName(S.runs.runs[T.run].pi_args[1])} · ${r.probe} · ${r.arm === "with" ? "with" : "without"} the skill · try ${r.n + 1}`));
   if (!n) root.append(el("text", { class: "col", x: 0, y: 44 }, "no tool calls: it answered straight away"));
+  const fo = traceFocus();
   T.calls.forEach((c, i) => {
-    const g = el("rect", { class: `gc ${T.labels[i]?.outside ? "ask" : "in"} ${T.sel === i ? "sel" : ""}`, "data-i": i, x: (i % cols) * step, y: 24 + Math.floor(i / cols) * step, width: 28, height: 28, rx: 5 }, el("title", {}, `${i + 1}. ${c.name} ${guardText(c)}`.slice(0, 120)));
+    const g = el("rect", { class: `gc ${T.labels[i]?.outside ? "ask" : "in"} ${T.sel === i ? "sel" : ""} ${noteFor(traceKey(i)) ? "noted" : ""} ${fo?.i === i ? "focus" : ""}`, "data-i": i, x: (i % cols) * step, y: 24 + Math.floor(i / cols) * step, width: 28, height: 28, rx: 5 }, el("title", {}, `${i + 1}. ${c.name} ${guardText(c)}`.slice(0, 120)));
     g.addEventListener("click", (e) => { e.stopPropagation(); act(() => { T.sel = i; renderScene(); return drawer(); }); });
     root.append(g);
   });
   const sel = T.sel != null ? T.calls[T.sel] : null;
-  root.append(el("text", { class: "col", x: 0, y: y0 }, sel ? `${T.sel + 1}. ${sel.name}: ${guardText(sel).slice(0, 56)}` : n ? "click a square to read that call" : ""));
+  root.append(el("text", { class: "col", x: 0, y: y0 }, sel ? `${T.sel + 1}. ${sel.name}: ${guardText(sel).slice(0, 56)}` : n ? `start here, at the ringed square: ${fo.why}` : ""));
   if (sel) root.append(el("text", { class: "col", x: 0, y: y0 + 18, style: "fill:var(--muted)" }, (T.labels[T.sel]?.why ?? "").slice(0, 70)));
   root.append(el("text", { class: "col", x: 0, y: y0 + (sel ? 44 : 30), style: `fill:var(--${r.correct ? "pass" : "fail"})` }, `then it answered: ${r.correct ? "✔ passed" : "✘ failed"} the check · $${r.cost_usd}`));
   fit(cols * step, y0 + (sel ? 56 : 42));
@@ -1244,7 +1283,7 @@ function traceDrawer() {
     <select id="tlans" aria-label="answer">${res.rows.map((x, i) => `<option value="${i}" ${x === r ? "selected" : ""}>${esc(x.probe)} · ${x.arm === "with" ? "with" : "without"} the skill · try ${x.n + 1} · ${x.tools.length} call${x.tools.length === 1 ? "" : "s"}</option>`).join("")}</select>
     <div class="card"><div class="big ${r.correct ? "ok" : "bad"}">${r.correct ? "✔ passed" : "✘ failed"} the check</div>
       <div class="mut">${T.calls.length} tool call${T.calls.length === 1 ? "" : "s"}, ${tlOut()} reaching outside the working folder · $${r.cost_usd} · ${r.finished ? "finished" : "did not finish"}${r.arm === "with" ? (r.skill_read ? " · opened the skill file" : " · did not open the skill file") : ""}</div></div>`;
-  h += sel ? `<div class="card gcall"><div class="mut">call ${T.sel + 1} of ${T.calls.length} · ${esc(sel.name)}</div><pre>${esc(guardText(sel))}</pre><div class="${T.labels[T.sel]?.outside ? "warn" : "ok"}">${esc(T.labels[T.sel]?.why ?? "")}</div></div>` : `<div class="mut">Click or tap a square to read that call.</div>`;
+  h += sel ? `<div class="card gcall"><div class="mut">call ${T.sel + 1} of ${T.calls.length} · ${esc(sel.name)}</div><pre>${esc(guardText(sel))}</pre><div class="${T.labels[T.sel]?.outside ? "warn" : "ok"}">${esc(T.labels[T.sel]?.why ?? "")}</div></div>` + noteBox(traceKey(T.sel), traceLabel(T.sel)) : `<div class="mut">Click or tap a square to read that call. Start with the ringed one.</div>`;
   return h + `<div class="note"><b>What this is.</b> A recorded answer, scrubbed like the rest. “Outside” is this lab's reference label (<code>reaches_outside</code> in <code>lab/guard.py</code>): a path outside the working folder, or a shell feature that can build one. The recording has one cost per answer, not per call.</div>`;
 }
 
@@ -1323,7 +1362,7 @@ async function boot() {
   lab = connectLab(window.__py, recorded, { record: RECORD, onState: pyState });
   S.files = structuredClone(bundle.brain); S.questions = bundle.questions; S.skills = bundle.skills; { const c = store.get("lab.case"); if (CASES.some((x) => x.id === c)) S.case = c; }
   initGuard();   // before the lesson list below: the guard lessons are offered only once their tool calls exist
-  window.__lab = { call: (n, a) => lab.call(n, a), ready: lab.ready, interactive: false, idle, S, lab, lessons: lessons().map((l) => l.id) };
+  window.__lab = { call: (n, a) => lab.call(n, a), ready: lab.ready, interactive: false, idle, S, lab, notesMarkdown, lessons: lessons().map((l) => l.id) };
   wire(); pyState();
   const m = HASH0.match(/m=(\w+)/)?.[1]; const start = /[#&](g|run)=/.test(HASH0) ? "gate" : MODES.some((x) => x[0] === m) ? m : "start";
   // The Start screen needs no Python at all. Everything else needs the map, the evals and the gate: recorded, so instant.

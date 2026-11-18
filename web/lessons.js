@@ -305,7 +305,7 @@ export const LESSONS = [
   },
   {
     id: "timeline", title: "Read one answer, call by call", blurb: "A trace is a list of what the agent did. Here's one to read.",
-    look: "Each square is one tool call, in order. Amber squares reached outside the working folder. Click a few to read them.",
+    look: "Each square is one tool call, in order. Amber squares reached outside the working folder. Start with the ringed one, then click a few more.",
     learned: "A trace lists what an agent actually did, call by call. A pass rate says whether it worked. The trace shows the path: here, a long search that a short instruction made unnecessary.",
     needs: (S) => !!featured(S)?.with,
     steps: [
@@ -409,7 +409,7 @@ export const LESSONS = [
   },
   {
     id: "guard", title: "What is the agent allowed to do?", blurb: "Write a rule and see what it does to real tool calls.",
-    look: "Each square is one real tool call a model made. Green: your policy blocked a call that went outside the working folder. Red: one got through. Amber: a harmless call was blocked.",
+    look: "Each square is one real tool call a model made. Green: your policy blocked a call that went outside the working folder. Red: one got through. Amber: a harmless call was blocked. Start with the ringed one.",
     learned: "A guardrail decides what an agent may do, before it does it. It has a cost, because it can block harmless work. It can score perfectly on calls nobody was trying to make dangerous.",
     needs: (S) => !!S.guard?.calls.length,
     steps: [
@@ -448,7 +448,7 @@ export const LESSONS = [
   },
   {
     id: "guardreal", title: "The rule you can't see through", blurb: "Try to get past your own rule, then meet the real guardrail.",
-    look: "Each square is one real tool call a model made. Green: your policy blocked a call that went outside the working folder. Red: one got through. Amber: a harmless call was blocked.",
+    look: "Each square is one real tool call a model made. Green: your policy blocked a call that went outside the working folder. Red: one got through. Amber: a harmless call was blocked. Start with the ringed one.",
     learned: "A rule that only reads text can be walked around. Test a guardrail like an eval, with calls it hasn't seen, and put the limits that matter below the model. The real one asks a person about what it can't read, and replaying real calls finds its holes.",
     needs: (S) => !!S.guard?.calls.length,
     steps: [
@@ -589,7 +589,7 @@ export const LESSONS = [
   },
   {
     id: "dbtrace", title: "It read the skill. Then what?", blurb: "The model opened the skill and still failed the check.",
-    look: "One recorded answer. Each square is a tool call; amber ones reached outside the working folder. Click a few to read them.",
+    look: "One recorded answer. Each square is a tool call; amber ones reached outside the working folder. Start with the ringed one, then click a few more.",
     learned: "A trace shows what a model did, not whether it did the right thing. This one opened the skill file, stayed in its folder, and still failed. The check decides that. The trace just keeps the receipts.",
     needs: (S) => !!casePair(S, "doubt")?.with,
     steps: [
@@ -616,7 +616,7 @@ export const LESSONS = [
   },
   {
     id: "evguard", title: "Would a rule have caught anything?", blurb: "Replay this case's real tool calls through a rule.", corpus: "evidence",
-    look: "Each square is one real tool call a model made in this case. Green: your policy blocked an escape. Red: one got through. Amber: a harmless call was blocked.",
+    look: "Each square is one real tool call a model made in this case. Green: your policy blocked an escape. Red: one got through. Amber: a harmless call was blocked. Start with the ringed one.",
     learned: "A rule that reads text catches what its author thought of. Here one search of a temp folder got past a rule about the home folder. Replaying real calls is how you find that out.",
     needs: (S) => !!run(S, "evidence-gated", null, "sonnet"),
     steps: [
@@ -634,7 +634,7 @@ export const LESSONS = [
   },
   {
     id: "dbguard", title: "Would a blunt rule help?", blurb: "Replay this case's real tool calls through a very blunt rule.", corpus: "doubt",
-    look: "Each square is one real tool call a model made in this case. Green: your policy blocked an escape. Red: one got through. Amber: a harmless call was blocked.",
+    look: "Each square is one real tool call a model made in this case. Green: your policy blocked an escape. Red: one got through. Amber: a harmless call was blocked. Start with the ringed one.",
     learned: "Blocking every shell command looks safe and is blunt: it stops harmless work and still misses file reads. A rule's cost shows up only when you replay real calls.",
     needs: (S) => !!run(S, "doubt", null, "haiku"),
     steps: [

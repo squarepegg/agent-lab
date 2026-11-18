@@ -98,6 +98,30 @@ const withIdx = await page.evaluate(() => { const T = __lab.S.tl, rows = __lab.S
 await page.selectOption("#tlans", String(withIdx));
 assert.ok(await page.locator("#svg rect.gc").count() <= 2, "with the skill: one or two calls");
 assert.match(await txt("#drawer .card"), /passed/);
+// --- guidance: a ringed square to start with, notes pinned to a square, and a Start screen that remembers where you were
+await open("#m=trace");
+const firstOut = await page.evaluate(() => __lab.S.tl.labels.findIndex((x) => x.outside));
+assert.equal(await page.locator("#svg rect.gc.focus").count(), 1, "one square is ringed");
+assert.equal(await page.locator("#svg rect.gc").evaluateAll((r) => r.findIndex((x) => x.classList.contains("focus"))), firstOut, "the ring is on the first call that leaves the folder");
+assert.match(await txt("#svg"), /start here, at the ringed square/);
+await page.locator("#svg rect.gc").nth(firstOut).click();
+await page.fill("#nnote", "Here is where it wanders off.");
+await page.click("[data-act=notesave]");
+assert.equal(await page.locator("#svg rect.gc.noted").count(), 1, "a pinned note marks its square");
+assert.match(await page.evaluate(() => __lab.notesMarkdown()), /Here is where it wanders off\./);
+await mode("start");
+assert.match(await txt("#home"), /Your notes · 1/);
+await page.click("#home summary[data-fold=notes]");
+assert.match(await txt("#home"), /Here is where it wanders off\./);
+await page.click("#home [data-act=notedel]");
+assert.equal(await page.locator("#home summary[data-fold=notes]").count(), 0, "removing the last note removes the fold");
+await open("#m=guard"); await page.click("[data-act=grule][data-r=no_home]");
+assert.equal(await page.locator("#svg rect.gc.focus").count(), 1, "the Guardrails canvas rings a square once a policy is on");
+await page.evaluate(() => localStorage.clear()); await open();
+assert.equal(await page.locator("#home .resume").count(), 0, "nothing to pick up on a first visit");
+await page.click("#home [data-act=door][data-p=evals]"); await page.click("#drawer [data-act=lpick] >> nth=0"); await page.click("#drawer [data-act=lexit]");
+assert.match(await txt("#home .resume"), /The gate says adopt/, "the lesson you left is offered first");
+await page.evaluate(() => localStorage.clear());
 await open("#m=explore");
 // --- map: nodes, edges, hover traces neighbours, click opens file, search shows ranks
 assert.ok((await page.locator(".node").count()) >= 15);
