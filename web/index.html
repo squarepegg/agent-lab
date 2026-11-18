@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en-CA" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>agent-lab · learn how AI agents get tested</title>
-<meta name="description" content="Predict what happens, then watch the real code answer. Evals, blind spots and the gate, with the real Python running in your browser.">
+<meta name="description" content="Make a guess, then watch the real code answer. Evals, blind spots and the gate, with the real Python running in your browser.">
 <script>
 // Start Python before anything else: a module worker downloads and boots Pyodide off the main thread. Its messages are kept
 // here until app.js connects (web/lab.js connectLab). The page below is readable and lesson 1 is playable without it.
@@ -22,9 +22,9 @@
 <link rel="modulepreload" href="lab.js"><link rel="modulepreload" href="model.js"><link rel="modulepreload" href="lessons.js"><link rel="modulepreload" href="challenges.js"><link rel="modulepreload" href="codepanel.js">
 <link rel="stylesheet" href="style.css"></head>
 <body class="home">
-<header id="top"><h1>agent-lab</h1><span class="sub" id="sub">Guided lessons: predict what happens, then watch the real code answer.</span>
-  <span id="py" class="py load" role="status" aria-live="polite" title="The real Python runs in your browser. It loads in the background."><span class="bar"><i id="pyfill"></i></span><span id="pytxt">Python is loading</span></span>
-  <button class="chip" id="level" title="beginner: plain-English notes. experienced: line counts, no hand-holding">level</button><button class="chip ic" id="find" title="Find anything (⌘K)" aria-label="Find anything">⌘K</button><button class="chip ic" id="share" title="Copy a link to exactly what you see" aria-label="Copy link">🔗</button><button class="chip ic" id="theme" title="switch to the light theme" aria-label="Switch theme">◐</button></header>
+<header id="top"><h1>agent-lab</h1><span class="sub" id="sub">Guided lessons: make a guess, then watch the real code answer.</span>
+  <span id="py" class="py load" role="status" aria-live="polite" title="The real Python runs in your browser. It loads in the background, so give it a moment."><span class="bar"><i id="pyfill"></i></span><span id="pytxt">Python is loading</span></span>
+  <button class="chip" id="level" title="beginner: plain-English notes. experienced: line counts and less hand-holding">level</button><button class="chip ic" id="find" title="Find anything (⌘K)" aria-label="Find anything">⌘K</button><button class="chip ic" id="share" title="Copy a link to exactly what you see" aria-label="Copy link">🔗</button><button class="chip ic" id="theme" title="switch to the light theme" aria-label="Switch theme">◐</button></header>
 <nav id="tools" aria-label="modes"></nav>
 <main id="stage"><svg id="svg" role="img" aria-label="interactive graph"><g id="vp"></g></svg><div id="sum" aria-label="summary of the canvas"></div>
   <div id="caption" role="note"></div><div id="toast" role="status"></div><div id="hud"></div>
@@ -33,13 +33,13 @@
   <!-- Static copy of the Start screen's first screenful (headline and the three doors), so there is something to read before any JavaScript or Python has loaded.
        app.js replaces it with the same content plus progress and the case file (homeHtml). tests_js/model.test.mjs keeps the two in step. -->
   <h1>Your agent passes the demo. How do you know it's good?</h1>
-  <p class="hl">Pick a question. You predict what the real code will do, then watch it run. No model is called; nothing leaves the page.</p>
+  <p class="hl">Pick a question, guess what the real code will do, then watch it run. Guessing wrong is fine: it's the useful bit. No model is called and nothing leaves the page.</p>
   <div class="doors">
-    <div class="door"><span class="dq">What happened?</span><span class="dn">Observability</span><span class="mut">Read what the agent actually did, one answer at a time.</span></div>
-    <div class="door"><span class="dq">Should it have been allowed?</span><span class="dn">Guardrails</span><span class="mut">Write a rule for what an agent may do or say, then test it on real calls.</span></div>
-    <div class="door"><span class="dq">Did it actually work?</span><span class="dn">Evals</span><span class="mut">Check the answers, break your own checks, then decide whether a result can be trusted.</span></div>
+    <div class="door"><span class="dq">What happened?</span><span class="dn">Observability</span><span class="mut">Go and see what the agent actually did, one answer at a time.</span></div>
+    <div class="door"><span class="dq">Should it have been allowed?</span><span class="dn">Guardrails</span><span class="mut">Write a rule for what an agent may do or say, then find out what it misses on real calls.</span></div>
+    <div class="door"><span class="dq">Did it actually work?</span><span class="dn">Evals</span><span class="mut">Check the answers, try to break your own checks, then decide whether one result deserves your trust.</span></div>
   </div>
-  <div class="mut" id="homepy">The first Evals lesson works right now, from results recorded from the real code. Python is loading in the background; the other lessons start when it is ready.</div>
+  <div class="mut" id="homepy">The first Evals lesson already works, from results recorded off the real code. Python is still loading in the background, so the other lessons will wake up in a moment.</div>
 </div></section>
 <aside id="drawer" aria-live="polite"></aside>
 <footer id="status"><span id="st1"></span><span id="st2">deterministic · no model calls</span></footer>

@@ -37,10 +37,10 @@ const ICON = {
 };
 const NAV = { start: "Start", explore: "Map", evals: "Evals", break: "Break it", gate: "Gate", trace: "Trace", abfact: "A/B fact", abskill: "A/B skill", guard: "Guardrails", about: "About" };
 const MODES = [
-  ["start", "Start", "scene-home", "Guided lessons: predict what happens, then watch the real code answer."],
+  ["start", "Start", "scene-home", "Guided lessons: make a guess, then watch the real code answer."],
   ["explore", "Map", "scene-graph", "The map: facts, workstreams, decisions and the evals that read them. Hover to trace, click to open and edit."],
   ["evals", "Evals", "scene-graph", "Replay one eval step by step, or add a bad one and watch it fail."],
-  ["break", "Break it", "scene-graph", "Break the knowledge on purpose; see which evals notice and which don't."],
+  ["break", "Break it", "scene-graph", "Break the knowledge on purpose and see which evals notice. The ones that don't are blind spots."],
   ["gate", "The gate", "scene-gate", "Same results in, same verdict out. Judge hand-set results or a recorded model run."],
   ["trace", "Trace", "scene-trace", "One recorded answer, call by call: what the agent actually did."],
   ["abfact", "A/B a fact", "scene-graph", "Drop a new fact into a copy of the map and see what it breaks, hijacks or fits."],
@@ -210,7 +210,7 @@ function pyState() {
 }
 const homePy = () => (lab.failed ? `<span class="bad">Python could not load, so only the first Evals lesson works. Reload to try again.</span>`
   : lab.ready ? ""   // the header chip already says so
-  : `The first Evals lesson works right now, from results recorded from the real code. Python is loading in the background (${Math.round(lab.pct * 100)}%); the other lessons start when it is ready.`);
+  : `The first Evals lesson already works, from results recorded off the real code. Python is still loading in the background (${Math.round(lab.pct * 100)}%), so the other lessons will wake up in a moment.`);
 
 // ---------------- drawer
 const setStatus = () => {
@@ -446,7 +446,7 @@ async function lessonPick(i) {
   L.answered[L.i] = { picked: choice, correct, src: lab.ready ? "live" : "recorded" }; L.total++; if (choice === correct) L.right++;
   pt("answer", { lesson: L.id, i: L.i, right: choice === correct });
   await explainStep();
-  toast(choice === correct ? "you predicted it" : "not quite: read why", choice === correct ? "pass" : "warn");
+  toast(choice === correct ? "you called it" : "not quite: the reason is below", choice === correct ? "pass" : "warn");
   await drawer();
 }
 async function lessonNav(d) {
@@ -480,7 +480,7 @@ function doorsCard() {
   const L = S.lesson, Lz = LESSONS.find((l) => l.id === L.id), me = pillarOf(L.id), q = prog()[L.id], inDeeper = me.deeper.includes(L.id);
   const go = (l, head, sub) => `<button class="btn alt" data-act="lstart" data-id="${l.id}"><b>${esc(head)}</b><span class="mut">${esc(sub)}</span></button>`;
   const beat = inDeeper ? nextIn(me) : nextIn(me, L.id), dp = nextDeeper(me), doors = [];
-  if (beat) doors.push(go(beat, `${inDeeper ? "Back to" : "More"} ${me.name.toLowerCase()}: ${beat.title}`, beat.blurb));
+  if (beat) doors.push(go(beat, `${inDeeper ? "Back to" : "Next in"} ${me.name.toLowerCase()}: ${beat.title}`, beat.blurb));
   if (dp) doors.push(go(dp, `Go deeper: ${dp.title}`, dp.blurb));
   const at = PILLARS.indexOf(me);
   for (const p of [...PILLARS.slice(at + 1), ...PILLARS.slice(0, at)].filter((x) => nextIn(x))) if (doors.length < 3) doors.push(go(nextIn(p), p.door, `${p.name}: ${nextIn(p).title}`));
@@ -499,7 +499,7 @@ function lessonCard() {
   if (st.text) { const t = `<div class="lt">${mdi(!beg && st.exp ? st.exp : st.text)}</div>`; h += picked ? fold("setup", "The setup", t, false) : t; }   // once answered, the setup is one click away, not in the way
   if (!beg && st.deeper) h += `<div class="mut">${mdi(st.deeper)}</div>`;
   if (pr) {
-    h += `<div class="lq"><b>Predict.</b> ${mdi(typeof pr.q === "function" ? pr.q(ctx()) : pr.q)}</div>`;
+    h += `<div class="lq"><b>Guess first.</b> ${mdi(typeof pr.q === "function" ? pr.q(ctx()) : pr.q)}</div>`;
     if (L.error && !picked) h += `<div class="note bad">${esc(L.error)}</div>`;
     if (beg && st.hint && !picked) h += `<div class="mut">Hint: ${mdi(st.hint)}</div>`;
     h += `<div class="choices">${pr.choices.map((c, i) => `<button class="btn alt ${picked && c === ans.correct ? "right" : picked && c === ans.picked ? "wrong" : ""}" data-act="lpick" data-i="${i}" data-c="${esc(c)}" ${picked ? "disabled" : ""}>${esc(label(c))}</button>`).join("")}</div>`;
@@ -510,14 +510,14 @@ function lessonCard() {
       const [head, rest] = bad.length ? ["", ""] : splitWhy(ans.why);
       h += `<div class="lt">${ok ? "" : `The real code says <b>${esc(label(ans.correct))}</b>. `}` +
         (bad.length ? `<span class="warn">⚠ The explanation no longer matches what the code did (${esc(bad.join("; "))}). The answer is still computed from the real run.</span>` : mdi(head)) + `</div>` +
-        (rest ? fold("why", "Why, in full", `<div class="lt">${mdi(rest)}</div>`, false) : "");
+        (rest ? fold("why", "The longer answer", `<div class="lt">${mdi(rest)}</div>`, false) : "");
       h += `<div class="src ${ans.src}">${ans.src === "recorded" ? "recorded from the real code" : "computed just now by the real code in your browser"}</div>`;
     }
   }
   if (picked && MODE_CODE[S.mode] && !foldOpen("code", false)) h += `<div class="row"><button class="btn alt" data-act="showcode">Show the Python that ran</button></div>`;
   if (st.widget === "noise") h += noiseWidget(L);
   const last = L.i === n - 1, can = !pr || picked;
-  if (last && can && Lz.learned) h += `<div class="learned"><b>What you learned.</b> ${mdi(Lz.learned)}</div>`;
+  if (last && can && Lz.learned) h += `<div class="learned"><b>The short version.</b> ${mdi(Lz.learned)}</div>`;
   h += `<div class="row lnav"><button class="btn alt" data-act="lback" ${L.i ? "" : "disabled"}>← Back</button><button class="btn" data-act="lnext" ${can ? "" : "disabled"}>${last ? "Finish" : "Next →"}</button></div></div>`;
   return h;
 }
@@ -568,18 +568,18 @@ const nextDeeper = (p) => firstUndone(deeperOf(p));
 function homeHtml() {
   const pr = prog(), res = store.json("lab.resume"), cs = CASES.find((c) => c.id === S.case);
   const door = (p) => { const ls = pillarLessons(p), n = ls.filter((l) => pr[l.id]?.done).length, up = nextIn(p), mid = !!up && res?.id === up.id && res.i > 0;
-    return `<button class="door ${up ? "" : "done"}" data-act="door" data-p="${p.id}"><span class="dq">${esc(p.door)}</span><span class="dn">${esc(p.name)}</span><span class="mut">${esc(p.blurb)}</span><span class="dp">${up ? (n || mid ? "Continue" : "Start") : "Done, play again"} · ${n}/${ls.length} ${ls.length === 1 ? "beat" : "beats"}</span></button>`; };
+    return `<button class="door ${up ? "" : "done"}" data-act="door" data-p="${p.id}"><span class="dq">${esc(p.door)}</span><span class="dn">${esc(p.name)}</span><span class="mut">${esc(p.blurb)}</span><span class="dp">${up ? (n || mid ? "Continue" : "Start") : "Done, play again"} · ${n}/${ls.length} ${ls.length === 1 ? "lesson" : "lessons"}</span></button>`; };
   const sq = (l, i, deeper, up) => { const q = pr[l.id]; return `<button class="${q?.done ? "d" : ""} ${up ? "n" : ""} ${deeper ? "x" : ""}" data-act="lstart" data-id="${l.id}" title="${esc(l.title)}${deeper ? " (deeper)" : ""}${q?.done && q.total ? ` · ${q.right}/${q.total} predicted` : ""}" aria-label="${esc(l.title)}${deeper ? ", deeper" : ""}${q?.done ? ", done" : ""}">${q?.done ? "✔" : deeper ? "+" : i + 1}</button>`; };
   const board = (p) => `<div class="cf"><b>${esc(p.name)}</b><div class="sq">${pillarLessons(p).map((l, i) => sq(l, i, false, nextIn(p)?.id === l.id)).join("")}${deeperOf(p).map((l, i) => sq(l, i, true, false)).join("")}</div></div>`;
   const beg = S.level === "beginner";
   let h = `<div class="hm"><h1>Your agent passes the demo. How do you know it's good?</h1>
-    <p class="hl">Pick a question. You predict what the real code will do, then watch it run. No model is called; nothing leaves the page.</p>
+    <p class="hl">Pick a question, guess what the real code will do, then watch it run. Guessing wrong is fine: it's the useful bit. No model is called and nothing leaves the page.</p>
     <div class="case"><span class="mut">Case</span> <b>${esc(cs.title)}</b> <span class="mut">${esc(cs.line)}</span>${CASES.filter((c) => c !== cs).map((c) => `<button class="chip" data-act="case" data-id="${c.id}" title="${esc(c.line)}">${esc(c.title)}</button>`).join("")}</div>
     <div class="doors">${PILLARS.map(door).join("")}</div><div class="mut" id="homepy">${homePy()}</div>
     <h2>Case file</h2><div class="cfs">${PILLARS.map(board).join("")}</div>
-    <div class="who"><span class="mut">Pitched at</span><button data-act="lvl" data-l="beginner" class="chip ${beg ? "on" : ""}" title="Plain words, a hint on each question, notes beside the code.">new to evals or Python</button><button data-act="lvl" data-l="experienced" class="chip ${beg ? "" : "on"}" title="Terse: upstream names, line counts, a full editor.">I write Python</button></div>`;
+    <div class="who"><span class="mut">Starting from</span><button data-act="lvl" data-l="beginner" class="chip ${beg ? "on" : ""}" title="Plain words, a hint on each question and notes beside the code.">new to evals or Python</button><button data-act="lvl" data-l="experienced" class="chip ${beg ? "" : "on"}" title="Terse: upstream names, line counts and a full editor.">I write Python</button></div>`;
   if (PT) h += `<div class="mut">Playtest log, kept on this device and never sent: ${(store.json("lab.ptlog") || []).length} events <button class="chip" data-act="ptdl">Download</button> <button class="chip" data-act="ptclear">Clear</button></div>`;
-  h += `<details class="fold" ${foldOpen("tools", false) ? "open" : ""}><summary data-fold="tools" data-def="0"><span>Or play with the tools · ${CHALLENGES.length} challenges <span class="mut">${CHALLENGES.filter((c) => pr["chal:" + c.id]?.done).length}/${CHALLENGES.length} solved</span></span></summary>` +
+  h += `<details class="fold" ${foldOpen("tools", false) ? "open" : ""}><summary data-fold="tools" data-def="0"><span>Or just poke at the tools · ${CHALLENGES.length} challenges <span class="mut">${CHALLENGES.filter((c) => pr["chal:" + c.id]?.done).length}/${CHALLENGES.length} solved</span></span></summary>` +
     CHALLENGES.map((c) => `<div class="lrow"><span class="ck">${pr["chal:" + c.id]?.done ? "✔" : ""}</span><div class="t"><b>${esc(c.title)}</b><span class="mut">${c.code ? "edit code" : "in " + MODES.find((m) => m[0] === c.mode)[1]}</span></div><button class="btn alt" data-act="cstart" data-id="${c.id}">${pr["chal:" + c.id]?.done ? "Again" : "Start"}</button></div>`).join("") +
     `<div class="mgrid">${MODES.filter((m) => !["start", "about"].includes(m[0])).map((m) => `<button data-act="go" data-m="${m[0]}"><b>${esc(m[1])}</b><span class="mut">${esc(m[3])}</span></button>`).join("")}</div></details></div>`;
   return h;

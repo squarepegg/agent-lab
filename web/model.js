@@ -68,14 +68,14 @@ const signed = (n) => (n > 0 ? "+" + n : String(n));
 export function plainReason(g) {
   const f = g.facts || {}, p = g.params || {};
   switch (g.verdict) {
-    case "INCONCLUSIVE": return `More than ${pct(p.max_unfinished, 0.1)}% of the answers did not finish, so the gate refuses to judge.`;
+    case "INCONCLUSIVE": return `More than ${pct(p.max_unfinished, 0.1)}% of the answers didn't finish, so the gate won't give a verdict. Too many gaps to trust.`;
     case "REGRESSION": return (f.regressed || []).length
       ? `The skill made ${f.regressed.length === 1 ? "one question" : f.regressed.length + " questions"} worse (${f.regressed.join(", ")}). A skill that breaks something is rejected, however much it helps elsewhere.`
       : `The skill did worse on the hidden test questions (${f.heldout_without} correct without it, ${f.heldout_with} with it).`;
-    case "CEILING": return `Without the skill, ${f.dev_without} of ${f.dev_n} answers were already correct. There is no room left to show a gain.`;
+    case "CEILING": return `Without the skill, ${f.dev_without} of ${f.dev_n} answers were already correct. There's no room left to show a gain.`;
     case "NO_DELTA": return `The skill changed the score by ${signed(f.gain)} correct answers. It needs at least +${p.min_gain}.`;
     case "TOO_COSTLY": return `The skill helps (${signed(f.gain)} correct answers) but ${costs(f.cost_ratio)}. The limit is ${p.max_cost_ratio} times.`;
-    case "ADOPT": return `The skill added ${f.gain} correct answers, made nothing worse, and ${costs(f.cost_ratio)} (the limit is ${p.max_cost_ratio}).`;
+    case "ADOPT": return `The skill added ${f.gain} correct answers, made nothing worse, and ${costs(f.cost_ratio)} (the limit is ${p.max_cost_ratio}). Every rule is satisfied.`;
     default: return g.reason || "";
   }
 }
@@ -91,7 +91,7 @@ export function gateSteps(g, plain = false) {
     CEILING: ["Was it already near-perfect without the skill?", `without the skill ${f.dev_without}/${f.dev_n} correct · near-perfect means ${pct(p.ceiling, 0.9)}% or more`],
     NO_DELTA: ["Did the skill add too few correct answers?", `changed by ${signed(f.gain ?? 0)} · needs at least +${p.min_gain}`],
     TOO_COSTLY: ["Does it help, but cost too much more?", `${costs(f.cost_ratio)} · the limit is ${p.max_cost_ratio} times`],
-    ADOPT: ["Every check passed", "this is the only way to be adopted"],
+    ADOPT: ["Every check passed", "the only way to get adopted"],
   } : {
     INCONCLUSIVE: ["too many runs unfinished?", `limit ${pct(p.max_unfinished, 0.1)}% of answers`],
     REGRESSION: ["a probe or the heldout split got worse?", `regressed: ${(f.regressed || []).join(", ") || "none"} · heldout ${f.heldout_without}→${f.heldout_with} (limit ${p.regress_by})`],
