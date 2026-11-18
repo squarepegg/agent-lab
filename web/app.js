@@ -449,12 +449,18 @@ function noiseWidget(L) {
   return `<div class="row"><span class="mut">samples per question</span>${NOISE_SAMPLES.map((k) => `<button class="btn alt ${k === n ? "on" : ""}" data-act="lsamples" data-n="${k}">${k}</button>`).join("")}</div>
     <table><tr><th>skill</th><th>verdicts over 200 re-runs</th><th>ADOPT</th></tr>${rows}</table>`;
 }
+// The reason, short: the first sentence is what you read; the rest is one click away.
+function splitWhy(t) {
+  const re = /[.!?](?=\s+[A-Z`“(])/g; let m;
+  while ((m = re.exec(t))) { const head = t.slice(0, m.index + 1); if (head.length >= 60 && (head.match(/`/g) || []).length % 2 === 0) { const rest = t.slice(m.index + 1).trim(); return rest.length >= 80 ? [head, rest] : [t, ""]; } }
+  return [t, ""];
+}
 function lessonCard() {
   if (!S.lesson) return "";
   const [Lz, st] = lstep(), L = S.lesson, beg = S.level === "beginner", n = Lz.steps.length, pr = st.predict, ans = L.answered[L.i], picked = !!ans;
   const label = (c) => (pr.show ? pr.show(c, beg) : c);
   let h = `<div class="lesson"><div class="lh"><b>${esc(Lz.title)}</b><span class="dots" title="step ${L.i + 1} of ${n}">${Array.from({ length: n }, (_, i) => `<i class="${i < L.i ? "d" : i === L.i ? "c" : ""}"></i>`).join("")}</span><button class="chip" data-act="lexit">exit</button></div>`;
-  if (st.text) h += `<div class="lt">${mdi(!beg && st.exp ? st.exp : st.text)}</div>`;
+  if (st.text) { const t = `<div class="lt">${mdi(!beg && st.exp ? st.exp : st.text)}</div>`; h += picked ? fold("setup", "The setup", t, false) : t; }   // once answered, the setup is one click away, not in the way
   if (!beg && st.deeper) h += `<div class="mut">${mdi(st.deeper)}</div>`;
   if (pr) {
     h += `<div class="lq"><b>Predict.</b> ${mdi(typeof pr.q === "function" ? pr.q(ctx()) : pr.q)}</div>`;
@@ -465,8 +471,10 @@ function lessonCard() {
       const ok = ans.picked === ans.correct, bad = ans.bad || []; if (bad.length) console.warn("lesson explanation out of date:", Lz.id, bad);
       h += `<div class="big ${ok ? "ok" : "warn"}">${ok ? "Correct" : "Not quite"}</div>`;
       if (!ok && !bad.length) h += `<div class="lt miss">${mdi(ans.miss || `You picked “${label(ans.picked)}”.`)}</div>`;
+      const [head, rest] = bad.length ? ["", ""] : splitWhy(ans.why);
       h += `<div class="lt">${ok ? "" : `The real code says <b>${esc(label(ans.correct))}</b>. `}` +
-        (bad.length ? `<span class="warn">⚠ The explanation no longer matches what the code did (${esc(bad.join("; "))}). The answer is still computed from the real run.</span>` : mdi(ans.why)) + `</div>`;
+        (bad.length ? `<span class="warn">⚠ The explanation no longer matches what the code did (${esc(bad.join("; "))}). The answer is still computed from the real run.</span>` : mdi(head)) + `</div>` +
+        (rest ? fold("why", "Why, in full", `<div class="lt">${mdi(rest)}</div>`, false) : "");
       h += `<div class="src ${ans.src}">${ans.src === "recorded" ? "recorded from the real code" : "computed just now by the real code in your browser"}</div>`;
     }
   }

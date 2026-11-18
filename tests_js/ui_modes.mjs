@@ -238,6 +238,20 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
   await page.context().close();
 }
 
+// --- a lesson answer shows the reason short, with the rest one click away
+{
+  const page = await newPage();
+  await open(page); await click(page, "#home [data-act=lcont]");
+  await click(page, "#drawer [data-act=lpick] >> nth=0");
+  const full = await page.evaluate(() => document.querySelector("#drawer .lesson").textContent.length);
+  const seen = await page.evaluate(() => document.querySelector("#drawer .lesson").innerText.length);
+  assert.equal(await page.locator("#drawer .lesson summary[data-fold=why]").count(), 1, "the long reason has a fold");
+  assert.ok(seen < full, "part of the reason is folded away");
+  await unfold(page, "why");
+  assert.match(await txt(page, "#drawer .lesson"), /grades the output, not the idea/, "the whole reason is still there");
+  await page.context().close();
+}
+
 // --- every lesson: the computed answer is the one the lesson expects, and a wrong pick explains itself
 {
   const page = await newPage();
