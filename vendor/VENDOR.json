@@ -13,7 +13,7 @@
   "brain.py": {
    "path": "scripts/brain.py",
    "repo": "map",
-   "sha256": "a708a6ca9ec1d230cd192c0c4d1da13f8b661a7524381a409dfdc6f3011d52d4"
+   "sha256": "e1a6e3e1d1f6fa631bfd1654946407e04c752640ee95cd946d543609f471c8ef"
   },
   "check_skills.py": {
    "path": "scripts/check_skills.py",
@@ -28,7 +28,12 @@
   "gate.py": {
    "path": "evals/gate.py",
    "repo": "toolkit",
-   "sha256": "0e69c2612661ce1799363836b0d7be560222e2cce0906cf5e4f1f5339086ce5b"
+   "sha256": "d89f308c894872fc95b9bd7acd919633b70c914643b9a0c00d292eaeac67e749"
+  },
+  "memory.py": {
+   "path": "evals/memory.py",
+   "repo": "toolkit",
+   "sha256": "5f2a8a3ed9b0e32024aa6f6261dc389d23c0a2b6a9da675558eab8fdb99ac191"
   },
   "skill_ab.py": {
    "path": "scripts/skill_ab.py",
@@ -37,7 +42,7 @@
   }
  },
  "upstream_commits": {
-  "map": "7ca5094b655519a6d20d61d93b1bd5417666bba9",
-  "toolkit": "60dd76a9ee50b94ddc65c35ae09760342e81eae1"
+  "map": "cc1105075da46792ce3441b2c31bb77ddcc1b2d3",
+  "toolkit": "2f70f52ae0a773e13ff78937fe9e78222b5344d6"
  }
 }

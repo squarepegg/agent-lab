@@ -1,7 +1,7 @@
 {
  "meta": {
   "pyodide": "https://cdn.jsdelivr.net/pyodide/v0.27.7/full/",
-  "vendor_sha256": "1b21eab3c87e9260b79cd97da6fbb72f2a382495ac66208d932bfa80e3beb7d6"
+  "vendor_sha256": "97bcb0b25b3dbfc771654132e30e8b2e412936d254a277cb0787ff75106241e4"
  },
  "calls": {
   "explore:5isa6qnvfp": [

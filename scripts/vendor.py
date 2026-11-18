@@ -6,7 +6,7 @@ import argparse, hashlib, json, os, shutil, subprocess
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FILES = {"map": ["scripts/brain.py", "scripts/_fm.py", "scripts/eval_run.py", "scripts/_attempts.py"],
-         "toolkit": ["evals/gate.py", "scripts/skill_ab.py", "scripts/check_skills.py"]}
+         "toolkit": ["evals/gate.py", "evals/memory.py", "scripts/skill_ab.py", "scripts/check_skills.py"]}   # memory.py: gate.py imports it (the attempts ledger behind the REPEAT verdict; the lab never passes a ledger)
 
 
 def sha(p):
