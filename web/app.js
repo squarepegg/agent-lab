@@ -1,5 +1,5 @@
 import { connectLab } from "./lab.js";
-import { LESSONS, PILLARS, checkClaims, noise } from "./lessons.js";
+import { LESSONS, PILLARS, checkClaims, noise, featured } from "./lessons.js";
 import { CHALLENGES } from "./challenges.js";
 import { extractFunc, annotate, coverage, MODE_CODE, NOTES, TWEAKS, applyTweak, lineDiff, brief } from "./codepanel.js";
 import { buildGraph, layout, neighbors, gateSteps, clip, encodeGate, decodeGate, FILE_KINDS, PLAIN_VERDICT, plainReason, costs, runGrid, traceStats, slimRun, modelName } from "./model.js";
@@ -24,19 +24,21 @@ const ICON = {
   evals: '<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>',
   break: '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',
   gate: '<path d="M4 5h16l-6 8v6l-4-2v-4z"/>',
+  trace: '<path d="M3 12h4l2-6 4 12 2-6h6"/>',
   abfact: '<path d="M12 5v14M5 12h14"/><rect x="3" y="3" width="18" height="18" rx="4"/>',
   abskill: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
   start: '<path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v15H5.5C4.7 19 4 18.3 4 17.5zM20 5.5c0-.8-.7-1.5-1.5-1.5H13v15h5.5c.8 0 1.5-.7 1.5-1.5z"/>',
   guard: '<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>',
   about: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>',
 };
-const NAV = { start: "Start", explore: "Map", evals: "Evals", break: "Break it", gate: "Gate", abfact: "A/B fact", abskill: "A/B skill", guard: "Guardrails", about: "About" };
+const NAV = { start: "Start", explore: "Map", evals: "Evals", break: "Break it", gate: "Gate", trace: "Trace", abfact: "A/B fact", abskill: "A/B skill", guard: "Guardrails", about: "About" };
 const MODES = [
   ["start", "Start", "scene-home", "Guided lessons: predict what happens, then watch the real code answer."],
   ["explore", "Map", "scene-graph", "The map: facts, workstreams, decisions and the evals that read them. Hover to trace, click to open and edit."],
   ["evals", "Evals", "scene-graph", "Replay one eval step by step, or add a bad one and watch it fail."],
   ["break", "Break it", "scene-graph", "Break the knowledge on purpose; see which evals notice and which don't."],
   ["gate", "The gate", "scene-gate", "Same results in, same verdict out. Judge hand-set results or a recorded model run."],
+  ["trace", "Trace", "scene-trace", "One recorded answer, call by call: what the agent actually did."],
   ["abfact", "A/B a fact", "scene-graph", "Drop a new fact into a copy of the map and see what it breaks, hijacks or fits."],
   ["abskill", "A/B a skill", "scene-skill", "Lint a skill, check its text covers the probes, and compare with recorded model runs."],
   ["guard", "Guardrails", "scene-guard", "What an agent may do (a policy tested on real tool calls) and what it may say (a scrubber tested on real output)."],
@@ -262,6 +264,7 @@ const INTRO = {
   gate: ["A gate is a fixed checklist that turns results into one verdict. The rules run top to bottom and the first that fires wins.", "Press “No effect”, or pick a recorded run and click a ✔ or ✘ to read what the model answered."],
   abfact: ["Before adding a note to a knowledge base, test it: does it break an eval, steal a top search result, or can it even be found?", "Press “load a hijacking fact” then A/B it."],
   abskill: ["A skill is a short instruction file for an agent. The text check here is a proxy: it shows the skill could help. The recorded runs show what two real models did.", "Press “filler skill” then A/B: lint passes, the gate says no."],
+  trace: ["A trace is what an agent actually did: every tool call, in order. This is one recorded answer; each square is one call.", "Click a square, then pick an answer that made far fewer calls."],
   guard: ["A guardrail limits an agent. “What it may do” tests a policy on real tool calls from the recorded runs; “What it may say” tests the scrubber that cleans those runs. The rules and the scrubber are written for this lab; the “real one” option is upstream's own guard_hook.py.", "Switch on “Block every shell command”, then read what it stops that was harmless."],
   about: ["Everything here runs the real upstream Python files, unmodified, in your browser.", ""],
 };
@@ -371,6 +374,7 @@ async function leaveGuided() { if (S.lesson || S.chal) { S.lesson = null; S.chal
 async function resetAll() {
   S.files = structuredClone(bundle.brain); S.questions = bundle.questions; S.sel = null; S.whatif = null; S.preview = null; S.ov = {}; S.mut = null; S.explain = null;
   S.replay = null; S.edits = {}; S.tab = {}; S.lastQ = null; S.lastMut = null; S.ab = null; S.mop = null; S.replayTok++; await refresh(); await initGate(true); initSkill(); initGuard();
+  S.tl = null;
 }
 const findRun = (skill, variant, family) => Object.entries(S.runs?.meta.files || {}).find(([, m]) => m.skill === skill && (m.variant || null) === (variant || null) && m.model.includes(family))?.[0];
 const LA = {   // actions a lesson step may name
@@ -391,6 +395,8 @@ const LA = {   // actions a lesson step may name
   gpolicy: async (rules) => { const G = S.guard; G.engine = "lab"; G.rules = [...rules]; G.useCode = false; G.sel = null; G.try = null; await computeGuard(); renderScene(); },
   grun: async (skill, variant, family) => { await setRun(findRun(skill, variant, family)); renderScene(); },
   gpeek: (p, a, i) => { S.gate.peek = { p, a, i }; },
+  tans: async (family, arm) => { const f = featured(S, family); await setAnswer(f.run, f[arm]); renderScene(); },
+  glogsample: async () => { await loadLive("an example log (made up)", bundle.guardlog); },
   skill: async (kind) => {
     if (kind === "filler") await ACT.sfill();
     else if (kind === "stuffed") { const ps = bundle.probes.filter((p) => p.skill === S.skill.name); S.skill.text = "---\nname: stuffed\ndescription: Use when stuffing keywords.\n---\n" + ps.flatMap((p) => p.expect.map((g) => g[0])).join(" ") + "\n"; await drawer(); }
@@ -621,6 +627,7 @@ const DRAW = {
   gate: () => gateDrawer(),
   guard: () => guardDrawer(),
   abskill: () => skillDrawer(),
+  trace: () => traceDrawer(),
   about() {
     const v = bundle.vendor, R = S.runs;
     const files = `<table>${Object.entries(v.files).map(([k, f]) => `<tr><td><code>${esc(k)}</code></td><td class="mut">${esc(f.repo)}</td><td class="mut">${f.sha256.slice(0, 10)}</td></tr>`).join("")}</table>
@@ -655,6 +662,8 @@ function bindDrawer() {
     if (t.id === "gpg") act(() => { S.gate.pg = +t.value; return drawer(); });
     if (t.id === "glog") act(async () => { const f = t.files[0]; if (f) await loadLive(f.name, await f.text()); });
     if (t.id === "grun") act(async () => { await setRun(t.value || null); renderScene(); await drawer(); });
+    if (t.id === "tlrun") act(async () => { const f = featured(S, "", t.value); await setAnswer(t.value, f.without); renderScene(); await drawer(); });
+    if (t.id === "tlans") act(async () => { await setAnswer(S.tl.run, S.runs.runs[S.tl.run].rows[+t.value]); renderScene(); await drawer(); });
     if (t.id === "mop") act(() => { S.mop = t.value; return drawer(); }); };
   d.onkeydown = (e) => { if (e.target.id === "gtext" && e.key === "Enter") { e.preventDefault(); act(() => ACT.gtry()); return; }
     if (e.target.id === "stext" && e.key === "Enter") { e.preventDefault(); act(() => ACT.stry()); return; }
@@ -836,7 +845,7 @@ function traceHtml(res, beg) {
   return `<div class="mut">Every answer the model gave, as it was recorded, including the ${beg ? "hidden test" : "heldout"} questions the gate counts separately: did it pass the check, did it open the skill file, how many tool calls it made, what it cost. Averages first, then each answer.</div>
     <table class="tr"><tr><th>${beg ? "group" : "group (mean)"}</th><th>passed</th><th></th><th>tool calls</th><th>cost</th></tr>
     ${line("without the skill", T.without)}${line("with it, opened the skill file", T.withRead)}${line("with it, did not open it", T.withSkip)}</table>
-    <table class="tr"><tr><th>answer</th><th>passed</th><th>opened skill</th><th>tool calls</th><th>cost</th></tr>${res.rows.map(row).join("")}</table>`;
+    <table class="tr long"><tr><th>answer</th><th>passed</th><th>opened skill</th><th>tool calls</th><th>cost</th></tr>${res.rows.map(row).join("")}</table>`;
 }
 function gateDrawer() {
   const G = S.gate, g = G.res, p = G.probes[G.pg], beg = S.level === "beginner", res = gateRun(), meta = res && S.runs.meta.files[G.run], R = S.runs;
@@ -954,7 +963,7 @@ function liveDrawer() {
   h += sel ? `<div class="card gcall"><div class="mut">${esc(sel.tool)} · ${esc(sel.ts)}</div><div><b>${esc(sel.action)}</b>${sel.rule ? ` by “${esc(sel.rule)}”` : ""}</div>${sel.text ? `<pre>${esc(sel.text)}</pre>` : ""}</div>` : `<div class="mut">Click a square to read that decision.</div>`;
   const rules = Object.entries(r.rules).sort((a, b) => b[1] - a[1]);
   if (rules.length) h += `<h3>which rule stopped them</h3><table class="tr">${rules.map(([id, n]) => `<tr><td>${esc(id || "(none)")}</td><td>${n}</td></tr>`).join("")}</table>`;
-  if (r.top.length) h += fold("glt", beg ? "The commands asked about most" : "most frequent non-allowed", `<div class="mut">Grouped by rule, action and the first two words. A line that keeps coming back is a candidate for <code>allow_paths</code> or <code>allow_commands</code>.</div><table class="tr"><tr><th>rule</th><th>action</th><th>command</th><th>times</th></tr>${r.top.map((t) => `<tr><td>${esc(t.rule)}</td><td>${esc(t.action)}</td><td><code>${esc(t.head)}</code></td><td>${t.n}</td></tr>`).join("")}</table>`, true);
+  if (r.top.length) h += fold("glt", beg ? "The commands asked about most" : "most frequent non-allowed", `<div class="mut">Grouped by rule, action and the first two words. A line that keeps coming back is a candidate for <code>allow_paths</code> or <code>allow_commands</code>.</div><table class="tr"><tr><th>rule</th><th>action</th><th>command</th><th>times</th></tr>${r.top.map((t) => `<tr><td>${esc(t.rule)}</td><td>${esc(t.action)}</td><td><code>${esc(t.head)}</code></td><td>${t.n}</td></tr>`).join("")}</table>`, !S.lesson);
   h += `<div class="note"><b>What this is.</b> Counts only. The guard is a set of text rules, not a sandbox, and an allowed call is not proof the call was safe. Nothing here is uploaded.</div>`;
   return h;
 }
@@ -1126,6 +1135,7 @@ function renderAbout() {
 function summary() {
   const box = $("sum"); if (!phone() || S.mode === "start") { box.innerHTML = ""; return; }
   const sc = MODES.find((m) => m[0] === S.mode)[2], beg = S.level === "beginner";
+  if (sc === "scene-trace") { const T = S.tl, r = tlAnswer(); box.innerHTML = T && r ? `<h4>Trace <span>${esc(r.probe)} · ${r.arm === "with" ? "with" : "without"} the skill</span></h4><div class="mut">${T.calls.length} tool calls, ${tlOut()} reaching outside the working folder · ${r.correct ? "passed" : "failed"} the check · $${r.cost_usd}</div><div class="chips">${T.calls.map((c, i) => `<span class="sc eval ${T.labels[i]?.outside ? "warn" : "pass"}"><i></i>${i + 1} ${esc(c.name)}</span>`).join("")}</div>` : ""; return; }
   const steps = (g) => gateSteps(g, beg).map((s, i) => `<div class="sstep ${s.state} ${s.state === "fired" ? (s.verdict === "ADOPT" ? "good" : "bad") : ""}"><b>${i + 1} · ${esc(s.name)}</b><span>${esc(s.question)}</span><em>${s.state === "fired" ? (s.verdict === "ADOPT" ? "→ adopt" : "yes → stop here") : s.state === "no" ? "no" : ""}</em></div>`).join("");
   let h = "";
   if (sc === "scene-graph" && S.graph) {
@@ -1153,19 +1163,62 @@ function summary() {
   }
   box.innerHTML = h;
 }
+// ---------------- trace: one recorded answer as a row of squares, one per tool call. Labels come from lab/guard.py's reference check.
+const TRACE_LEG = [["pass", "inside the working folder"], ["warn", "reaches outside it"]];
+async function setAnswer(run, r) {
+  const calls = r.tools.map(([name, args]) => { let a = {}; try { a = JSON.parse(args); } catch { /* an unparsable call is shown as empty */ } return { name, args: a }; });
+  const g = calls.length ? await call("guard_run", { calls, policy: { rules: [] } }) : { rows: [] };
+  S.tl = { run, probe: r.probe, arm: r.arm, n: r.n, calls, labels: g.rows, sel: null };
+}
+async function ensureTl() {
+  if (S.tl || !S.runs) return;
+  const f = featured(S); if (f) await setAnswer(f.run, f.without);
+}
+const tlAnswer = () => S.tl && S.runs.runs[S.tl.run].rows.find((r) => r.probe === S.tl.probe && r.arm === S.tl.arm && r.n === S.tl.n);
+const tlOut = () => S.tl.labels.filter((x) => x.outside).length;
+function renderTrace() {
+  const root = vp(); root.replaceChildren(); S.ref = { nodes: new Map(), edges: [] }; S.graph = null;
+  const T = S.tl, r = tlAnswer();
+  if (!T || !r) { root.append(el("text", { class: "col", x: 0, y: 20 }, "no recorded run is loaded")); fit(400, 40); return; }
+  const cols = 20, step = 34, n = T.calls.length, rows = Math.max(1, Math.ceil(n / cols)), y0 = 24 + rows * step + 12;
+  root.append(el("text", { class: "col", x: 0, y: 10 }, `${modelName(S.runs.runs[T.run].pi_args[1])} · ${r.probe} · ${r.arm === "with" ? "with" : "without"} the skill · try ${r.n + 1}`));
+  if (!n) root.append(el("text", { class: "col", x: 0, y: 44 }, "no tool calls: it answered straight away"));
+  T.calls.forEach((c, i) => {
+    const g = el("rect", { class: `gc ${T.labels[i]?.outside ? "ask" : "in"} ${T.sel === i ? "sel" : ""}`, "data-i": i, x: (i % cols) * step, y: 24 + Math.floor(i / cols) * step, width: 28, height: 28, rx: 5 }, el("title", {}, `${i + 1}. ${c.name} ${guardText(c)}`.slice(0, 120)));
+    g.addEventListener("click", (e) => { e.stopPropagation(); act(() => { T.sel = i; renderScene(); return drawer(); }); });
+    root.append(g);
+  });
+  const sel = T.sel != null ? T.calls[T.sel] : null;
+  root.append(el("text", { class: "col", x: 0, y: y0 }, sel ? `${T.sel + 1}. ${sel.name}: ${guardText(sel).slice(0, 56)}` : n ? "click a square to read that call" : ""));
+  if (sel) root.append(el("text", { class: "col", x: 0, y: y0 + 18, style: "fill:var(--muted)" }, (T.labels[T.sel]?.why ?? "").slice(0, 70)));
+  root.append(el("text", { class: "col", x: 0, y: y0 + (sel ? 44 : 30), style: `fill:var(--${r.correct ? "pass" : "fail"})` }, `then it answered: ${r.correct ? "✔ passed" : "✘ failed"} the check · $${r.cost_usd}`));
+  fit(cols * step, y0 + (sel ? 56 : 42));
+}
+function traceDrawer() {
+  const T = S.tl, R = S.runs, r = tlAnswer(); if (!T || !r) return `<div class="mut">No recorded runs are loaded.</div>`;
+  const res = R.runs[T.run], sel = T.sel != null ? T.calls[T.sel] : null;
+  let h = `<select id="tlrun">${Object.keys(R.meta.files).map((n) => `<option value="${esc(n)}" ${n === T.run ? "selected" : ""}>recorded: ${esc(runLabel(n))}</option>`).join("")}</select>
+    <select id="tlans" aria-label="answer">${res.rows.map((x, i) => `<option value="${i}" ${x === r ? "selected" : ""}>${esc(x.probe)} · ${x.arm === "with" ? "with" : "without"} the skill · try ${x.n + 1} · ${x.tools.length} call${x.tools.length === 1 ? "" : "s"}</option>`).join("")}</select>
+    <div class="card"><div class="big ${r.correct ? "ok" : "bad"}">${r.correct ? "✔ passed" : "✘ failed"} the check</div>
+      <div class="mut">${T.calls.length} tool call${T.calls.length === 1 ? "" : "s"}, ${tlOut()} reaching outside the working folder · $${r.cost_usd} · ${r.finished ? "finished" : "did not finish"}${r.arm === "with" ? (r.skill_read ? " · opened the skill file" : " · did not open the skill file") : ""}</div></div>`;
+  h += sel ? `<div class="card gcall"><div class="mut">call ${T.sel + 1} of ${T.calls.length} · ${esc(sel.name)}</div><pre>${esc(guardText(sel))}</pre><div class="${T.labels[T.sel]?.outside ? "warn" : "ok"}">${esc(T.labels[T.sel]?.why ?? "")}</div></div>` : `<div class="mut">Click a square on the canvas to read that call.</div>`;
+  return h + `<div class="note"><b>What this is.</b> A recorded answer, scrubbed like the rest. “Outside” is this lab's reference label (<code>reaches_outside</code> in <code>lab/guard.py</code>): a path outside the working folder, or a shell feature that can build one. The recording has one cost per answer, not per call.</div>`;
+}
+
 // ---------------- scene switch
 function renderScene() {
   const sc = MODES.find((m) => m[0] === S.mode)[2];
   const leg = (sc === "scene-guard" && S.guard?.tab === "log") ? [["dim", "allowed"], ["warn", "asked"], ["fail", "denied"]] : (sc === "scene-guard" && S.guard?.tab === "output") ? (S.guard.out.opts.length ? [["fail", "still leaks"], ["pass", "cleaned"], ["warn", "word replaced"], ["dim", "nothing to do"]] : [["fail", "carries the machine's details"], ["dim", "nothing to hide"]]) : { "scene-graph": [["fact", "fact"], ["workstream", "workstream"], ["decision", "decision"], ["catalog", "catalog"], ["pass", "pass"], ["fail", "fail"]], "scene-gate": [["pass", "adopt"], ["fail", "stop"], ["dim", "not reached"]], "scene-skill": [["skill", "skill"], ["pass", "covered"], ["fail", "not covered"]], "scene-about": [["fact", "knowledge map"], ["skill", "toolkit"]], "scene-guard": guardNothing() ? [["fail", "tried to leave the folder"], ["dim", "stayed inside"]] : [["pass", "blocked an escape"], ["fail", "escape got through"], ["warn", "harmless but blocked"], ["dim", "allowed, harmless"]], "scene-home": [] }[sc];
-  $("hud").innerHTML = leg.map(([c, t]) => `<span><i style="background:var(--${c})"></i>${t}</span>`).join("");
+  $("hud").innerHTML = (sc === "scene-trace" ? TRACE_LEG : leg).map(([c, t]) => `<span><i style="background:var(--${c})"></i>${t}</span>`).join("");
   if (sc === "scene-home") return;
-  if (sc === "scene-graph") renderGraph(); else if (sc === "scene-gate") renderGate(); else if (sc === "scene-skill") renderSkill(); else if (sc === "scene-guard") renderGuard(); else renderAbout();
+  if (sc === "scene-graph") renderGraph(); else if (sc === "scene-gate") renderGate(); else if (sc === "scene-skill") renderSkill(); else if (sc === "scene-guard") renderGuard(); else if (sc === "scene-trace") renderTrace(); else renderAbout();
   summary();
 }
 async function setMode(m, fromHash) {
   if (!fromHash) await leaveGuided();   // navigating away ends a lesson or challenge; lessons themselves pass fromHash
   S.mode = m; document.body.classList.toggle("home", m === "start");   // before rendering: the canvas needs its real size to fit
   S.explain = null; S.replayTok++; if (m === "gate") await computeGate(); if (m === "guard") await computeGuardTab(); S.ov = {}; S.whatif = null; if (m !== "abfact") S.preview = null;
+  if (m === "trace") await ensureTl();
   if (!["scene-graph"].includes(MODES.find((x) => x[0] === m)[2])) S.sel = null;
   document.querySelectorAll("#tools button").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
   $("sub").textContent = MODES.find((x) => x[0] === m)[3];
@@ -1196,7 +1249,7 @@ function wire() {
   $("level").onclick = () => act(async () => { S.level = S.level === "beginner" ? "experienced" : "beginner"; store.set("lab.level", S.level); lv(); await relevel(); });
   lv();
   const btn = (m) => `<button data-m="${m}" title="${esc(MODES.find((x) => x[0] === m)[3])}" aria-label="${esc(MODES.find((x) => x[0] === m)[1])}"><svg viewBox="0 0 24 24">${ICON[m]}</svg><span class="lbl">${NAV[m]}</span></button>`;
-  $("tools").innerHTML = btn("start") + `<div class="grp">explore</div>` + ["explore", "evals", "break", "gate", "abfact", "abskill", "guard"].map(btn).join("") + `<div class="sp"></div>` + btn("about");
+  $("tools").innerHTML = btn("start") + `<div class="grp">explore</div>` + ["explore", "evals", "break", "gate", "trace", "abfact", "abskill", "guard"].map(btn).join("") + `<div class="sp"></div>` + btn("about");
   $("home").onclick = panelClick;
   $("tools").onclick = (e) => { const m = e.target.closest("button")?.dataset.m; if (m) act(() => setMode(m)); };
   $("sum").onclick = (e) => { const id = e.target.closest("[data-node]")?.dataset.node; if (id) act(() => onNode(id)); };

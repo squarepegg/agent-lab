@@ -205,6 +205,8 @@ table.tr{width:100%;border-collapse:collapse;font-size:11.5px;margin:6px 0}table
 .try{margin:0 0 10px;padding:8px 12px;border:1px solid var(--acc);border-radius:10px;background:color-mix(in srgb,var(--acc) 8%,var(--canvas));font-size:12.5px;line-height:1.5}.try b{color:var(--acc);margin-right:6px;letter-spacing:.06em;text-transform:uppercase;font-size:10.5px}
 .tryrow{display:flex;gap:6px;align-items:center}.tryrow input{flex:1;min-width:0;margin:0}.tryrow select{flex:none}
 .gc.esc{fill:none;stroke:var(--fail);stroke-width:1.5;opacity:.75}
+.gc.in{fill:var(--pass);opacity:.6}
+.fold table.tr.long{display:block;max-height:260px;overflow:auto}
 
 .chip.ic{padding:4px 9px}
 /* a cue, not a paragraph: the strip over the canvas is two lines at most (the full text is its tooltip) */

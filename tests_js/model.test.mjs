@@ -148,10 +148,10 @@ test("runGrid turns a recorded results file into the hand-set grid shape; an unf
   assert.deepEqual(runGrid({ rows }), { a: { without: [true], with: [false, true] } });
 });
 
-test("lessons: ten, unique ids, and the steps built on recorded runs have expected answers and a written miss for every other choice", () => {
-  assert.equal(LESSONS.length, 10);
-  assert.equal(new Set(LESSONS.map((l) => l.id)).size, 10);
-  for (const st of ["recorded", "trace", "guard", "scrub"].flatMap((id) => LESSONS.find((l) => l.id === id).steps)) {
+test("lessons: twelve, unique ids, and the steps built on recorded runs or logs have expected answers and a written miss for every other choice", () => {
+  assert.equal(LESSONS.length, 12);
+  assert.equal(new Set(LESSONS.map((l) => l.id)).size, 12);
+  for (const st of ["recorded", "timeline", "trace", "guardlog", "guard", "scrub"].flatMap((id) => LESSONS.find((l) => l.id === id).steps)) {
     const p = st.predict; assert.ok(p.choices.includes(p.expects));
     for (const c of p.choices.filter((x) => x !== p.expects)) assert.ok(p.miss[c], `${p.expects}: no miss for ${c}`);
   }

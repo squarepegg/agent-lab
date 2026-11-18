@@ -28,8 +28,8 @@ const ORD = "facts/orders-timestamps-utc.md";
 await open();
 assert.match(await txt("#home"), /Your agent passes the demo/);
 assert.deepEqual(await page.locator("#home [data-act=door]").evaluateAll((b) => b.map((x) => x.querySelector(".dq").textContent)), ["What happened?", "Should it have been allowed?", "Did it actually work?"], "three doors, in the order of the story");
-assert.equal(await page.locator("#home [data-act=lstart]").count(), 10, "the case file has a square for every lesson");
-assert.deepEqual(await page.locator("#home .cf").evaluateAll((c) => c.map((x) => x.querySelectorAll("button").length)), [1, 2, 7], "squares per pillar");
+assert.equal(await page.locator("#home [data-act=lstart]").count(), 12, "the case file has a square for every lesson");
+assert.deepEqual(await page.locator("#home .cf").evaluateAll((c) => c.map((x) => x.querySelectorAll("button").length)), [3, 2, 7], "squares per pillar");
 assert.match(await page.getAttribute("#home [data-act=lvl][data-l=beginner]", "class"), /\bon\b/, "the current level is marked");
 assert.ok((await page.locator("#home [data-act=door]").last().boundingBox()).y < (await page.locator("#home [data-act=lvl]").first().boundingBox()).y, "the doors come before the level choice");
 assert.ok(!(await page.locator("#stage").isVisible()) && !(await page.locator("#drawer").isVisible()), "no canvas or drawer on the start screen");
@@ -38,7 +38,7 @@ await page.click("#home summary[data-fold=tools]");
 await page.click("#home [data-act=go][data-m=explore]");
 assert.ok(await page.locator("#stage").isVisible() && !(await page.locator("#home").isVisible()), "free explore opens the map");
 // each door opens its own adventure at its first lesson, and the end of a lesson offers the other doors
-for (const [p, id] of [["observability", "trace"], ["guardrails", "guard"], ["evals", "eval"]]) {
+for (const [p, id] of [["observability", "timeline"], ["guardrails", "guard"], ["evals", "eval"]]) {
   await open(); await page.click(`#home [data-act=door][data-p=${p}]`);
   assert.equal(await page.evaluate(() => __lab.S.lesson.id), id, `the ${p} door opens ${id}`);
   assert.ok(await page.locator("#drawer [data-act=lpick]").count() > 0, `${id}: a prediction is on screen after one click`);
@@ -46,12 +46,25 @@ for (const [p, id] of [["observability", "trace"], ["guardrails", "guard"], ["ev
 await open(); await page.click("#home [data-act=door][data-p=observability]");
 for (let g = 0; g < 4; g++) { const pick = page.locator("#drawer [data-act=lpick]:not([disabled])"); if (await pick.count()) await pick.first().click(); if ((await txt("#drawer .lesson [data-act=lnext]")).includes("Finish")) break; await page.click("#drawer [data-act=lnext]"); }
 await page.click("#drawer [data-act=lnext]");
-assert.deepEqual(await page.locator("#drawer .doors-end [data-act=lstart]").evaluateAll((b) => b.map((x) => x.dataset.id)), ["guard", "eval"], "observability is done: the doors lead to the next lesson of the other two adventures");
+assert.deepEqual(await page.locator("#drawer .doors-end [data-act=lstart]").evaluateAll((b) => b.map((x) => x.dataset.id)), ["trace", "guard", "eval"], "one observability lesson done: the next one here, and the next lesson of the other two adventures");
 assert.equal(await page.locator("#drawer details.fold").count(), 0, "the doors card is alone in the drawer");
 await page.click("#drawer [data-act=lstart][data-id=guard]");
 assert.equal(await page.evaluate(() => __lab.S.lesson.id), "guard");
 await page.click("#drawer [data-act=lexit]");
 assert.equal(await page.locator("#home .cf button.d").count(), 1, "the case file marks what you finished");
+// --- trace mode: one recorded answer is a row of squares, one per tool call, and the with-skill answer is a much shorter row
+await open("#m=trace");
+const nCalls = await page.evaluate(() => __lab.S.tl.calls.length);
+assert.ok(nCalls > 10, "the featured answer is a long one");
+assert.equal(await page.locator("#svg rect.gc").count(), nCalls, "one square per tool call");
+assert.ok(await page.locator("#svg rect.gc.ask").count() > nCalls / 2 && await page.locator("#svg rect.gc.in").count() >= 1, "most of its calls reach outside the folder, and at least one stays inside");
+await page.locator("#svg rect.gc").nth(3).click();
+assert.match(await txt("#drawer .gcall"), new RegExp(`call 4 of ${nCalls}`), "clicking a square reads that call");
+assert.match(await txt("#svg"), /^[\s\S]*4\. \w+:/, "the canvas shows the selected call");
+const withIdx = await page.evaluate(() => { const T = __lab.S.tl, rows = __lab.S.runs.runs[T.run].rows; return rows.findIndex((r) => r.arm === "with" && r.probe === T.probe && r.n === T.n); });
+await page.selectOption("#tlans", String(withIdx));
+assert.ok(await page.locator("#svg rect.gc").count() <= 2, "with the skill: one or two calls");
+assert.match(await txt("#drawer .card"), /passed/);
 await open("#m=explore");
 // --- map: nodes, edges, hover traces neighbours, click opens file, search shows ranks
 assert.ok((await page.locator(".node").count()) >= 15);

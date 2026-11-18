@@ -48,6 +48,18 @@ const nBash = (S) => S.guard.calls.filter((c) => c.name === "bash").length;
 const sk = (S) => S.guard.out.res?.counts ?? { total: 0, dirty: 0, leaks: 0, fixed: 0, damaged: 0 }, sat = (S) => S.guard.out.att?.rows ?? [];
 const REAL = ["root", "run_home", "cwd", "machine_home", "tmp", "tmp_parent"];
 const armScore = (res, probe, arm) => res.rows.filter((r) => r.probe === probe && r.arm === arm && r.correct && r.finished !== false).length;
+// The answer the Observability lessons read: in a model's `dst` run, the answer without the skill that made the most tool calls, and the
+// answer with the skill to the same question and try. Chosen from the data, so a re-recording picks its own.
+export const longestWithout = (res) => res.rows.filter((r) => r.arm === "without").reduce((a, r) => (!a || r.tools.length > a.tools.length ? r : a), null);
+export function featured(S, family = "haiku", name) {
+  name ??= run(S, "dst", null, family); const res = name && S.runs?.runs[name]; if (!res) return null;
+  const wo = longestWithout(res);
+  return wo && { run: name, without: wo, with: res.rows.find((r) => r.arm === "with" && r.probe === wo.probe && r.n === wo.n) };
+}
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`, clean = (t) => String(t).replace(/`/g, "'").slice(0, 80);
+const tlN = (S) => S.tl.calls.length, tlO = (S) => S.tl.labels.filter((x) => x.outside).length;
+const logK = (S) => S.guard.live?.res?.counts, logStopped = (k) => k.ask + k.deny, logPct = (k) => Math.round((100 * logStopped(k)) / k.total);
+const topRule = (S) => Object.entries(S.guard.live.res.rules).sort((a, b) => b[1] - a[1])[0];
 
 export const LESSONS = [
   {
@@ -256,6 +268,36 @@ export const LESSONS = [
     ],
   },
   {
+    id: "timeline", title: "Read one answer, call by call", blurb: "A trace lists what an agent did. Read one.",
+    look: "Each square is one tool call, in order. Amber squares reached outside the working folder. Click a few to read them.",
+    learned: "A trace lists what an agent actually did, call by call. A pass rate says whether it worked; the trace shows the path, such as a long search that a short instruction removes.",
+    needs: (S) => !!featured(S)?.with,
+    steps: [
+      { mode: "trace", setup: [["tans", "haiku", "without"]],
+        text: "One recorded answer from a small model, given a question but no skill. Each square on the canvas is a tool call it made before answering. Amber ones reached outside its working folder.",
+        exp: "One row of a `skill_ab.py` results file: `tools` is the list of calls. The amber label is `reaches_outside` in `lab/guard.py`, this lab's reference check, not upstream's.",
+        predict: { q: ({ S }) => `This answer made ${plural(featured(S).without.tools.length, "tool call")} and then failed the check. How many of them reached outside the working folder?`,
+          choices: ["Hardly any", "About half", "Nearly all"],
+          run: [["tans", "haiku", "without"]],
+          answer: ({ S }) => { const p = tlO(S) / tlN(S); return p >= 0.75 ? "Nearly all" : p >= 0.2 ? "About half" : "Hardly any"; },
+          claims: [["the answer failed the check", ({ S }) => !featured(S).without.correct], ["it made more than ten calls", ({ S }) => featured(S).without.tools.length > 10], ["most of them reached outside", ({ S }) => tlO(S) / tlN(S) >= 0.75]],
+          why: ({ S }) => { const i = S.tl.labels.findIndex((x) => x.outside); return `${tlO(S)} of ${tlN(S)} calls reached outside the working folder. The first was \`${clean(guardTextOf(S.tl.calls[i]))}\`. It kept searching beyond its folder and still failed the check. “Outside” is this lab's label: a path outside the folder, or a shell feature that can build one. (The runs were recorded in a sandbox that denied these, so they are attempts.)`; },
+          expects: "Nearly all",
+          miss: { "Hardly any": ({ S }) => `${tlO(S)} of ${tlN(S)} reached outside, so it is not hardly any. Count the amber squares.`, "About half": ({ S }) => `${tlO(S)} of ${tlN(S)} is well over half.` } },
+        hint: "Count the amber squares against the green ones." },
+      { mode: "trace", setup: [["tans", "haiku", "with"]],
+        predict: { q: ({ S }) => `Same question, same try, but now the model had the skill. Without it the answer made ${featured(S).without.tools.length} calls. How many did this one make?`,
+          choices: ["About as many", "Fewer, but still a long search", "One or two"],
+          run: [["tans", "haiku", "with"]],
+          answer: ({ S }) => { const n = tlN(S), w = featured(S).without.tools.length; return n <= 2 ? "One or two" : n <= w / 2 ? "Fewer, but still a long search" : "About as many"; },
+          claims: [["it passed the check", ({ S }) => featured(S).with.correct], ["it made at most two calls", ({ S }) => featured(S).with.tools.length <= 2], ["it opened the skill file", ({ S }) => featured(S).with.skill_read], ["it cost less than the answer without the skill", ({ S }) => featured(S).with.cost_usd < featured(S).without.cost_usd]],
+          why: ({ S }) => { const f = featured(S); return `${plural(tlN(S), "call")}, ${tlO(S)} reaching outside the working folder. It opened the skill file, passed the check and cost ${dollars(f.with.cost_usd)} against ${dollars(f.without.cost_usd)} without. A pass rate says the skill helped; only the trace shows how: it replaced a search of the disk.`; },
+          expects: "One or two",
+          miss: { "About as many": ({ S }) => `It made ${tlN(S)}, against ${featured(S).without.tools.length} without. Look at the row of squares.`, "Fewer, but still a long search": ({ S }) => `It made ${tlN(S)}: that is not a long search.` } },
+        hint: "The skill is a short file the model can read first." },
+    ],
+  },
+  {
     id: "trace", title: "What happened in each answer?", blurb: "A score says how often. A trace says what happened.",
     look: "Each row is one recorded answer: did it pass, did the model open the skill file, how many tool calls, what it cost. Open “What happened in each answer” under “Poke at it yourself”.",
     learned: "A score says how often something passes. A trace says what happened inside each answer: what the model opened, how many tool calls it made, what it cost. You need the trace to explain a score, and the score to know how often.",
@@ -299,6 +341,34 @@ export const LESSONS = [
           expects: "More often",
           miss: { "Less often": ({ S }) => { const a = dstTrace(S, "haiku"); return `${modelOf(S, run(S, "dst", null, "haiku"))} opened the file in ${a.withRead.n} of ${a.withRead.n + a.withSkip.n} answers, which is not less.`; },
                   "About as often": ({ S }) => { const a = dstTrace(S, "haiku"); return `${modelOf(S, run(S, "dst", null, "haiku"))} opened it in ${a.withRead.n} of ${a.withRead.n + a.withSkip.n} answers. That is a clear difference, not about the same.`; } } } },
+    ],
+  },
+  {
+    id: "guardlog", title: "What did the guard decide?", blurb: "A guard keeps a log. Read what it says and what it cannot.",
+    look: "Each square is one call the guard judged, oldest first: grey allowed, amber asked, red denied. Click one to read it.",
+    learned: "A guard's log counts its decisions: how many calls it stopped and which rule did. It cannot say whether a decision was right. For that you replay real calls against a reference, as in the guardrails lesson.",
+    steps: [
+      { mode: "guard", setup: [["gtab", "log"], ["glogsample"]],
+        text: "A guard that runs all day writes one line per call it judged. This log is made up (the real one is `guard.jsonl`, written by `guard_hook.py`). The lab only counts it; nothing is uploaded.",
+        predict: { q: ({ S }) => { const k = logK(S); return `${k ? `Of the ${k.total} calls in this log` : "Of the calls in this log"}, how many did the guard not simply allow?`; },
+          choices: ["Under 10%", "10% to 30%", "Over 30%"],
+          run: [["gtab", "log"], ["glogsample"]],
+          answer: ({ S }) => { const k = logK(S), p = logStopped(k) / k.total; return p < 0.1 ? "Under 10%" : p <= 0.3 ? "10% to 30%" : "Over 30%"; },
+          claims: [["the log has judged calls", ({ S }) => logK(S).total > 0], ["some were stopped", ({ S }) => logStopped(logK(S)) > 0]],
+          why: ({ S }) => { const k = logK(S); return `${logStopped(k)} of ${k.total} (${logPct(k)}%): ${k.allow} allowed, ${k.ask} asked, ${k.deny} denied. Most calls pass untouched, so a guard shows up in the log only when it stops something.`; },
+          expects: "10% to 30%",
+          miss: { "Under 10%": ({ S }) => `${logPct(logK(S))}% were stopped: more than that.`, "Over 30%": ({ S }) => `${logPct(logK(S))}% were stopped: under 30%.` } },
+        hint: "Count the amber and red squares against all of them." },
+      { mode: "guard", setup: [["gtab", "log"], ["glogsample"]],
+        predict: { q: "Which rule stopped the most calls?",
+          choices: ["destructive", "outside_workdir", "secrets"],
+          run: [["gtab", "log"], ["glogsample"]],
+          answer: ({ S }) => topRule(S)[0],
+          claims: [["the log names at least two rules", ({ S }) => Object.keys(S.guard.live.res.rules).length >= 2]],
+          why: ({ S }) => { const [r, n] = topRule(S); return `\`${r}\` stopped ${n} calls. The log says which rule fired and how often. It does not say whether those calls were really dangerous, or whether an allowed call was safe: counts are not verdicts. To judge a rule you replay real calls against a reference, as in the guardrails lesson.`; },
+          expects: "outside_workdir",
+          miss: { destructive: ({ S }) => `\`destructive\` stopped ${S.guard.live.res.rules.destructive ?? 0}, fewer than \`${topRule(S)[0]}\`.`, secrets: ({ S }) => `\`secrets\` stopped ${S.guard.live.res.rules.secrets ?? 0}, fewer than \`${topRule(S)[0]}\`.` } },
+        hint: "The table under the counts groups them by rule." },
     ],
   },
   {
@@ -457,7 +527,7 @@ export const LESSONS = [
 
 // The three adventures. Every lesson belongs to exactly one; `door` is the question the Start screen asks. Order is the order played.
 export const PILLARS = [
-  { id: "observability", door: "What happened?", name: "Observability", blurb: "Read what the agent actually did, one answer at a time.", lessons: ["trace"] },
+  { id: "observability", door: "What happened?", name: "Observability", blurb: "Read what the agent actually did, one answer at a time.", lessons: ["timeline", "trace", "guardlog"] },
   { id: "guardrails", door: "Should it have been allowed?", name: "Guardrails", blurb: "Write a rule for what an agent may do or say, then test it on real calls.", lessons: ["guard", "scrub"] },
   { id: "evals", door: "Did it actually work?", name: "Evals", blurb: "Check the answers, break your own checks, then decide whether a result can be trusted.", lessons: ["eval", "rank", "break", "gate", "skill", "recorded", "noise"] },
 ];
