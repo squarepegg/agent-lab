@@ -42,7 +42,7 @@ toy and lets you pick where to poke.
 
 ## The design: one case, three lenses
 **The case: "The agent that went looking for the answer."** This is real. Recorded in this repo: asked a question about a skill, a small model with no skill
-made about 7 tool calls per answer and ran `find /` across the whole disk; with the skill it made about 1. Of 763 real calls, 467 tried to leave the
+made about 7 tool calls per answer and ran `find /` across the whole disk; with the skill it made about 1. Of 760 real calls, 459 tried to leave the
 working folder. Three different questions explain it, and they are the three pillars:
 
 - **Observability: "What happened?"** Read the trace. Which calls, in what order, what did they cost, did it open the skill.

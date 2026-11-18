@@ -226,9 +226,9 @@ export const LESSONS = [
                    ["at least one `with` answer failed the check", ({ S }) => armScore(runRes(S, S.gate.run), "doubt-framing", "with") < 3]],
           why: ({ S }) => { const res = runRes(S, S.gate.run), rows = res.rows.filter((r) => r.probe === "doubt-framing" && r.arm === "with"), miss = [...new Set(rows.flatMap((r) => r.missing))];
             return `${armScore(res, "doubt-framing", "with")} of 3 passed. The skill's text contains both phrases, and the model read it, yet its answers left out ${miss.map((m) => `“${m}”`).join(" and ")}. This is a real model failing an eval. Reading a skill is not the same as answering the way the check expects, which is why the text-coverage proxy from the last lesson is not enough. One answer is open under “Poke at it yourself”.`; },
-          expects: "1 or 2 of 3",
-          miss: { "0 of 3": ({ S }) => `You expected the skill to do nothing. It did something: ${armScore(runRes(S, S.gate.run), "doubt-framing", "with")} of 3 answers passed. The model used part of what it read and still left a word out.`,
-                  "3 of 3": ({ S }) => `You expected reading the skill to be enough. Only ${armScore(runRes(S, S.gate.run), "doubt-framing", "with")} of 3 passed. The model read it in every try and still did not use the words the check looks for.` } },
+          expects: "0 of 3",
+          miss: { "1 or 2 of 3": ({ S }) => { const rs = runRes(S, S.gate.run).rows.filter((r) => r.probe === "doubt-framing" && r.arm === "with"); return `You expected it to get there some of the time. ${armScore(runRes(S, S.gate.run), "doubt-framing", "with")} of 3 passed: every answer left out ${[...new Set(rs.flatMap((r) => r.missing))].map((m) => `“${m}”`).join(" and ")}, though the model had read the skill.`; },
+                  "3 of 3": ({ S }) => `You expected reading the skill to be enough. ${armScore(runRes(S, S.gate.run), "doubt-framing", "with")} of 3 passed. The model read it in every try and still did not use all the words the check looks for.` } },
         hint: "The model had the skill. Does that guarantee it used the exact words the check looks for?" },
       { mode: "gate", open: ["poke"], setup: [["grun", "dst", "filler", "haiku"]],
         predict: { q: (ctx) => `Now a skill that should not help: the “Lorem ipsum” filler from the last lesson, offered to ${modelName(runRes(ctx.S, run(ctx.S, "dst", "filler", "haiku")).pi_args[1])} on the \`dst\` questions. The proxy said “not enough improvement”. What does the real gate say about the recorded answers?`,
@@ -308,7 +308,7 @@ export const LESSONS = [
     needs: (S) => !!S.guard?.calls.length,
     steps: [
       { mode: "guard", setup: [["gpolicy", []]],
-        text: "A **guardrail** decides, before a tool call runs, whether the agent may make it. Here the calls are real: every shell command and file read the two models made in the recorded runs. A call is an **escape** if it tries to go outside the working folder. (The dst runs were recorded inside a sandbox that denied these, so the calls are attempts; the doubt and evidence-gated runs had no sandbox.) The policy code is written for this lab; it is not upstream.",
+        text: "A **guardrail** decides, before a tool call runs, whether the agent may make it. Here the calls are real: every shell command and file read the two models made in the recorded runs. A call is an **escape** if it tries to go outside the working folder. (The runs were recorded inside a sandbox that denied these, so the calls are attempts.) The policy code is written for this lab; it is not upstream.",
         exp: "`lab/guard.py` (written for this lab). `run(calls, policy)` applies a policy, either a list of text rules or your own `allowed(name, args)`, to every recorded call and compares each decision with `reaches_outside`, a reference label worked out from the call's text.",
         predict: { q: (ctx) => { const k = gk(ctx.S); return `Policy: block every shell command. Of the ${k.total} real calls, ${k.total - k.escapes} are harmless: they stay in the working folder. How many harmless calls does this policy stop?`; },
           choices: ["A few", "About half", "Most of them"], run: [["gpolicy", ["no_bash"]]],
