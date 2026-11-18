@@ -20,6 +20,11 @@
    "repo": "toolkit",
    "sha256": "8cd43704145cacb0937b28ee8e0cdef986c5c55db16b808ece8c125e2e6746d3"
   },
+  "digest_sessions.py": {
+   "path": "scripts/digest_sessions.py",
+   "repo": "map",
+   "sha256": "342e1ae80fb21de29a2de60dce53ce93102526a1178a209b9415ebd0b0c0a67a"
+  },
   "eval_run.py": {
    "path": "scripts/eval_run.py",
    "repo": "map",
@@ -29,6 +34,11 @@
    "path": "evals/gate.py",
    "repo": "toolkit",
    "sha256": "d89f308c894872fc95b9bd7acd919633b70c914643b9a0c00d292eaeac67e749"
+  },
+  "guard_hook.py": {
+   "path": "scripts/guard_hook.py",
+   "repo": "map",
+   "sha256": "3e875f4060beebf5d700da97be910d9a3618797da4cbb522e1ea92184ea1d8d7"
   },
   "memory.py": {
    "path": "evals/memory.py",

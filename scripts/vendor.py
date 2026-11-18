@@ -5,7 +5,7 @@ check_vendor.py (CI, scheduled) re-fetches upstream and fails if a vendored file
 import argparse, hashlib, json, os, shutil, subprocess
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FILES = {"map": ["scripts/brain.py", "scripts/_fm.py", "scripts/eval_run.py", "scripts/_attempts.py"],
+FILES = {"map": ["scripts/brain.py", "scripts/_fm.py", "scripts/eval_run.py", "scripts/_attempts.py", "scripts/guard_hook.py", "scripts/digest_sessions.py"],   # the last two: the real tool-call guardrail and the redaction it imports
          "toolkit": ["evals/gate.py", "evals/memory.py", "scripts/skill_ab.py", "scripts/check_skills.py"]}   # memory.py: gate.py imports it (the attempts ledger behind the REPEAT verdict; the lab never passes a ledger)
 
 

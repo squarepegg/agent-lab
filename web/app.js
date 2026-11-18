@@ -118,7 +118,7 @@ function nodeEl(n, p) {
   const g = el("g", { class: cls.join(" "), tabindex: 0, role: "button", "data-id": n.id, "aria-label": n.title, transform: `translate(${p.x} ${p.y})` }, [
     el("rect", { class: "box", width: p.w, height: p.h, rx: 9 }),
     el("rect", { class: "bar", x: 0, y: 0, width: 5, height: p.h, rx: 2, fill: kindVar(n.kind) }),
-    el("text", { class: "t", x: 16, y: 16 }, clip(n.title, chars - (isEval ? 3 : 0))),
+    el("text", { class: "t", x: 16, y: 16 }, clip(n.title, chars - 3)),   // room for the rank badge at the right edge
     el("text", { class: "s", x: 16, y: 30 }, clip(sub, Math.floor(chars * 1.2))),
   ]);
   if (isEval && n.pass != null) g.append(el("circle", { class: "dot", cx: p.w - 14, cy: p.h / 2, r: 4.5, fill: n.tier === "skip" ? "var(--dim)" : n.pass ? "var(--pass)" : "var(--fail)" }));
@@ -250,7 +250,7 @@ async function drawer() {
   const opens = (k) => !!step?.open?.includes(k);   // lessons say which folds a step needs; free explore opens the Python for experienced users
   h += lesson ? fold("poke", "Poke at it yourself", body, opens("poke")) : body;
   if (cp) h += fold("code", cp.title, cp.html, lesson ? opens("code") : !guided && S.level !== "beginner");
-  if (ec) h += fold("try", ec.title, ec.html, opens("try"));
+  if (ec) h += fold("try", ec.title, (lesson && opens("try") ? `<div class="note">The lesson runs this edit for you once you answer. You can try other edits here, but you do not have to.</div>` : "") + ec.html, opens("try"));
   d.innerHTML = h; d.scrollTop = keep; bindDrawer();
 }
 // ---------------- level + real-code panel
@@ -261,7 +261,7 @@ const INTRO = {
   gate: ["A gate is a fixed checklist that turns results into one verdict. The rules run top to bottom and the first that fires wins.", "Press “No effect”, or pick a recorded run and click a ✔ or ✘ to read what the model answered."],
   abfact: ["Before adding a note to a knowledge base, test it: does it break an eval, steal a top search result, or can it even be found?", "Press “load a hijacking fact” then A/B it."],
   abskill: ["A skill is a short instruction file for an agent. The text check here is a proxy: it shows the skill could help. The recorded runs show what two real models did.", "Press “filler skill” then A/B: lint passes, the gate says no."],
-  guard: ["A guardrail limits an agent. “What it may do” tests a policy on real tool calls from the recorded runs; “What it may say” tests the scrubber that cleans those runs. The policy and scrubber code are written for this lab, not upstream.", "Switch on “Block every shell command”, then read what it stops that was harmless."],
+  guard: ["A guardrail limits an agent. “What it may do” tests a policy on real tool calls from the recorded runs; “What it may say” tests the scrubber that cleans those runs. The rules and the scrubber are written for this lab; the “real one” option is upstream's own guard_hook.py.", "Switch on “Block every shell command”, then read what it stops that was harmless."],
   about: ["Everything here runs the real upstream Python files, unmodified, in your browser.", ""],
 };
 function beginnerIntro() {
@@ -383,9 +383,10 @@ const LA = {   // actions a lesson step may name
   auto: () => ACT.auto(),
   preset: (k) => applyPreset(k),
   param: async (k, v) => { S.gate.params[k] = v; await computeGate(); renderScene(); },
+  gupstream: async (rules = {}, allowRoot = true) => { const G = S.guard; G.meta ??= await call("guard_meta", {}); G.code ??= G.meta.default_code; const d = structuredClone(G.meta.upstream.default); G.up = { ...d, rules: { ...d.rules, ...rules }, allow_paths: allowRoot ? d.allow_paths : [] }; G.engine = "upstream"; G.sel = null; G.try = null; await computeGuard(); renderScene(); },
   gtab: async (t) => { S.guard.tab = t; await computeGuardTab(); renderScene(); },
   gscrub: async (opts, user = "sam") => { const O = S.guard.out; O.meta ??= await call("scrub_meta", { user }); O.opts = opts === "real" ? [...O.meta.base] : [...opts]; O.user = user; O.try = null; O.sel = null; O.selOut = null; await computeScrub(); renderScene(); },
-  gpolicy: async (rules) => { const G = S.guard; G.rules = [...rules]; G.useCode = false; G.sel = null; G.try = null; await computeGuard(); renderScene(); },
+  gpolicy: async (rules) => { const G = S.guard; G.engine = "lab"; G.rules = [...rules]; G.useCode = false; G.sel = null; G.try = null; await computeGuard(); renderScene(); },
   grun: async (skill, variant, family) => { await setRun(findRun(skill, variant, family)); renderScene(); },
   gpeek: (p, a, i) => { S.gate.peek = { p, a, i }; },
   skill: async (kind) => {
@@ -733,6 +734,10 @@ const ACT = {
   suser(t) { const O = S.guard.out; O.user = t.dataset.u; O.try = null; return guardRefresh(); },
   spreset(t) { const O = S.guard.out; O.opts = t.dataset.p === "real" ? [...O.meta.base] : []; O.try = null; return guardRefresh(); },
   async stry() { const O = S.guard.out; if ($("stext")) O.text = $("stext").value; O.try = await call("scrub_one", { text: O.text, opts: O.opts, user: O.user }); await drawer(); },
+  async gengine(t) { const G = S.guard; G.engine = t.dataset.e; G.sel = null; G.try = null; return guardRefresh(); },
+  gdial(t) { const G = S.guard, r = t.dataset.r, A = G.meta.upstream.actions; G.up.rules[r] = A[(A.indexOf(G.up.rules[r]) + 1) % A.length]; return guardPolicyChanged(); },
+  gallow() { const G = S.guard, root = G.meta.upstream.default.allow_paths; G.up.allow_paths = G.up.allow_paths.length ? [] : [...root]; return guardPolicyChanged(); },
+  async gapply() { const G = S.guard, p = await raw("guard_yaml", { text: $("gyaml").value }); if (p.error) { G.yaml = $("gyaml").value; G.err = p.error; return drawer(); } G.up = p; return guardPolicyChanged(); },
   grule(t) { const G = S.guard, id = t.dataset.r; G.useCode = false; G.sel = null; G.try = null; G.rules = G.rules.includes(id) ? G.rules.filter((x) => x !== id) : [...G.rules, id]; return guardRefresh(); },
   async gcode() { const G = S.guard; if ($("gcode")) G.code = $("gcode").value; G.useCode = true; G.sel = null; G.try = null; return guardRefresh(); },
   guse() { S.guard.useCode = false; S.guard.try = null; return guardRefresh(); },
@@ -821,7 +826,7 @@ function gateDrawer() {
   if (res) h += `<div class="card rec"><b>Recorded run.</b> Real answers from <b title="${esc(meta.model)}">${esc(modelName(meta.model))}</b> on ${esc(meta.date)}: ${meta.answers} answers, $${meta.cost_usd}. Nothing is called now.
       <details><summary>How it was recorded</summary><div class="mut">${mdi(R.meta.prompt)}</div><div class="mut">model <code>${esc(meta.model)}</code> · ${esc(R.meta.harness)} · runner <code>${esc(R.meta.runner)}</code> · file sha256 <code>${meta.sha256.slice(0, 12)}</code>${meta.variant ? ` · skill loaded: <code>${esc(res.with_path)}</code>` : ""}</div></details></div>`;
   else h += `<div class="row">${Object.keys(PRESETS).map((k) => `<button class="btn alt ${presetActive(k) ? "on" : ""}" data-act="preset" data-k="${esc(k)}">${esc(k)}</button>`).join("")}</div>`;
-  h += `<h3>${res ? "recorded answers (3 tries each, click one to read it)" : "outcomes (3 tries each, click to flip)"}</h3><table class="grid"><tr><th>${beg ? "question" : "probe"}</th><th>without${beg ? " the skill" : ""}</th><th>with${beg ? " the skill" : ""}</th></tr>${gateProbes().map((q) => `<tr><td title="${esc(q.q)}">${esc(q.id)} <span class="mut">${split(q)}</span></td>` + ["without", "with"].map((a) => `<td>${(grid[q.id]?.[a] || []).map((b, i) => { const on = res && G.peek && G.peek.p === q.id && G.peek.a === a && G.peek.i === i;
+  h += `<h3>${res ? "recorded answers (3 tries each, click one to read it)" : "outcomes (3 tries each, click to flip)"}</h3>${beg && gateProbes().some((q) => q.split === "heldout") ? `<div class="mut">“Hidden test” questions are held back while a skill is tuned. They check that it works on questions it has not seen.</div>` : ""}<table class="grid"><tr><th>${beg ? "question" : "probe"}</th><th>without${beg ? " the skill" : ""}</th><th>with${beg ? " the skill" : ""}</th></tr>${gateProbes().map((q) => `<tr><td title="${esc(q.q)}">${esc(q.id)} <span class="mut">${split(q)}</span></td>` + ["without", "with"].map((a) => `<td>${(grid[q.id]?.[a] || []).map((b, i) => { const on = res && G.peek && G.peek.p === q.id && G.peek.a === a && G.peek.i === i;
       return `<span class="cell ${b ? "t" : "f"} ${on ? "on" : ""}" ${res ? `data-act="gpeek"` : "data-gc"} data-p="${esc(q.id)}" data-a="${a}" data-i="${i}">${b ? "✔" : "✘"}</span>`; }).join("")}</td>`).join("") + "</tr>").join("")}</table>`;
   h += peekCard();
   if (res) h += fold("trace", beg ? "What happened in each answer?" : "trace: one row per recorded answer", traceHtml(res, beg), !!(S.lesson && lstep()[1].open?.includes("trace")));
@@ -870,7 +875,7 @@ function initGuard() {
     calls.push({ name: tool, args: a, run: name, probe: r.probe, arm: r.arm, n: r.n });
   }
   S.guard = { calls, rules: [], code: S.guard?.code ?? null, meta: S.guard?.meta ?? null, useCode: false, res: null, att: null, sel: null, err: null, text: "", tool: "bash", try: null, live: S.guard?.live ?? null,
-    tab: "calls", out: { opts: [], user: "sam", meta: null, res: null, att: null, sel: null, selOut: null, text: "", try: null, texts: scrubTexts() } };
+    tab: "calls", engine: "lab", up: null, yaml: null, out: { opts: [], user: "sam", meta: null, res: null, att: null, sel: null, selOut: null, text: "", try: null, texts: scrubTexts() } };
 }
 // every recorded model answer and tool call, as recorded (already scrubbed): the corpus the output scrubber is tested on
 function scrubTexts() {
@@ -879,11 +884,11 @@ function scrubTexts() {
   for (const res of Object.values(S.runs?.runs || {})) for (const r of res.rows) for (const [, args] of r.tools) { let a = {}; try { a = JSON.parse(args); } catch { /* skip */ } out.push({ text: a.path ?? a.command ?? "", kind: "tool" }); }
   return out;
 }
-const guardPolicy = () => (S.guard.useCode ? { code: S.guard.code } : { rules: S.guard.rules });
+const guardPolicy = () => (S.guard.engine === "upstream" ? { upstream: S.guard.up } : S.guard.useCode ? { code: S.guard.code } : { rules: S.guard.rules });
 const guardText = (c) => (c.name === "read" ? c.args.path : c.args.command) ?? "";
 async function computeGuard() {
   const G = S.guard; if (!G.calls.length) return;
-  if (!G.meta) { G.meta = await call("guard_meta", {}); G.code ??= G.meta.default_code; }
+  if (!G.meta) { G.meta = await call("guard_meta", {}); G.code ??= G.meta.default_code; G.up ??= structuredClone(G.meta.upstream.default); G.yaml ??= G.meta.upstream.yaml; }
   const r = await raw("guard_run", { calls: G.calls.map(({ name, args }) => ({ name, args })), policy: guardPolicy() });
   if (r.error) { G.err = r.error; return; }   // keep the last good result on screen
   G.err = null; G.res = r;
@@ -931,6 +936,7 @@ function liveDrawer() {
   h += `<div class="note"><b>What this is.</b> Counts only. The guard is a set of text rules, not a sandbox, and an allowed call is not proof the call was safe. Nothing here is uploaded.</div>`;
   return h;
 }
+async function guardPolicyChanged() { const G = S.guard; G.yaml = (await call("guard_policy_yaml", { policy: G.up })).yaml; G.sel = null; G.try = null; return guardRefresh(); }
 async function guardRefresh() { await computeGuardTab(); renderScene(); await drawer(); }
 async function guardTry() {
   const G = S.guard, r = await raw("guard_attack", { policy: guardPolicy(), tool: G.tool, text: G.text });
@@ -1006,13 +1012,21 @@ function callsDrawer() {
   if (!k || !meta) return `<div class="mut">Loading Python…</div>`;
   const label = (id) => meta.rules.find((r) => r.id === id)?.label ?? id;
   let h = `<div class="verdict ${k.missed === 0 && k.wrongly === 0 ? "good" : "bad"}" id="gscore"><div class="vl">your policy, on ${k.total} real tool calls</div><div class="big">${k.caught} of ${k.escapes} escapes blocked</div>
-    <div class="vw">${k.missed ? `${k.missed} got through.` : "None got through."} ${k.wrongly ? `${k.wrongly} harmless calls were blocked.` : "No harmless call was blocked."} An escape is a call that goes outside the working folder.</div></div>`;
-  h += `<h3>your policy</h3><div class="mut">${beg ? "Switch rules on. A call is blocked if any switched-on rule matches it." : "A call is blocked if any switched-on rule matches. Or write the policy as Python below."}</div>
+    <div class="vw">${k.missed ? `${k.missed} got through.` : "None got through."} ${k.wrongly ? `${k.wrongly} harmless calls were blocked.` : "No harmless call was blocked."} An escape is a call that goes outside the working folder.${k.asked || k.denied ? ` (${k.denied} denied, ${k.asked} would ask you first.)` : ""}</div></div>`;
+  const real = G.engine === "upstream";
+  h += `<h3>which guardrail</h3><div class="row"><button class="btn alt ${real ? "" : "on"}" data-act="gengine" data-e="lab">Rules written for this lab</button><button class="btn alt ${real ? "on" : ""}" data-act="gengine" data-e="upstream">The real one: guard_hook.py</button></div>`;
+  if (real) {
+    const U = meta.upstream, up = G.up;
+    h += `<div class="mut">${beg ? "This is the guardrail from the agent-knowledge-map repo, unmodified. Each rule can allow a call, ask you first, or deny it." : "`vendor/guard_hook.py` unmodified: `merge` and `decide`. Each rule is allow, ask or deny; a call is blocked here when the answer is not allow."}</div>
+      <div class="rules">${U.rules.map((r) => `<button class="btn alt ${up.rules[r] === "allow" ? "" : "on"}" data-act="gdial" data-r="${r}" title="click to change">${esc(r)}: ${esc(up.rules[r])}</button>`).join("")}</div>
+      <div class="rules"><button class="btn alt ${up.allow_paths.length ? "on" : ""}" data-act="gallow">${up.allow_paths.length ? "The skill folder is an allowed place" : "Allow the skill folder as a place"}</button></div>`;
+    h += fold("gyaml", beg ? "The policy file" : "policy file (YAML)", `<div class="mut">This is the file format upstream reads (<code>.agent-guard.yaml</code>). Edit it and press Apply.</div><textarea id="gyaml" style="min-height:170px">${esc(G.yaml)}</textarea><div class="row"><button class="btn" data-act="gapply">Apply</button></div>`, !beg && !S.lesson);
+  } else h += `<h3>your policy</h3><div class="mut">${beg ? "Switch rules on. A call is blocked if any switched-on rule matches it." : "A call is blocked if any switched-on rule matches. Or write the policy as Python below."}</div>
     <div class="rules">${meta.rules.map((r) => `<button class="btn alt ${!G.useCode && G.rules.includes(r.id) ? "on" : ""}" data-act="grule" data-r="${r.id}">${esc(r.label)}</button>`).join("")}</div>`;
   if (G.err) h += `<div class="note bad">${esc(G.err)}</div>`;
   const c = G.sel != null ? G.calls[G.sel] : null, r = c && G.res.rows[G.sel];
   if (c && r) h += `<div class="card gcall"><div class="mut">${esc(c.name)} · ${esc(c.probe)} · ${c.arm === "with" ? "with" : "without"} the skill, try ${c.n + 1}</div><pre>${esc(guardText(c))}</pre>
-    <div>${r.blocked ? `<b>Blocked</b>${r.by && r.by !== "your function" ? ` by “${esc(label(r.by))}”` : ""}.` : "<b>Allowed.</b>"}</div>
+    <div>${r.blocked ? `<b>${r.action === "ask" ? "Asks you first" : "Blocked"}</b>${r.by && r.by !== "your function" ? ` by “${esc(label(r.by))}”${r.reason ? `: ${esc(r.reason)}` : ""}` : ""}.` : "<b>Allowed.</b>"}</div>
     <div class="${r.outside ? "bad" : "ok"}">${r.outside ? "✘ Goes outside the working folder: " : "✔ Stays inside: "}${esc(r.why)}.</div></div>`;
   else h += `<div class="mut">Click a square to read that call.</div>`;
   h += `<h3>try to get past it</h3><div class="mut">Type a command or a file path. Your policy decides first. Then the lab says whether it really goes outside the working folder.</div>
@@ -1021,7 +1035,7 @@ function callsDrawer() {
   if (G.try) { const t = G.try, ok = t.blocked === t.outside; h += `<div class="card gtry"><div class="${ok ? "ok" : "bad"}"><b>${t.blocked ? (t.outside ? "✔ Blocked, and it would have gone outside." : "✘ Blocked by mistake: it stays inside.") : t.outside ? "✘ It got through, and it goes outside." : "✔ Allowed, and it stays inside."}</b></div><div class="mut">${esc(t.why)}.</div></div>`; }
   if (G.att) h += fold("gatt", beg ? "Ready-made attacks" : "ready-made attacks", `<div class="mut">Thirteen calls to try against your policy. Click one to run it.</div><table class="tr"><tr><th>call</th><th>policy</th><th>really outside?</th><th></th></tr>${G.att.rows.map((a, i) => `<tr class="rowx" data-act="gattack" data-i="${i}"><td><code>${esc(a.text.slice(0, 44))}</code></td><td>${a.blocked ? "blocked" : "allowed"}</td><td>${a.outside ? "yes" : "no"}</td><td class="${a.blocked === a.outside ? "ok" : "bad"}">${a.blocked === a.outside ? "✔" : "✘"}</td></tr>`).join("")}</table>`, !!(S.lesson && lstep()[1].open?.includes("attacks")));
   h += fold("gpy", beg ? "Write your own rule in Python" : "Write the policy as Python", `<textarea id="gcode" style="min-height:150px">${esc(G.code)}</textarea><div class="row"><button class="btn" data-act="gcode">Run my function</button><button class="btn alt" data-act="guse">Back to the switches</button></div>${G.useCode ? `<div class="mut">Your function is deciding now; the switches are off.</div>` : ""}`, !beg && !S.lesson);
-  h += `<div class="note"><b>What this is.</b> The policy engine is code written for this lab, not upstream, and it is rule-based. Real systems also use sandboxes and model-based checks. The calls are real; “goes outside” is this lab's definition, worked out from the call's text.</div>`;
+  h += `<div class="note"><b>What this is.</b> ${real ? "The real guardrail is upstream's <code>guard_hook.py</code>, run unmodified; the recorded paths are put back onto a made-up machine so it can resolve them." : "These rules and the Python option are code written for this lab, not upstream."} Both are rule-based: real systems also use sandboxes and model-based checks. The calls are real; “goes outside” is this lab's definition, worked out from the call's text.</div>`;
   return h;
 }
 

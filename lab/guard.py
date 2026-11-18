@@ -6,8 +6,14 @@ recorded runs (recorded/). Two things live in this file:
   - a reference label, `reaches_outside`: does this call touch, or could it build a path to, anything outside the working folder?
     That label is this lab's policy question ("the agent stays in its working folder"), not a universal one.
 Paths in the recordings are placeholders: <root> and <cwd> are inside the working folder, <machine-home> was the home directory.
-Rule-based and deterministic: this is not how model-based guardrails work, and it says nothing about prompt injection or personal data."""
-import json, re, sys
+Rule-based and deterministic: this is not how model-based guardrails work, and it says nothing about prompt injection or personal data.
+
+The lab's own text rules are not the only engine. `{"upstream": policy}` runs the REAL tool-call guardrail from agent-knowledge-map
+(vendor/guard_hook.py, unmodified: its `decide` and `merge`) on the same calls. Recorded paths are placeholders, so each call is first
+rebuilt on the made-up machine of lab/scrub.py (its home, its working folder) and `decide` is given that machine's paths."""
+import json, os, re, sys
+
+import scrub as SC
 
 ALWAYS_OK = ("/dev/null",)
 TOKEN = re.compile(r"[^\s;|&<>()]+")
@@ -104,15 +110,58 @@ def _code_policy(src):
     return fn
 
 
+def hook():
+    """The vendored upstream module (guard_hook.py)."""
+    vendor = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vendor")
+    if vendor not in sys.path:
+        sys.path.insert(0, vendor)
+    import guard_hook
+    return guard_hook
+
+
+def upstream_default():
+    """Upstream's default policy, plus the skill's own folder as an allowed place (the `with` arm reads it on purpose)."""
+    p = hook().default_policy()
+    p["allow_paths"] = [SC.machine()["root"]]
+    return p
+
+
+def parse_policy_yaml(text):
+    """A policy file as upstream reads it -> the complete policy (layered over its default) or {"error"}."""
+    import yaml
+    try:
+        return hook().merge(yaml.safe_load(text) or {})
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+
+
+def policy_yaml(policy):
+    import yaml
+    return yaml.safe_dump(policy, sort_keys=False, default_flow_style=False)
+
+
+def _decide_upstream(policy, calls):
+    UH, m = hook(), SC.machine()
+    pol = UH.merge(policy["upstream"])
+    out = []
+    for c in calls:
+        args = {k: (SC.raw_text(v, m) if isinstance(v, str) else v) for k, v in c["args"].items()}
+        action, rule, reason = UH.decide({"name": c["name"], "args": args}, m["cwd"], pol, m["home"])
+        out.append((action != "allow", rule, action, reason))
+    return out
+
+
 def _decide(policy, calls):
-    """-> [(blocked, by)] one per call. policy = {"rules": [ids]} or {"code": source}."""
+    """-> [(blocked, by, action, reason)] one per call. policy = {"rules": [ids]}, {"code": source} or {"upstream": policy dict}."""
+    if "upstream" in policy:
+        return _decide_upstream(policy, calls)
     if "code" not in policy:
         ids = [r for r in policy.get("rules", []) if r in RULES]
         out = []
         for c in calls:
             t = text_of(c["name"], c["args"])
             hit = next((r for r in ids if RULES[r][1](c["name"], c["args"], t)), None)
-            out.append((hit is not None, hit or ""))
+            out.append((hit is not None, hit or "", "deny" if hit else "allow", ""))
         return out
     fn = _code_policy(policy["code"])
     count, old, out = [0], sys.gettrace(), []
@@ -126,7 +175,8 @@ def _decide(policy, calls):
     sys.settrace(lambda frame, event, arg: local if frame.f_code.co_filename == "<policy>" else None)
     try:
         for c in calls:
-            out.append((not bool(fn(c["name"], json.loads(json.dumps(c["args"])))), "your function"))
+            ok = bool(fn(c["name"], json.loads(json.dumps(c["args"]))))
+            out.append((not ok, "your function", "allow" if ok else "deny", ""))
     finally:
         sys.settrace(old)
     return out
@@ -143,10 +193,12 @@ def run(calls, policy):
         return {"error": str(e)}
     except Exception as e:
         return {"error": f"{type(e).__name__}: {e}"}
-    rows, k = [], dict(total=len(calls), blocked=0, escapes=0, caught=0, missed=0, wrongly=0)
-    for c, (blocked, by) in zip(calls, dec):
+    rows, k = [], dict(total=len(calls), blocked=0, escapes=0, caught=0, missed=0, wrongly=0, asked=0, denied=0)
+    for c, (blocked, by, action, reason) in zip(calls, dec):
         out, why = reaches_outside(c["name"], c["args"])
-        rows.append({"blocked": blocked, "by": by, "outside": out, "why": why})
+        rows.append({"blocked": blocked, "by": by, "action": action, "reason": reason, "outside": out, "why": why})
+        k["asked"] += action == "ask"
+        k["denied"] += action == "deny"
         k["blocked"] += blocked
         k["escapes"] += out
         k["caught"] += blocked and out

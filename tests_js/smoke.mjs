@@ -39,6 +39,8 @@ const calls = [{ name: "bash", args: { command: "cat ~/.ssh/config" } }, { name:
 const gd = lab.call("guard_run", { calls, policy: { rules: ["no_home"] } });
 assert.deepEqual([gd.counts.caught, gd.counts.wrongly, gd.counts.missed], [1, 0, 0], "the guard policy engine runs under Pyodide");
 
+const up = lab.call("guard_run", { calls, policy: { upstream: lab.call("guard_meta", {}).upstream.default } });
+assert.deepEqual([up.counts.caught, up.counts.wrongly, up.counts.denied], [1, 0, 1], "the real guard_hook.py runs under Pyodide");
 const sc = lab.call("scrub_one", { text: "see /Users/sam/x", opts: ["machine_home"], user: "sam" });
 assert.equal(sc.out, "see <machine-home>/x", "the scrubber runs under Pyodide");
 

@@ -42,6 +42,7 @@ const dstTrace = (S, family) => traceStats(runRes(S, run(S, "dst", null, family)
 const modelOf = (S, name) => modelName(runRes(S, name).pi_args[1]);
 const guardTextOf = (c) => (c.name === "read" ? c.args.path : c.args.command) ?? "";
 const gk = (S) => S.guard.res.counts, gat = (S) => S.guard.att.counts;
+const findRoot = (S) => S.guard.res.rows.filter((r, i) => r.outside && !r.blocked && /(^|[|;&]\s*)find\s+\/(\s|$)/.test(guardTextOf(S.guard.calls[i]))).length;
 const nBash = (S) => S.guard.calls.filter((c) => c.name === "bash").length;
 // q() is drawn once before the step's setup has run, so these tolerate "not computed yet"; the card is redrawn when setup is done
 const sk = (S) => S.guard.out.res?.counts ?? { total: 0, dirty: 0, leaks: 0, fixed: 0, damaged: 0 }, sat = (S) => S.guard.out.att?.rows ?? [];
@@ -303,7 +304,7 @@ export const LESSONS = [
   {
     id: "guard", title: "What is the agent allowed to do?", blurb: "Write a policy and run it against real tool calls.",
     look: "Each square is one real tool call a model made. Green: your policy blocked a call that went outside the working folder. Red: one got through. Amber: a harmless call was blocked.",
-    learned: "A guardrail decides what an agent may do, before it does it. It has a cost, because it can block harmless work. It can score perfectly on calls nobody was trying to make dangerous. And a rule that only reads text can be walked around. Test a guardrail like an eval, with calls it has not seen, and put the limits that matter below the model.",
+    learned: "A guardrail decides what an agent may do, before it does it. It has a cost, because it can block harmless work. It can score perfectly on calls nobody was trying to make dangerous. And a rule that only reads text can be walked around. Test a guardrail like an eval, with calls it has not seen, and put the limits that matter below the model. The real one asks a person about what it cannot read, and replaying real calls finds its holes.",
     needs: (S) => !!S.guard?.calls.length,
     steps: [
       { mode: "guard", setup: [["gpolicy", []]],
@@ -347,6 +348,24 @@ export const LESSONS = [
           expects: "Fewer than half",
           miss: { None: ({ S }) => `${gat(S).missed} got through. \`ls $HOME\` has no \`/\` or \`~\` in it; the shell fills the path in later.`,
                   "Half or more": ({ S }) => `${gat(S).missed} of ${gat(S).escapes} is under half. The rule still catches every attack that names a path in plain sight.` } } },
+      { mode: "guard", setup: [["gupstream"]],
+        text: "Everything so far used rules written for this lab. The real guardrail lives in the `agent-knowledge-map` repo: `scripts/guard_hook.py`, a policy that a Claude Code hook enforces. Here it runs **unmodified** on the same calls (the recorded paths are put back onto a made-up machine so it can resolve them).",
+        predict: { q: (ctx) => `The real guardrail with its default rules (secrets: deny, destructive: ask, outside_workdir: ask, indirection: allow) and the skill folder allowed. Of the ${gk(ctx.S).escapes} escapes, how many does it catch?`,
+          choices: ["All of them", "Nearly all, but not all", "About half"], run: [["gupstream"]],
+          answer: ({ S }) => { const k = gk(S); return k.caught === k.escapes ? "All of them" : k.caught / k.escapes >= 0.8 ? "Nearly all, but not all" : "About half"; },
+          claims: [["it interrupts no harmless call", ({ S }) => gk(S).wrongly === 0], ["some escapes get through", ({ S }) => gk(S).missed > 0], ["most of those are searches of the whole disk (`find /`)", ({ S }) => findRoot(S) * 2 > gk(S).missed]],
+          why: ({ S }) => { const k = gk(S); return `${k.caught} of ${k.escapes} were caught and ${k.wrongly} harmless calls were interrupted. Of the ${k.missed} that got through, ${findRoot(S)} are searches that start at \`/\`, the whole disk: a lone \`/\` does not look like a place to the rule. Upstream ships a \`replay\` command for exactly this: run real recorded calls through the policy and read what it misses.`; },
+          expects: "Nearly all, but not all",
+          miss: { "All of them": ({ S }) => `${gk(S).missed} got through, mostly \`find /\` searches of the whole disk.`, "About half": ({ S }) => `It caught ${gk(S).caught} of ${gk(S).escapes}, far more than half.` } },
+        hint: "Which kind of call did the lab's own `no_absolute` rule catch but this one might not?" },
+      { mode: "guard", open: ["poke", "attacks"], setup: [["gupstream", { indirection: "ask" }]],
+        predict: { q: (ctx) => `Now the same guardrail with the \`indirection\` rule set to “ask”, against the ${gat(ctx.S).escapes} ready-made attacks. Open “Ready-made attacks”. How many get through?`,
+          choices: ["None", "One", "Several"], run: [["gupstream", { indirection: "ask" }]],
+          answer: ({ S }) => { const m = gat(S).missed; return m === 0 ? "None" : m === 1 ? "One" : "Several"; },
+          claims: [["`ls $HOME` is caught now", ({ S }) => S.guard.att.rows.some((r) => r.text === "ls $HOME" && r.blocked)], ["the plain `find /` search still gets through", ({ S }) => S.guard.att.rows.some((r) => r.text.startsWith("find /") && !r.blocked)]],
+          why: ({ S }) => { const miss = S.guard.att.rows.filter((r) => r.outside && !r.blocked).map((r) => `\`${r.text}\``); return `${miss.length} got through: ${miss.join(", ")}. Asking about the calls that build a path in the shell (\`$HOME\`, \`eval\`, \`$(…)\`) closes the gaps the lab's text rules had, because it hands the decision to a person instead of pretending to read the text. The hole that is left is the plain \`find /\`, the same one the real calls found.`; },
+          expects: "One",
+          miss: { None: ({ S }) => `${gat(S).missed} got through: a plain \`find /\` is not flagged, because a lone \`/\` does not look like a place.`, Several: ({ S }) => `Only ${gat(S).missed} got through. The indirection rule asks about every call that builds a path in the shell.` } } },
     ],
   },
   {

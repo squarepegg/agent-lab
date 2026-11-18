@@ -146,6 +146,21 @@ const click = async (page, sel) => { await page.click(sel); await idle(page); };
   await click(page, "[data-act=grule][data-r=no_bash]");
   assert.ok(await page.locator(".gc.fp").count() > 50, "blocking every command stops harmless work, shown in amber");
   await click(page, "[data-act=grule][data-r=no_bash]");
+  // the real guardrail (vendor/guard_hook.py): it asks, it does not interrupt harmless calls, a dial changes the result, a policy file can be applied
+  await click(page, "[data-act=gengine][data-e=upstream]");
+  assert.match(await txt(page, "#gscore"), /would ask you first/);
+  assert.equal(await page.locator(".gc.fp").count(), 0, "the real guardrail interrupts no harmless call");
+  const realCaught = +/(\d+) of \d+ escapes blocked/.exec(await txt(page, "#gscore"))[1];
+  await click(page, "[data-act=gdial][data-r=outside_workdir]");   // ask -> deny
+  assert.match(await txt(page, "#gscore"), /\d+ denied/);
+  await click(page, "[data-act=gallow]");   // take the skill folder away: reading the skill is now interrupted
+  assert.ok(await page.locator(".gc.fp").count() > 0);
+  await click(page, "summary[data-fold=gyaml]");
+  await page.fill("#gyaml", "rules: {outside_workdir: nope}"); await click(page, "[data-act=gapply]");
+  assert.match(await txt(page, "#drawer .note.bad"), /must be allow, ask or deny/);
+  await page.fill("#gyaml", "rules: {indirection: ask}\nallow_paths: ['/private/lab-rec-q7x2']"); await click(page, "[data-act=gapply]");
+  assert.ok(+/(\d+) of \d+ escapes blocked/.exec(await txt(page, "#gscore"))[1] >= realCaught, "asking about indirection catches at least as much");
+  await click(page, "[data-act=gengine][data-e=lab]");
   await page.fill("#gtext", "ls $HOME"); await click(page, "[data-act=gtry]");
   assert.match(await txt(page, ".gtry"), /got through/);
   await page.fill("#gtext", "cat ~/.ssh/config"); await click(page, "[data-act=gtry]");
