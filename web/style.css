@@ -208,3 +208,4 @@ table.tr{width:100%;border-collapse:collapse;font-size:11.5px;margin:6px 0}table
 .chip.ic{padding:4px 9px}
 /* a cue, not a paragraph: the strip over the canvas is two lines at most (the full text is its tooltip) */
 #caption span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+table.rec td,table.rec th{padding:3px 5px;font-size:11px}

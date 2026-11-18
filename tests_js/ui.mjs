@@ -103,7 +103,7 @@ await page.locator(".mrow.survived").first().click(); // a survivor: why + verif
 assert.match(await txt("#drawer"), /SURVIVED/);
 assert.match(await txt("#drawer"), /still passes|No eval's lookup/);
 assert.match(await txt("#drawer"), /how to fix/);
-await page.locator(".mrow.killed").first().click(); // a kill: which check failed
+await unfold("noticed"); await page.locator(".mrow.killed").first().click(); // a kill: which check failed
 assert.match(await txt("#drawer"), /KILLED/); assert.match(await txt("#drawer"), /only that file supplied/);
 for (const r of await page.locator(".mrow.survived").all()) { await r.click(); if (await page.locator("[data-act=applyfix]").count()) break; }
 await page.click("[data-act=applyfix]");

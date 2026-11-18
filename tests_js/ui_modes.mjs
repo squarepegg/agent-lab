@@ -205,14 +205,14 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
   await open(page, "#m=guard"); await ready(page); await idle(page);
   await click(page, "[data-act=gtab][data-t=output]");
   const leaks = async () => +/(\d+) still leak/.exec(await txt(page, "#gscore"))[1];
-  const before = await leaks();
-  assert.ok(before > 20, "with nothing switched on, real tool calls leak the made-up machine");
-  assert.equal(await page.locator(".gc.miss").count(), before);
+  assert.match(await txt(page, "#gscore"), /Nothing is scrubbed yet/, "no scrubber: an invitation, not a failing score");
+  assert.ok((await page.locator(".gc.esc").count()) > 20, "with nothing switched on, real tool calls carry the made-up machine (outlined, not alarming)");
   await click(page, "[data-act=spreset][data-p=real]");
   assert.equal(await leaks(), 0, "the six replacements record_runs.py makes clean every real text");
   assert.ok(await page.locator(".gc.caught").count() > 20);
   await page.fill("#stext", "whoami printed sam"); await click(page, "[data-act=stry]");
   assert.match(await txt(page, ".gtry"), /Still shows: the username/);
+  await unfold(page, "ssw");
   await click(page, "[data-act=sopt][data-o=user]");
   await page.fill("#stext", "whoami printed sam"); await click(page, "[data-act=stry]");
   assert.match(await txt(page, ".gtry"), /gone/);
@@ -223,7 +223,7 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
   assert.ok((await leaks()) > 0, "without the user switch, the word dev still leaks");
   await page.locator(".gc.caught").first().click(); await idle(page);
   assert.match(await txt(page, ".gcall"), /before[\s\S]*after your scrubber/);
-  await click(page, "summary[data-fold=satt]");
+  await unfold(page, "satt");
   assert.ok((await page.locator("#drawer details[open] table.tr tr").count()) >= 9, "the ready-made leaks are listed");
   await page.context().close();
 }
