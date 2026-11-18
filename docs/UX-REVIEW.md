@@ -20,7 +20,7 @@ toy and lets you pick where to poke.
 | Panel taller than the viewport | Gate 985, A/B skill 1,006, Break after auto-mutate 1,423 | The data screens still scroll (the rest now fit) |
 | Jargon in labels | Gate, A/B fact, A/B skill, mutation, heldout, escape, indirection | Each needs a lesson before it means anything |
 | Phone | the canvas is replaced by a text summary | The toy disappears exactly where attention is scarcest |
-| Human playtests | 0 | Every claim above is from a script and a careful read |
+| Human playtests | 1 (the owner, informally) | Their verdict (too busy; wants to be invited to play, with the three pillars as separate adventures) drives this review; the numbers above are still from a script |
 
 ## What is wrong, in order of cost
 1. **No narrative spine.** Ten lessons in a row, each a topic. Nothing carries over except the vocabulary.
@@ -108,7 +108,7 @@ helps but costs twice as much) and *doubt on haiku* (a model that reads the skil
 7. **Playtest harness**: a build flag that logs where a person stalls (which beat, how long, which door), kept local, so the first five humans give numbers.
 
 ## Order of work, each ending in something testable
-1. Playtest what exists with two people (60 minutes). Decide from what they stall on, not from this document.
+1. ~~Playtest what exists.~~ **Done by the owner on 2026-11-18**: the site is too busy and should invite you in to play and figure it out, not overwhelm. That feedback is what this document answers. A second round with other people is still worth doing after step 2, to check the new Start screen.
 2. Start screen with three doors and the case file, wired to the **existing** lessons regrouped by pillar. No new content; proves the structure.
 3. Trace timeline and Observability beats 1 to 3.
 4. Re-cut the Evals and Guardrails lessons into 3 beats each with doors, on the dst case.
