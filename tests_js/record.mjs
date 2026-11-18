@@ -1,4 +1,4 @@
-// Records every Python call that lesson 1 makes (plus the boot calls) into web/recorded.json, so lesson 1 works before Pyodide has loaded.
+// Records every Python call the first Evals beat (`dstgate`) and its basics lesson (`eval`) make, plus the boot calls, into web/recorded.json, so both work before Pyodide has loaded.
 // The recording is made in headless Chrome against Pyodide, the same runtime users get.
 //   node record.mjs           write ../web/recorded.json
 //   node record.mjs --check   regenerate and fail if the committed file differs by one byte (CI)
@@ -35,9 +35,8 @@ async function play(begin, pick) {
 }
 const rec = {};
 const grab = async () => Object.assign(rec, await page.evaluate(() => __lab.lab.rec));
-const id = await (async () => { await fresh(); return page.evaluate(() => __lab.lessons[0]); })();
-await grab();
-for (const pick of [0, 1]) {
+await fresh(); await grab();
+for (const id of ["dstgate", "eval"]) for (const pick of [0, 1]) {   // the first beat of the Evals door, and the "basics first" lesson it links to
   await play(() => page.click(`[data-act=lstart][data-id=${id}]`), pick); await grab();
 }
 const bundle = JSON.parse(readFileSync(join(root, "bundle.json"), "utf8"));

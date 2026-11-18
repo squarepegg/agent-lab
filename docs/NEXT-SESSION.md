@@ -3,13 +3,12 @@
 Read, in this order: `personal-brain/workstreams/agent-lab/STATE.md`, `docs/HANDOVER.md` (design rules, how to run everything), `docs/UX-REVIEW.md`
 (the redesign and why). Do not re-audit; the numbers are in the review.
 
-## Prompt for the redesign session (step 2 of `docs/UX-REVIEW.md`)
-> Work in `~/projects/me/agent-lab`. The owner playtested the site and found it too busy; it should invite you in to play, with guardrails,
-> evals and observability as three separate adventures. `docs/UX-REVIEW.md` has the design. Do **step 2** only: a Start screen with three doors
-> ("What happened?", "Should it have been allowed?", "Did it actually work?") and a small case file board, wired to the **existing** lessons
-> regrouped by pillar, with a "next door" choice at the end of each lesson. No new lesson content, no changes to the recorded data. Keep the
-> existing tests green by adapting them (they assume the linear path). Measure before and after with a headless audit (visible controls, words,
-> panel height), commit locally and ask before pushing. Short answers, evidence before "done".
+## Where things stand (2026-11-18)
+Steps 2 to 7 of `docs/UX-REVIEW.md` are built and tested (Start screen with doors and case file; Trace mode and the Observability beats; the Evals and
+Guardrails beats with doors; two short cases; tappable squares on a phone; an opt-in playtest log). **No human has played any of it.** The next
+session is a playtest, not more building: put five people in front of `?playtest=1`, download the logs, and check the success criteria at the end of
+`docs/UX-REVIEW.md` (a choice in under 10 s, a reaction in under 30 s, two different routes under 10 minutes each, four of five can say what each
+pillar is for). Then fix what they stall on.
 
 ## Note: map PR #3 (`agent-knowledge-map`, `fix/guard-lone-root`)
 The PR makes a lone `/` the filesystem root in `guard_hook.py`, so `find /` is no longer allowed. agent-lab pins the old behaviour on purpose, so
@@ -18,7 +17,7 @@ The PR makes a lone `/` the filesystem root in `guard_hook.py`, so `find /` is n
 When it merges:
 1. Fresh clones of both upstream repos (`git clone --depth 1`), then `python3 scripts/vendor.py --map <map> --toolkit <toolkit>`, `python3 scripts/build_bundle.py`.
 2. Expect these to fail, in this order: `python3 -m unittest tests.test_guard` (`RealGuardrail`: the find-/ tests and the attacks test), then `node tests_js/ui_modes.mjs`
-   (the two real-guardrail lesson steps in `web/lessons.js`, `guard` lesson steps 5 and 6).
+   (the two real-guardrail lesson steps in `web/lessons.js`, `guardreal` lesson steps 2 and 3; the short-case guard lessons use the lab's own rules and are unaffected).
 3. Numbers on the current recordings once the fix is in (computed with the fixed file, 760 real calls, 459 attempts to leave the folder):
 
    | | before the fix | after the fix |

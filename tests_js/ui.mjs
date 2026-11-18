@@ -4,11 +4,14 @@ import { createServer } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { extname, join } from "node:path";
 import assert from "node:assert/strict";
-import { LESSONS } from "../web/lessons.js";
+import { LESSONS, PILLARS, CASES } from "../web/lessons.js";
+const caseOf = (id) => CASES.find((c) => PILLARS.some((p) => p.beats[c.id]?.includes(id)))?.id;
+// Start a lesson from the Start screen: switch to its case first (the case file shows one case at a time).
+const begin = async (id) => { await mode("start"); const c = caseOf(id); if (c && (await page.evaluate(() => __lab.S.case)) !== c) await page.click(`#home [data-act=case][data-id=${c}]`); await page.click(`#home [data-act=lstart][data-id=${id}]`); };
 
 const root = new URL("../web/", import.meta.url).pathname;
 const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json" };
-const srv = createServer((req, res) => { const f = join(root, req.url === "/" ? "index.html" : req.url.split("?")[0]);
+const srv = createServer((req, res) => { const p = req.url.split("?")[0], f = join(root, p === "/" ? "index.html" : p);
   if (!existsSync(f)) { res.writeHead(404).end(); return; } res.writeHead(200, { "content-type": types[extname(f)] || "text/plain" }).end(readFileSync(f)); }).listen(0);
 const url = `http://127.0.0.1:${srv.address().port}/`;
 const browser = await chromium.launch(process.env.CI ? {} : { executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
@@ -28,8 +31,8 @@ const ORD = "facts/orders-timestamps-utc.md";
 await open();
 assert.match(await txt("#home"), /Your agent passes the demo/);
 assert.deepEqual(await page.locator("#home [data-act=door]").evaluateAll((b) => b.map((x) => x.querySelector(".dq").textContent)), ["What happened?", "Should it have been allowed?", "Did it actually work?"], "three doors, in the order of the story");
-assert.equal(await page.locator("#home [data-act=lstart]").count(), 12, "the case file has a square for every lesson");
-assert.deepEqual(await page.locator("#home .cf").evaluateAll((c) => c.map((x) => x.querySelectorAll("button").length)), [3, 2, 7], "squares per pillar");
+assert.equal(await page.locator("#home [data-act=lstart]").count(), 14, "the case file has a square for every beat of the case and every deeper lesson");
+assert.deepEqual(await page.locator("#home .cf").evaluateAll((c) => c.map((x) => x.querySelectorAll("button").length)), [3, 3, 8], "squares per pillar: three beats each, and five deeper lessons under evals");
 assert.match(await page.getAttribute("#home [data-act=lvl][data-l=beginner]", "class"), /\bon\b/, "the current level is marked");
 assert.ok((await page.locator("#home [data-act=door]").last().boundingBox()).y < (await page.locator("#home [data-act=lvl]").first().boundingBox()).y, "the doors come before the level choice");
 assert.ok(!(await page.locator("#stage").isVisible()) && !(await page.locator("#drawer").isVisible()), "no canvas or drawer on the start screen");
@@ -38,7 +41,7 @@ await page.click("#home summary[data-fold=tools]");
 await page.click("#home [data-act=go][data-m=explore]");
 assert.ok(await page.locator("#stage").isVisible() && !(await page.locator("#home").isVisible()), "free explore opens the map");
 // each door opens its own adventure at its first lesson, and the end of a lesson offers the other doors
-for (const [p, id] of [["observability", "timeline"], ["guardrails", "guard"], ["evals", "eval"]]) {
+for (const [p, id] of [["observability", "timeline"], ["guardrails", "guard"], ["evals", "dstgate"]]) {
   await open(); await page.click(`#home [data-act=door][data-p=${p}]`);
   assert.equal(await page.evaluate(() => __lab.S.lesson.id), id, `the ${p} door opens ${id}`);
   assert.ok(await page.locator("#drawer [data-act=lpick]").count() > 0, `${id}: a prediction is on screen after one click`);
@@ -46,12 +49,42 @@ for (const [p, id] of [["observability", "timeline"], ["guardrails", "guard"], [
 await open(); await page.click("#home [data-act=door][data-p=observability]");
 for (let g = 0; g < 4; g++) { const pick = page.locator("#drawer [data-act=lpick]:not([disabled])"); if (await pick.count()) await pick.first().click(); if ((await txt("#drawer .lesson [data-act=lnext]")).includes("Finish")) break; await page.click("#drawer [data-act=lnext]"); }
 await page.click("#drawer [data-act=lnext]");
-assert.deepEqual(await page.locator("#drawer .doors-end [data-act=lstart]").evaluateAll((b) => b.map((x) => x.dataset.id)), ["trace", "guard", "eval"], "one observability lesson done: the next one here, and the next lesson of the other two adventures");
+assert.deepEqual(await page.locator("#drawer .doors-end [data-act=lstart]").evaluateAll((b) => b.map((x) => x.dataset.id)), ["trace", "guard", "dstgate"], "one observability beat done: the next beat here, and the next beat of the other two adventures");
 assert.equal(await page.locator("#drawer details.fold").count(), 0, "the doors card is alone in the drawer");
 await page.click("#drawer [data-act=lstart][data-id=guard]");
 assert.equal(await page.evaluate(() => __lab.S.lesson.id), "guard");
 await page.click("#drawer [data-act=lexit]");
 assert.equal(await page.locator("#home .cf button.d").count(), 1, "the case file marks what you finished");
+// --- the first Evals beat links to the basics and offers depth; the short cases have their own beats and guard corpus, and close
+const finish = async () => { for (let g = 0; g < 12; g++) { const pick = page.locator("#drawer [data-act=lpick]:not([disabled])"); if (await pick.count()) await pick.first().click(); const last = (await txt("#drawer .lesson [data-act=lnext]")).includes("Finish"); await page.click("#drawer .lesson [data-act=lnext]"); if (last) break; } };
+await page.evaluate(() => localStorage.clear()); await open();
+await page.click("#home [data-act=door][data-p=evals]");
+assert.equal(await page.locator("#drawer [data-act=lstart][data-id=eval]").count(), 1, "the first Evals beat links to the basics");
+await finish();
+assert.deepEqual(await page.locator("#drawer .doors-end [data-act=lstart]").evaluateAll((b) => b.map((x) => x.dataset.id)), ["break", "eval", "timeline"], "a beat, a deeper lesson, and a door into another adventure");
+await page.evaluate(() => localStorage.clear()); await open();
+await page.click("#home [data-act=case][data-id=evidence]");
+assert.deepEqual(await page.locator("#home .cf").evaluateAll((c) => c.map((x) => x.querySelectorAll("button").length)), [1, 1, 6], "a short case: one beat per adventure");
+await page.click("#home [data-act=door][data-p=guardrails]");
+assert.equal(await page.evaluate(() => __lab.S.lesson.id), "evguard");
+assert.equal(await page.evaluate(() => __lab.S.guard.calls.length), 64, "the guard lessons of a short case replay only that case's calls");
+await finish(); await page.click("#drawer [data-act=lstart][data-id=evtrace]"); await finish();
+await page.click("#drawer [data-act=lstart][data-id=evgate]"); await finish();
+assert.match(await txt("#drawer .doors-end"), /Case closed/, "three beats done closes the case");
+await page.click("#drawer [data-act=case]");
+assert.match(await txt("#home .case"), /went looking|read and still failed|read it and still failed|The skill it read/, "the other case is offered");
+await page.evaluate(() => localStorage.clear());
+// --- playtest log: off unless asked for; then local events only (door, step, answer)
+await open(); await page.click("#home [data-act=door][data-p=observability]");
+assert.equal(await page.evaluate(() => localStorage.getItem("lab.ptlog")), null, "nothing is logged by default");
+await page.evaluate(() => localStorage.clear());
+await open("?playtest=1");
+assert.match(await txt("#home"), /Playtest log/);
+await page.click("#home [data-act=door][data-p=observability]"); await page.click("#drawer [data-act=lpick] >> nth=0");
+const ptlog = await page.evaluate(() => JSON.parse(localStorage.getItem("lab.ptlog")));
+assert.deepEqual(ptlog.map((e) => e.type), ["door", "step", "answer"], "which door, which step, what was answered");
+assert.equal(ptlog[1].lesson, "timeline");
+await page.evaluate(() => localStorage.clear());
 // --- trace mode: one recorded answer is a row of squares, one per tool call, and the with-skill answer is a much shorter row
 await open("#m=trace");
 const nCalls = await page.evaluate(() => __lab.S.tl.calls.length);
@@ -184,9 +217,9 @@ for (const level of ["beginner", "experienced"]) {
   await open(); if ((await txt("#level")).includes(level)) {} else await page.click("#level");
   assert.match(await txt("#level"), new RegExp(level));
   for (const id of await page.evaluate(() => [...document.querySelectorAll("#tools")].length && window.__lab.lessons)) {
-    await mode("start"); await page.click(`#home [data-act=lstart][data-id=${id}]`);
+    await begin(id);
     assert.ok(await page.locator("#caption.on").isVisible(), `${id}: the canvas says what to look at`);
-    assert.equal(await page.locator("#drawer details.fold[open]").count(), LESSONS.find((l) => l.id === id).steps[0].open?.length ?? 0, `${id}: only the folds step 1 asks for are open`);
+    assert.equal(await page.evaluate(() => [...document.querySelectorAll("#drawer details.fold[open]")].filter((d) => !d.parentElement.closest("details:not([open])")).length), LESSONS.find((l) => l.id === id).steps[0].open?.length ?? 0, `${id}: only the folds step 1 asks for are open`);
     for (let guard = 0; guard < 12; guard++) {
       const pick = page.locator("#drawer [data-act=lpick]");
       if (await pick.count()) {
@@ -209,7 +242,7 @@ for (const level of ["beginner", "experienced"]) {
     }
     assert.equal(await page.locator("#drawer [data-act=lpick]").count(), 0, `${id} finished`);
     assert.equal(await page.locator("#drawer .doors-end").count(), 1, `${id}: finishing shows where to go next`);
-    assert.match(await txt("#drawer .doors-end"), /Where next\?|done\. Where next\?|All three adventures done/, `${id}: the doors card asks`);
+    assert.match(await txt("#drawer .doors-end"), /Where next\?|Case closed/, `${id}: the doors card asks`);
   }
 }
 const pg = await page.evaluate(() => JSON.parse(localStorage.getItem("lab.progress")));

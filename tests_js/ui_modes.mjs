@@ -1,7 +1,8 @@
 // Browser tests for the load path (no Python, slow Python, offline), the phone layout, beginner wording, recorded runs and every lesson's wrong-pick text.
 // ui.mjs plays every mode and challenge; this file checks what a person sees while things load or fail.
 import assert from "node:assert/strict";
-import { LESSONS } from "../web/lessons.js";
+import { LESSONS, PILLARS, CASES } from "../web/lessons.js";
+const caseOf = (id) => CASES.find((c) => PILLARS.some((p) => p.beats[c.id]?.includes(id)))?.id;
 import { newPage, open, ready, idle, errors, done } from "./harness.mjs";
 import { url } from "./harness.mjs";
 
@@ -35,7 +36,7 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
   }
   assert.equal(await page.locator("#drawer .doors-end").count(), 1, "lesson 1 reached Finish without Python and offers the next doors");
   assert.equal(await page.evaluate(() => __lab.ready), false);
-  await click(page, "#drawer [data-act=lstart][data-id=rank]");
+  await click(page, "#drawer [data-act=lstart][data-id=break]");
   await click(page, "#drawer [data-act=lpick] >> nth=0");
   assert.match(await txt(page, "#drawer .lesson .note"), /could not load/i, "the next lesson says why it cannot be answered");
   await page.context().close();
@@ -79,6 +80,27 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
   assert.ok(await page.locator("#tools .lbl").first().isVisible(), "the bottom bar is labelled");
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "no horizontal scroll");
   assert.ok(await page.evaluate(() => { const r = document.querySelector("#gverdict").getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }), "the verdict is on screen");
+  await page.context().close();
+}
+
+// --- phone: the squares stay, as buttons you tap (Trace, and the Guardrails squares)
+{
+  const page = await newPage({ width: 390, height: 844 });
+  await open(page, "#m=trace"); await ready(page); await idle(page);
+  const n = await page.evaluate(() => __lab.S.tl.calls.length);
+  assert.equal(await page.locator("#svg").isVisible(), false, "no canvas on a phone");
+  assert.equal(await page.locator("#sum .psq").count(), n, "one tappable square per tool call");
+  const box = await page.locator("#sum .psq").first().boundingBox();
+  assert.ok(box.width >= 24 && box.height >= 24, `a square is a tap target (${box.width}x${box.height})`);
+  await click(page, "#sum .psq >> nth=4");
+  assert.match(await txt(page, "#drawer .gcall"), new RegExp(`call 5 of ${n}`), "tapping a square reads that call");
+  assert.equal(await page.locator("#sum .psq.sel").count(), 1);
+  await click(page, "#tools button[data-m=guard]"); await idle(page);
+  const calls = await page.evaluate(() => __lab.S.guard.calls.length);
+  assert.equal(await page.locator("#sum .psq").count(), calls, "one tappable square per real tool call");
+  await click(page, "#sum .psq >> nth=9");
+  assert.match(await txt(page, "#drawer .gcall"), /./, "tapping a guard square opens the call");
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "no horizontal scroll");
   await page.context().close();
 }
 
@@ -234,7 +256,7 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
 // --- a lesson answer shows the reason short, with the rest one click away
 {
   const page = await newPage();
-  await open(page); await click(page, "#home [data-act=door][data-p=evals]");
+  await open(page); await click(page, "#home [data-act=lstart][data-id=eval]");
   await click(page, "#drawer [data-act=lpick] >> nth=0");
   const full = await page.evaluate(() => document.querySelector("#drawer .lesson").textContent.length);
   const seen = await page.evaluate(() => document.querySelector("#drawer .lesson").innerText.length);
@@ -250,7 +272,7 @@ const unfold = async (page, k) => { if (!(await page.locator(`details.fold:has(s
   const page = await newPage();
   await open(page); await ready(page);
   for (const L of LESSONS) {
-    await open(page); await click(page, `#home [data-act=lstart][data-id=${L.id}]`);
+    await open(page); const c = caseOf(L.id); if (c && c !== "dst") await click(page, `#home [data-act=case][data-id=${c}]`); await click(page, `#home [data-act=lstart][data-id=${L.id}]`);
     for (let i = 0; i < L.steps.length; i++) {
       const st = L.steps[i];
       if (st.setup?.some(([a]) => a === "grun")) assert.match(await txt(page, "#svg"), /recorded run:/, `${L.id} step ${i + 1}: the canvas shows the recorded run, not the hand-set one`);

@@ -1,5 +1,5 @@
 import { connectLab } from "./lab.js";
-import { LESSONS, PILLARS, checkClaims, noise, featured } from "./lessons.js";
+import { LESSONS, PILLARS, CASES, checkClaims, noise, featured, casePair } from "./lessons.js";
 import { CHALLENGES } from "./challenges.js";
 import { extractFunc, annotate, coverage, MODE_CODE, NOTES, TWEAKS, applyTweak, lineDiff, brief } from "./codepanel.js";
 import { buildGraph, layout, neighbors, gateSteps, clip, encodeGate, decodeGate, FILE_KINDS, PLAIN_VERDICT, plainReason, costs, runGrid, traceStats, slimRun, modelName } from "./model.js";
@@ -18,6 +18,10 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch { /* nothing to remove */ } },
   json(k) { try { return JSON.parse(this.get(k, "null")); } catch { return null; } },
 };
+// Playtest log: opt-in and local. ?playtest=1 turns it on (and remembers it); one line per event goes to localStorage and nowhere else. The Start screen
+// then offers Download and Clear. Stalls are read from the gaps between events: which beat, which step, how long, which door.
+const PT = /[?&]playtest=1/.test(location.search) ? (store.set("lab.playtest", "1"), true) : store.get("lab.playtest") === "1";
+const pt = (type, data = {}) => { if (!PT) return; const log = store.json("lab.ptlog") || []; log.push({ t: Date.now(), type, ...data }); store.set("lab.ptlog", JSON.stringify(log.slice(-1000))); };
 
 const ICON = {
   explore: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8 7l8 1M7.5 8l3 8M16.5 10l-3 6"/>',
@@ -49,7 +53,7 @@ const MODES = [
 const HASH0 = location.hash;
 let lab, bundle;
 const S = { mode: "start", files: {}, questions: "", docs: [], results: [], qlist: [], graph: null, sel: null, ov: {}, whatif: null, preview: null, runs: null, skills: {},
-  view: { x: 0, y: 0, k: 1 }, level: store.get("lab.level") || "beginner", tab: {}, fold: {}, trace: new Map(), edits: {}, gate: null, skill: {}, replayTok: 0, ref: {}, ready: false };
+  view: { x: 0, y: 0, k: 1 }, level: store.get("lab.level") || "beginner", tab: {}, fold: {}, trace: new Map(), edits: {}, gate: null, skill: {}, replayTok: 0, ref: {}, ready: false, case: "dst", corpus: null };
 // Every result comes from the real Python. `call` waits for it; while Python is still loading, calls that were recorded from the
 // real code at build time (web/recorded.json) answer at once.
 const raw = (n, a) => lab.call(n, a);   // errors of the learner's own edit come back as data
@@ -370,7 +374,7 @@ const mdi = (t) => esc(t).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>").replace(/\*([
 const ctx = () => ({ S, call });
 const lessons = () => LESSONS.filter((l) => !l.needs || l.needs(S));   // a lesson built on recorded runs is offered only when they loaded
 // leaving a lesson or challenge discards what it set up (bad evals, broken files, presets) so free exploring starts clean
-async function leaveGuided() { if (S.lesson || S.chal) { S.lesson = null; S.chal = null; await resetAll(); } }
+async function leaveGuided() { if (S.lesson || S.chal) { S.lesson = null; S.chal = null; S.corpus = null; await resetAll(); } }
 async function resetAll() {
   S.files = structuredClone(bundle.brain); S.questions = bundle.questions; S.sel = null; S.whatif = null; S.preview = null; S.ov = {}; S.mut = null; S.explain = null;
   S.replay = null; S.edits = {}; S.tab = {}; S.lastQ = null; S.lastMut = null; S.ab = null; S.mop = null; S.replayTok++; await refresh(); await initGate(true); initSkill(); initGuard();
@@ -396,6 +400,7 @@ const LA = {   // actions a lesson step may name
   grun: async (skill, variant, family) => { await setRun(findRun(skill, variant, family)); renderScene(); },
   gpeek: (p, a, i) => { S.gate.peek = { p, a, i }; },
   tans: async (family, arm) => { const f = featured(S, family); await setAnswer(f.run, f[arm]); renderScene(); },
+  tcase: async (id, arm) => { const p = casePair(S, id); await setAnswer(p.run, p[arm]); renderScene(); },
   glogsample: async () => { await loadLive("an example log (made up)", bundle.guardlog); },
   skill: async (kind) => {
     if (kind === "filler") await ACT.sfill();
@@ -406,12 +411,16 @@ const LA = {   // actions a lesson step may name
 const runActs = async (acts = []) => { for (const [a, ...args] of acts) { if (!LA[a]) throw new Error("unknown lesson action " + a); await LA[a](...args); } };
 const lstep = () => { const L = LESSONS.find((l) => l.id === S.lesson.id); return [L, L.steps[S.lesson.i]]; };
 async function startLesson(id, at = 0) {
-  await resetAll(); S.chal = null; S.lesson = { id, i: Math.min(at, LESSONS.find((l) => l.id === id).steps.length - 1), right: 0, total: 0, answered: {} };
+  const Lz = LESSONS.find((l) => l.id === id), c = caseOfLesson(id);
+  S.corpus = Lz.corpus ?? null;   // the guard lessons of the short cases replay only that case's calls
+  if (c && c !== S.case) { S.case = c; store.set("lab.case", c); }
+  await resetAll(); S.chal = null; S.lesson = { id, i: Math.min(at, Lz.steps.length - 1), right: 0, total: 0, answered: {} };
   await enterStep();
 }
 async function enterStep() {
   S.fold = {};   // each step starts with its own defaults (step.open lists the folds a step needs)
   const [, st] = lstep(), ans = S.lesson.answered[S.lesson.i];
+  pt("step", { lesson: S.lesson.id, i: S.lesson.i, case: S.case });
   store.set("lab.resume", JSON.stringify({ id: S.lesson.id, i: S.lesson.i }));
   S.gate.peek = null;
   await setMode(st.mode, true); await runActs(st.setup);
@@ -435,6 +444,7 @@ async function lessonPick(i) {
   L.error = null;
   if (!st.predict.choices.includes(correct)) throw new Error(`lesson bug: answer ${JSON.stringify(correct)} is not one of the choices`);
   L.answered[L.i] = { picked: choice, correct, src: lab.ready ? "live" : "recorded" }; L.total++; if (choice === correct) L.right++;
+  pt("answer", { lesson: L.id, i: L.i, right: choice === correct });
   await explainStep();
   toast(choice === correct ? "you predicted it" : "not quite: read why", choice === correct ? "pass" : "warn");
   await drawer();
@@ -446,7 +456,7 @@ async function lessonNav(d) {
   if (next < 0) return;
   if (next >= Lz.steps.length) {
     const n = L.total; saveProg((p) => (p[L.id] = { done: true, right: L.right, total: n })); store.del("lab.resume");
-    L.finished = true; await drawer(); $("drawer").scrollTop = 0; return;   // the doors card: where next?
+    pt("finish", { lesson: L.id, right: L.right, total: L.total }); L.finished = true; await drawer(); $("drawer").scrollTop = 0; return;   // the doors card: where next?
   }
   L.i = next; await enterStep();
 }
@@ -465,16 +475,18 @@ function splitWhy(t) {
   while ((m = re.exec(t))) { const head = t.slice(0, m.index + 1); if (head.length >= 60 && (head.match(/`/g) || []).length % 2 === 0) { const rest = t.slice(m.index + 1).trim(); return rest.length >= 80 ? [head, rest] : [t, ""]; } }
   return [t, ""];
 }
-// End of a lesson: the next door in this adventure and the doors into the others, each at its next unplayed lesson.
+// End of a lesson: the next beat of this adventure, a deeper lesson, and the next unplayed beat of the other adventures (three doors at most).
 function doorsCard() {
-  const L = S.lesson, Lz = LESSONS.find((l) => l.id === L.id), me = pillarOf(L.id), q = prog()[L.id];
+  const L = S.lesson, Lz = LESSONS.find((l) => l.id === L.id), me = pillarOf(L.id), q = prog()[L.id], inDeeper = me.deeper.includes(L.id);
   const go = (l, head, sub) => `<button class="btn alt" data-act="lstart" data-id="${l.id}"><b>${esc(head)}</b><span class="mut">${esc(sub)}</span></button>`;
-  const same = nextIn(me, L.id), others = PILLARS.filter((p) => p !== me && nextIn(p));
-  let h = `<div class="lesson doors-end"><div class="lh"><b>${esc(Lz.title)}: done</b><span class="mut">${q?.total ? `${q.right}/${q.total} predicted` : ""}</span></div><div class="lq"><b>Where next?</b></div><div class="choices">`;
-  if (same) h += go(same, `More ${me.name.toLowerCase()}: ${same.title}`, same.blurb);
-  h += others.map((p) => go(nextIn(p), p.door, `${p.name}: ${nextIn(p).title}`)).join("");
-  if (!same && !others.length) h += `<div class="lt ok">All three adventures done.</div>`;
-  else if (!same) h = h.replace("<b>Where next?</b>", `<b>${esc(me.name)} done. Where next?</b>`);
+  const beat = inDeeper ? nextIn(me) : nextIn(me, L.id), dp = nextDeeper(me), doors = [];
+  if (beat) doors.push(go(beat, `${inDeeper ? "Back to" : "More"} ${me.name.toLowerCase()}: ${beat.title}`, beat.blurb));
+  if (dp) doors.push(go(dp, `Go deeper: ${dp.title}`, dp.blurb));
+  const at = PILLARS.indexOf(me);
+  for (const p of [...PILLARS.slice(at + 1), ...PILLARS.slice(0, at)].filter((x) => nextIn(x))) if (doors.length < 3) doors.push(go(nextIn(p), p.door, `${p.name}: ${nextIn(p).title}`));
+  const closed = !PILLARS.some((p) => nextIn(p)), other = CASES.find((c) => c.id !== S.case && PILLARS.some((p) => (p.beats[c.id] || []).some((id) => !prog()[id]?.done && lessons().some((l) => l.id === id))));
+  let h = `<div class="lesson doors-end"><div class="lh"><b>${esc(Lz.title)}: done</b><span class="mut">${q?.total ? `${q.right}/${q.total} predicted` : ""}</span></div><div class="lq"><b>${closed ? "Case closed. Where next?" : !beat && !inDeeper ? `${esc(me.name)} done. Where next?` : "Where next?"}</b></div><div class="choices">${doors.join("")}`;
+  if (closed && other) h += `<button class="btn alt" data-act="case" data-id="${other.id}"><b>Open another case</b><span class="mut">${esc(other.title)}</span></button>`;
   return h + `</div><div class="row lnav"><button class="btn alt" data-act="lback">← Back</button><button class="btn" data-act="lexit">Case file</button></div></div>`;
 }
 function lessonCard() {
@@ -483,6 +495,7 @@ function lessonCard() {
   const [Lz, st] = lstep(), L = S.lesson, beg = S.level === "beginner", n = Lz.steps.length, pr = st.predict, ans = L.answered[L.i], picked = !!ans;
   const label = (c) => (pr.show ? pr.show(c, beg) : c);
   let h = `<div class="lesson"><div class="lh"><b>${esc(Lz.title)}</b><span class="dots" title="step ${L.i + 1} of ${n}">${Array.from({ length: n }, (_, i) => `<i class="${i < L.i ? "d" : i === L.i ? "c" : ""}"></i>`).join("")}</span><button class="chip" data-act="lexit">exit</button></div>`;
+  if (L.i === 0 && Lz.before && !L.answered[0]) h += `<div class="row"><span class="mut">${esc(Lz.before[1])}</span><button class="btn sm alt" data-act="lstart" data-id="${Lz.before[0]}">Basics first</button></div>`;
   if (st.text) { const t = `<div class="lt">${mdi(!beg && st.exp ? st.exp : st.text)}</div>`; h += picked ? fold("setup", "The setup", t, false) : t; }   // once answered, the setup is one click away, not in the way
   if (!beg && st.deeper) h += `<div class="mut">${mdi(st.deeper)}</div>`;
   if (pr) {
@@ -543,21 +556,29 @@ function chalCard() {
   return h;
 }
 // ---------------- Start screen: three doors (one per pillar) and a case file of every lesson. Its first screenful is also the static shell in index.html.
-const pillarLessons = (p) => p.lessons.map((id) => lessons().find((l) => l.id === id)).filter(Boolean);
-const pillarOf = (id) => PILLARS.find((p) => p.lessons.includes(id));
-const nextIn = (p, after) => { const pr = prog(), ls = pillarLessons(p), at = after ? ls.findIndex((l) => l.id === after) : -1; return [...ls.slice(at + 1), ...ls.slice(0, at + 1)].find((l) => !pr[l.id]?.done); };
+// The beats of the current case are the main path of each adventure; `deeper` lessons are optional depth, offered as a door and on the case file.
+const lessonsById = (ids) => ids.map((id) => lessons().find((l) => l.id === id)).filter(Boolean);
+const pillarLessons = (p) => lessonsById(p.beats[S.case] ?? []);
+const deeperOf = (p) => lessonsById(p.deeper);
+const pillarOf = (id) => PILLARS.find((p) => p.deeper.includes(id) || Object.values(p.beats).some((b) => b.includes(id)));
+const caseOfLesson = (id) => CASES.find((c) => PILLARS.some((p) => p.beats[c.id]?.includes(id)))?.id;
+const firstUndone = (ls, after) => { const pr = prog(), at = after ? ls.findIndex((l) => l.id === after) : -1; return [...ls.slice(at + 1), ...ls.slice(0, at + 1)].find((l) => !pr[l.id]?.done); };
+const nextIn = (p, after) => firstUndone(pillarLessons(p), after);
+const nextDeeper = (p) => firstUndone(deeperOf(p));
 function homeHtml() {
-  const pr = prog(), res = store.json("lab.resume");
+  const pr = prog(), res = store.json("lab.resume"), cs = CASES.find((c) => c.id === S.case);
   const door = (p) => { const ls = pillarLessons(p), n = ls.filter((l) => pr[l.id]?.done).length, up = nextIn(p), mid = !!up && res?.id === up.id && res.i > 0;
-    return `<button class="door ${up ? "" : "done"}" data-act="door" data-p="${p.id}"><span class="dq">${esc(p.door)}</span><span class="dn">${esc(p.name)}</span><span class="mut">${esc(p.blurb)}</span><span class="dp">${up ? (n || mid ? "Continue" : "Start") : "Done, play again"} · ${n}/${ls.length} lessons</span></button>`; };
-  const board = (p) => `<div class="cf"><b>${esc(p.name)}</b><div class="sq">${pillarLessons(p).map((l, i) => { const q = pr[l.id], up = nextIn(p)?.id === l.id;
-    return `<button class="${q?.done ? "d" : ""} ${up ? "n" : ""}" data-act="lstart" data-id="${l.id}" title="${esc(l.title)}${q?.done && q.total ? ` · ${q.right}/${q.total} predicted` : ""}" aria-label="${esc(l.title)}${q?.done ? ", done" : ""}">${q?.done ? "✔" : i + 1}</button>`; }).join("")}</div></div>`;
+    return `<button class="door ${up ? "" : "done"}" data-act="door" data-p="${p.id}"><span class="dq">${esc(p.door)}</span><span class="dn">${esc(p.name)}</span><span class="mut">${esc(p.blurb)}</span><span class="dp">${up ? (n || mid ? "Continue" : "Start") : "Done, play again"} · ${n}/${ls.length} ${ls.length === 1 ? "beat" : "beats"}</span></button>`; };
+  const sq = (l, i, deeper, up) => { const q = pr[l.id]; return `<button class="${q?.done ? "d" : ""} ${up ? "n" : ""} ${deeper ? "x" : ""}" data-act="lstart" data-id="${l.id}" title="${esc(l.title)}${deeper ? " (deeper)" : ""}${q?.done && q.total ? ` · ${q.right}/${q.total} predicted` : ""}" aria-label="${esc(l.title)}${deeper ? ", deeper" : ""}${q?.done ? ", done" : ""}">${q?.done ? "✔" : deeper ? "+" : i + 1}</button>`; };
+  const board = (p) => `<div class="cf"><b>${esc(p.name)}</b><div class="sq">${pillarLessons(p).map((l, i) => sq(l, i, false, nextIn(p)?.id === l.id)).join("")}${deeperOf(p).map((l, i) => sq(l, i, true, false)).join("")}</div></div>`;
   const beg = S.level === "beginner";
   let h = `<div class="hm"><h1>Your agent passes the demo. How do you know it's good?</h1>
     <p class="hl">Pick a question. You predict what the real code will do, then watch it run. No model is called; nothing leaves the page.</p>
+    <div class="case"><span class="mut">Case</span> <b>${esc(cs.title)}</b> <span class="mut">${esc(cs.line)}</span>${CASES.filter((c) => c !== cs).map((c) => `<button class="chip" data-act="case" data-id="${c.id}" title="${esc(c.line)}">${esc(c.title)}</button>`).join("")}</div>
     <div class="doors">${PILLARS.map(door).join("")}</div><div class="mut" id="homepy">${homePy()}</div>
     <h2>Case file</h2><div class="cfs">${PILLARS.map(board).join("")}</div>
     <div class="who"><span class="mut">Pitched at</span><button data-act="lvl" data-l="beginner" class="chip ${beg ? "on" : ""}" title="Plain words, a hint on each question, notes beside the code.">new to evals or Python</button><button data-act="lvl" data-l="experienced" class="chip ${beg ? "" : "on"}" title="Terse: upstream names, line counts, a full editor.">I write Python</button></div>`;
+  if (PT) h += `<div class="mut">Playtest log, kept on this device and never sent: ${(store.json("lab.ptlog") || []).length} events <button class="chip" data-act="ptdl">Download</button> <button class="chip" data-act="ptclear">Clear</button></div>`;
   h += `<details class="fold" ${foldOpen("tools", false) ? "open" : ""}><summary data-fold="tools" data-def="0"><span>Or play with the tools · ${CHALLENGES.length} challenges <span class="mut">${CHALLENGES.filter((c) => pr["chal:" + c.id]?.done).length}/${CHALLENGES.length} solved</span></span></summary>` +
     CHALLENGES.map((c) => `<div class="lrow"><span class="ck">${pr["chal:" + c.id]?.done ? "✔" : ""}</span><div class="t"><b>${esc(c.title)}</b><span class="mut">${c.code ? "edit code" : "in " + MODES.find((m) => m[0] === c.mode)[1]}</span></div><button class="btn alt" data-act="cstart" data-id="${c.id}">${pr["chal:" + c.id]?.done ? "Again" : "Start"}</button></div>`).join("") +
     `<div class="mgrid">${MODES.filter((m) => !["start", "about"].includes(m[0])).map((m) => `<button data-act="go" data-m="${m[0]}"><b>${esc(m[1])}</b><span class="mut">${esc(m[3])}</span></button>`).join("")}</div></details></div>`;
@@ -686,7 +707,7 @@ const ACT = {
     c.E.out = { ...r, target: ts.target }; await drawer(); $("drawer").querySelector(".card:last-of-type")?.scrollIntoView({ block: "nearest" });
   },
   edreset() { const c = editCtx(); delete S.edits[c.key]; return drawer(); },
-  lstart(t) { const r = store.json("lab.resume"); return startLesson(t.dataset.id, r && r.id === t.dataset.id && !prog()[r.id]?.done ? r.i : 0); },
+  lstart(t) { const r = store.json("lab.resume"); pt("open", { lesson: t.dataset.id, from: S.lesson?.finished ? "doors" : "case file" }); return startLesson(t.dataset.id, r && r.id === t.dataset.id && !prog()[r.id]?.done ? r.i : 0); },
   lpick(t) { return lessonPick(+t.dataset.i); },
   lsamples(t) { S.lesson.samples = +t.dataset.n; return drawer(); },
   lnext() { return lessonNav(1); }, lback() { return lessonNav(-1); },
@@ -697,7 +718,10 @@ const ACT = {
   lexit() { return setMode("start"); },
   go(t) { return setMode(t.dataset.m); },
   async showcode() { S.fold.code = true; await drawer(); $("drawer").querySelector('summary[data-fold="code"]')?.scrollIntoView({ block: "nearest" }); },
-  door(t) { const p = PILLARS.find((x) => x.id === t.dataset.p), n = nextIn(p) ?? pillarLessons(p)[0], r = store.json("lab.resume"); if (n) return startLesson(n.id, r && r.id === n.id && !prog()[n.id]?.done ? r.i : 0); },
+  door(t) { const p = PILLARS.find((x) => x.id === t.dataset.p), n = nextIn(p) ?? pillarLessons(p)[0], r = store.json("lab.resume"); if (n) { pt("door", { pillar: p.id, lesson: n.id }); return startLesson(n.id, r && r.id === n.id && !prog()[n.id]?.done ? r.i : 0); } },
+  case(t) { S.case = t.dataset.id; store.set("lab.case", S.case); pt("case", { case: S.case }); return S.mode === "start" && !S.lesson ? drawer() : setMode("start"); },
+  ptdl() { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(store.json("lab.ptlog") || [], null, 1)], { type: "application/json" })); a.download = "agent-lab-playtest.json"; a.click(); URL.revokeObjectURL(a.href); },
+  ptclear() { store.del("lab.ptlog"); return drawer(); },
   async lvl(t) { S.level = t.dataset.l; store.set("lab.level", S.level); $("level").textContent = "level: " + S.level; await relevel(); },
   ctab(t) { S.tab[S.mode] = +t.dataset.i; return drawer(); },
   async save() { S.files[S.sel] = $("fbody").value; await refresh(); renderGraph(); toast("saved to this tab", ""); await drawer(); },
@@ -899,7 +923,8 @@ function renderGate() {
 // ---------------- guardrails: a policy against the real tool calls in the recorded runs (lab/guard.py is written for this lab, not upstream)
 function initGuard() {
   const calls = [];
-  for (const [name, res] of Object.entries(S.runs?.runs || {})) for (const r of res.rows) for (const [tool, args] of r.tools) {
+  const inCorpus = (name) => !S.corpus || (S.runs.meta.files[name].skill === CASES.find((c) => c.id === S.corpus).skill && !S.runs.meta.files[name].variant);
+  for (const [name, res] of Object.entries(S.runs?.runs || {})) if (inCorpus(name)) for (const r of res.rows) for (const [tool, args] of r.tools) {
     let a; try { a = JSON.parse(args); } catch { a = {}; }
     calls.push({ name: tool, args: a, run: name, probe: r.probe, arm: r.arm, n: r.n });
   }
@@ -1131,11 +1156,28 @@ function renderAbout() {
   root.append(nodeEl({ id: "py", kind: "eval", title: "Pyodide (WebAssembly Python)", sub: "no server · no model calls · no secrets", pass: true }, { x: 560, y: mid, w: 300, h: 38 }));
   fit(900, 50 + entries.length * 50);
 }
+// On a phone the squares stay: the same squares as the canvas, as buttons you tap. Tapping does what clicking the canvas square does.
+const psq = (items) => `<div class="psqs ${items.length > 120 ? "many" : ""}">${items.map((x, i) => `<button class="psq ${x.cls} ${x.sel ? "sel" : ""}" data-psq="${i}" aria-label="${esc(x.label)}"></button>`).join("")}</div>`;
+function guardSquares() {
+  const G = S.guard, O = G.out;
+  if (G.tab === "log") return G.live?.res ? psq(G.live.res.rows.map((r, i) => ({ cls: r.action === "allow" ? "fine" : r.action, label: `${r.action} ${r.rule} ${r.text}`.slice(0, 80), sel: G.live.sel === i }))) : "";
+  if (G.tab === "output") return O.res ? psq(O.texts.map((t, i) => { const st = O.res.rows[i].status; return { cls: st === "leak" ? (O.opts.length ? "miss" : "esc") : st === "fixed" ? "caught" : st === "damaged" ? "fp" : "fine", label: t.text.slice(0, 80), sel: O.sel === i }; })) : "";
+  const nothing = guardNothing();
+  return G.calls.length ? psq(G.calls.map((c, i) => { const r = G.res?.rows[i]; return { cls: r ? (r.blocked ? (r.outside ? "caught" : "fp") : r.outside ? (nothing ? "esc" : "miss") : "fine") : "fine", label: guardText(c).slice(0, 80), sel: G.sel === i }; })) : "";
+}
+async function tapSquare(i) {
+  const sc = MODES.find((m) => m[0] === S.mode)[2], G = S.guard;
+  if (sc === "scene-trace") S.tl.sel = i;
+  else if (G.tab === "log") G.live.sel = i;
+  else if (G.tab === "output") { G.out.sel = i; G.out.selOut = await call("scrub_one", { text: G.out.texts[i].text, opts: G.out.opts, user: G.out.user, rebuild: true }); }
+  else G.sel = i;
+  renderScene(); await drawer();
+}
 // ---------------- phone: the canvas is too small to read at 390px, so the same state is shown as a short, tappable summary
 function summary() {
   const box = $("sum"); if (!phone() || S.mode === "start") { box.innerHTML = ""; return; }
   const sc = MODES.find((m) => m[0] === S.mode)[2], beg = S.level === "beginner";
-  if (sc === "scene-trace") { const T = S.tl, r = tlAnswer(); box.innerHTML = T && r ? `<h4>Trace <span>${esc(r.probe)} · ${r.arm === "with" ? "with" : "without"} the skill</span></h4><div class="mut">${T.calls.length} tool calls, ${tlOut()} reaching outside the working folder · ${r.correct ? "passed" : "failed"} the check · $${r.cost_usd}</div><div class="chips">${T.calls.map((c, i) => `<span class="sc eval ${T.labels[i]?.outside ? "warn" : "pass"}"><i></i>${i + 1} ${esc(c.name)}</span>`).join("")}</div>` : ""; return; }
+  if (sc === "scene-trace") { const T = S.tl, r = tlAnswer(); box.innerHTML = T && r ? `<h4>Trace <span>${esc(r.probe)} · ${r.arm === "with" ? "with" : "without"} the skill</span></h4><div class="mut">${T.calls.length} tool calls, ${tlOut()} reaching outside the working folder · ${r.correct ? "passed" : "failed"} the check · $${r.cost_usd}</div>${psq(T.calls.map((c, i) => ({ cls: T.labels[i]?.outside ? "ask" : "in", label: `${i + 1}. ${c.name} ${guardText(c).slice(0, 60)}`, sel: T.sel === i })))}` : ""; return; }
   const steps = (g) => gateSteps(g, beg).map((s, i) => `<div class="sstep ${s.state} ${s.state === "fired" ? (s.verdict === "ADOPT" ? "good" : "bad") : ""}"><b>${i + 1} · ${esc(s.name)}</b><span>${esc(s.question)}</span><em>${s.state === "fired" ? (s.verdict === "ADOPT" ? "→ adopt" : "yes → stop here") : s.state === "no" ? "no" : ""}</em></div>`).join("");
   let h = "";
   if (sc === "scene-graph" && S.graph) {
@@ -1161,6 +1203,7 @@ function summary() {
     const r = S.skill.res;
     h = `<h4>Text check <span>does the skill's text hold each answer?</span></h4><div class="chips">${bundle.probes.filter((p) => p.skill === S.skill.name).map((p) => { const c = r?.coverage.find((x) => x.probe === p.id); return `<span class="sc eval ${c ? (c.covered ? "pass" : "fail") : ""}"><i></i>${esc(p.id)}</span>`; }).join("")}</div>` + (r ? `<h4>The gate, on that check</h4>${steps(r.gate)}` : "");
   }
+  if (sc === "scene-guard") h += guardSquares();
   box.innerHTML = h;
 }
 // ---------------- trace: one recorded answer as a row of squares, one per tool call. Labels come from lab/guard.py's reference check.
@@ -1201,7 +1244,7 @@ function traceDrawer() {
     <select id="tlans" aria-label="answer">${res.rows.map((x, i) => `<option value="${i}" ${x === r ? "selected" : ""}>${esc(x.probe)} · ${x.arm === "with" ? "with" : "without"} the skill · try ${x.n + 1} · ${x.tools.length} call${x.tools.length === 1 ? "" : "s"}</option>`).join("")}</select>
     <div class="card"><div class="big ${r.correct ? "ok" : "bad"}">${r.correct ? "✔ passed" : "✘ failed"} the check</div>
       <div class="mut">${T.calls.length} tool call${T.calls.length === 1 ? "" : "s"}, ${tlOut()} reaching outside the working folder · $${r.cost_usd} · ${r.finished ? "finished" : "did not finish"}${r.arm === "with" ? (r.skill_read ? " · opened the skill file" : " · did not open the skill file") : ""}</div></div>`;
-  h += sel ? `<div class="card gcall"><div class="mut">call ${T.sel + 1} of ${T.calls.length} · ${esc(sel.name)}</div><pre>${esc(guardText(sel))}</pre><div class="${T.labels[T.sel]?.outside ? "warn" : "ok"}">${esc(T.labels[T.sel]?.why ?? "")}</div></div>` : `<div class="mut">Click a square on the canvas to read that call.</div>`;
+  h += sel ? `<div class="card gcall"><div class="mut">call ${T.sel + 1} of ${T.calls.length} · ${esc(sel.name)}</div><pre>${esc(guardText(sel))}</pre><div class="${T.labels[T.sel]?.outside ? "warn" : "ok"}">${esc(T.labels[T.sel]?.why ?? "")}</div></div>` : `<div class="mut">Click or tap a square to read that call.</div>`;
   return h + `<div class="note"><b>What this is.</b> A recorded answer, scrubbed like the rest. “Outside” is this lab's reference label (<code>reaches_outside</code> in <code>lab/guard.py</code>): a path outside the working folder, or a shell feature that can build one. The recording has one cost per answer, not per call.</div>`;
 }
 
@@ -1252,7 +1295,7 @@ function wire() {
   $("tools").innerHTML = btn("start") + `<div class="grp">explore</div>` + ["explore", "evals", "break", "gate", "trace", "abfact", "abskill", "guard"].map(btn).join("") + `<div class="sp"></div>` + btn("about");
   $("home").onclick = panelClick;
   $("tools").onclick = (e) => { const m = e.target.closest("button")?.dataset.m; if (m) act(() => setMode(m)); };
-  $("sum").onclick = (e) => { const id = e.target.closest("[data-node]")?.dataset.node; if (id) act(() => onNode(id)); };
+  $("sum").onclick = (e) => { const id = e.target.closest("[data-node]")?.dataset.node; if (id) act(() => onNode(id)); const sq = e.target.closest("[data-psq]"); if (sq) act(() => tapSquare(+sq.dataset.psq)); };
   $("find").onclick = palOpen;
   $("pin").oninput = () => { pal.items = palItems($("pin").value); pal.sel = 0; palRender(); };
   $("pin").onkeydown = (e) => { if (e.key === "ArrowDown") pal.sel = Math.min(pal.sel + 1, pal.items.length - 1); else if (e.key === "ArrowUp") pal.sel = Math.max(pal.sel - 1, 0); else if (e.key === "Enter") return palPick(pal.sel); else if (e.key === "Escape") return palClose(); else return; e.preventDefault(); palRender(); };
@@ -1278,7 +1321,7 @@ async function boot() {
   let recorded;
   [bundle, recorded, S.runs] = await Promise.all([get("bundle.json"), get("recorded.json").catch(() => ({ calls: {} })), get("runs.json").catch(() => null)]);
   lab = connectLab(window.__py, recorded, { record: RECORD, onState: pyState });
-  S.files = structuredClone(bundle.brain); S.questions = bundle.questions; S.skills = bundle.skills;
+  S.files = structuredClone(bundle.brain); S.questions = bundle.questions; S.skills = bundle.skills; { const c = store.get("lab.case"); if (CASES.some((x) => x.id === c)) S.case = c; }
   window.__lab = { call: (n, a) => lab.call(n, a), ready: lab.ready, interactive: false, idle, S, lab, lessons: lessons().map((l) => l.id) };
   wire(); pyState();
   const m = HASH0.match(/m=(\w+)/)?.[1]; const start = /[#&](g|run)=/.test(HASH0) ? "gate" : MODES.some((x) => x[0] === m) ? m : "start";

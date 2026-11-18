@@ -61,7 +61,43 @@ const tlN = (S) => S.tl.calls.length, tlO = (S) => S.tl.labels.filter((x) => x.o
 const logK = (S) => S.guard.live?.res?.counts, logStopped = (k) => k.ask + k.deny, logPct = (k) => Math.round((100 * logStopped(k)) / k.total);
 const topRule = (S) => Object.entries(S.guard.live.res.rules).sort((a, b) => b[1] - a[1])[0];
 
+// A case is one recorded story told through all three lenses. `skill`/`family` name its recorded run; its beats are in PILLARS.
+export const CASES = [
+  { id: "dst", title: "The agent that went looking for the answer", skill: "dst", family: "haiku", line: "A small model with no skill searched far beyond its folder. With the skill it made one call." },
+  { id: "evidence", title: "The skill that helps, at a price", skill: "evidence-gated", family: "sonnet", line: "A skill that makes answers right, and costs nearly twice as much." },
+  { id: "doubt", title: "The skill it read and still failed", skill: "doubt", family: "haiku", line: "The model opened the skill file. Its answers still missed what the check looks for." },
+];
+// The answer a case reads in the Trace mode, and its pair (same question, same try, other arm). dst and doubt: the without-skill answer with
+// the most calls. evidence: the costliest with-skill answer. Chosen from the data, so a re-recording picks its own.
+export function casePair(S, id) {
+  const c = CASES.find((x) => x.id === id), name = c && run(S, c.skill, null, c.family), res = name && S.runs?.runs[name]; if (!res) return null;
+  if (id !== "evidence") return featured(S, c.family, name);
+  const wi = res.rows.filter((r) => r.arm === "with").reduce((a, r) => (!a || r.cost_usd > a.cost_usd ? r : a), null);
+  return wi && { run: name, with: wi, without: res.rows.find((r) => r.arm === "without" && r.probe === wi.probe && r.n === wi.n) };
+}
+const callText = (S, i) => guardTextOf(S.guard.calls[i]);
+
 export const LESSONS = [
+  {
+    id: "dstgate", title: "The gate says adopt. Believe it?", blurb: "Judge a real model run with the gate.",
+    look: "The funnel judges a recorded run: real answers from a real model on the `dst` questions. Click a ✔ or ✘ under “Poke at it yourself” to read one.",
+    learned: "A gate turns many answers into one verdict with fixed rules, so the same results always give the same verdict. A verdict is only as good as the check behind it and the number of runs it saw. The next beats test both.",
+    needs: (S) => !!run(S, "dst", null, "haiku"),
+    before: ["eval", "New to evals? Start with what an eval is."],
+    steps: [
+      { mode: "gate", open: ["poke"], setup: [["grun", "dst", null, "haiku"]],
+        text: "A small model answered every `dst` question three times without a skill and three times with it. These are **recorded** answers, not hand-set results: the real gate judges them here and no model is called now.",
+        exp: "`recorded/*.json` are unedited `skill_ab.py` results files (model pinned, probes hashed), judged by `gate.decide` with the default thresholds. `recorded/RUNS.json` holds their hashes; CI fails if one changes.",
+        predict: { q: ({ S }) => { const res = runRes(S, run(S, "dst", null, "haiku")), dev = res.rows.filter((r) => r.split === "dev"), n = (arm) => dev.filter((r) => r.arm === arm && r.correct).length; return `On ${modelName(res.pi_args[1])}: ${n("without")} of ${dev.length / 2} answers right without the skill, ${n("with")} of ${dev.length / 2} with it. What does the gate say?`; },
+          choices: ["ADOPT", "NO_DELTA", "REGRESSION", "TOO_COSTLY"], show: verdictLabel, run: [["grun", "dst", null, "haiku"]],
+          answer: ({ S }) => S.gate.res.verdict,
+          claims: [["the skill gains at least the minimum", ({ S }) => S.gate.res.facts.gain >= S.gate.params.min_gain], ["nothing regressed", ({ S }) => S.gate.res.facts.regressed.length === 0], ["the answers with the skill cost less in total", ({ S }) => dstTrace(S, "haiku").ratio < 1]],
+          why: ({ S }) => { const f = S.gate.res.facts; return `${gateSays(S)} ${f.dev_with} of ${f.dev_n} right with the skill, against ${f.dev_without}, and the answers cost $${f.cost_with} against $${f.cost_without}. A verdict is one number about one run. The next beats ask whether you can trust the check, and whether you can trust one run.`; },
+          expects: "ADOPT",
+          miss: { NO_DELTA: ({ S }) => `A gain of ${S.gate.res.facts.gain} correct answers is far above the minimum, so this is not “no effect”.`, REGRESSION: ({ S }) => `No question got worse: ${S.gate.res.facts.dev_without} right without the skill, ${S.gate.res.facts.dev_with} with it.`, TOO_COSTLY: ({ S }) => `The answers with the skill cost less than the ones without (×${S.gate.res.facts.cost_ratio}), so the cost rule does not fire.` } },
+        hint: "Count the right answers with and without the skill. Then ask what could still be wrong." },
+    ],
+  },
   {
     id: "eval", title: "What is an eval?", blurb: "A question plus a pass/fail check. No model involved.",
     look: "Left: the evals (a green dot means the check passed). Right: the files they search. After you answer, the new eval appears at the bottom left and the files its search found are numbered.",
@@ -374,11 +410,11 @@ export const LESSONS = [
   {
     id: "guard", title: "What is the agent allowed to do?", blurb: "Write a policy and run it against real tool calls.",
     look: "Each square is one real tool call a model made. Green: your policy blocked a call that went outside the working folder. Red: one got through. Amber: a harmless call was blocked.",
-    learned: "A guardrail decides what an agent may do, before it does it. It has a cost, because it can block harmless work. It can score perfectly on calls nobody was trying to make dangerous. And a rule that only reads text can be walked around. Test a guardrail like an eval, with calls it has not seen, and put the limits that matter below the model. The real one asks a person about what it cannot read, and replaying real calls finds its holes.",
+    learned: "A guardrail decides what an agent may do, before it does it. It has a cost, because it can block harmless work. It can score perfectly on calls nobody was trying to make dangerous.",
     needs: (S) => !!S.guard?.calls.length,
     steps: [
       { mode: "guard", setup: [["gpolicy", []]],
-        text: "A **guardrail** decides, before a tool call runs, whether the agent may make it. Here the calls are real: every shell command and file read the two models made in the recorded runs. A call is an **escape** if it tries to go outside the working folder. (The runs were recorded inside a sandbox that denied these, so the calls are attempts.) The policy code is written for this lab; it is not upstream.",
+        text: "A **guardrail** decides whether the agent may make a tool call before it runs. These calls are real: every command and file read the two models made in the recorded runs. An **escape** tries to go outside the working folder (the runs were sandboxed, so these are attempts). The rules are this lab's, not upstream's.",
         exp: "`lab/guard.py` (written for this lab). `run(calls, policy)` applies a policy, either a list of text rules or your own `allowed(name, args)`, to every recorded call and compares each decision with `reaches_outside`, a reference label worked out from the call's text.",
         predict: { q: (ctx) => { const k = gk(ctx.S); return `Policy: block every shell command. Of the ${k.total} real calls, ${k.total - k.escapes} are harmless: they stay in the working folder. How many harmless calls does this policy stop?`; },
           choices: ["A few", "About half", "Most of them"], run: [["gpolicy", ["no_bash"]]],
@@ -408,6 +444,14 @@ export const LESSONS = [
           why: ({ S }) => { const k = gk(S); return `${k.wrongly} harmless calls were blocked, and it caught ${k.caught} of ${k.escapes} escapes. On these calls this one rule scores almost perfectly. But that is a score on calls two models happened to make while answering ordinary questions. Nobody was trying to get past the rule.`; },
           expects: "None",
           miss: { "A few": () => "Paths inside the working folder are shown as `<root>/…` or `<cwd>/…` here, and the rule treats those as inside, so it does not touch them.", Many: () => "Paths inside the working folder are shown as `<root>/…` or `<cwd>/…` here, and the rule treats those as inside, so it does not touch them." } } },
+    ],
+  },
+  {
+    id: "guardreal", title: "The rule you can't see through", blurb: "Attack the rule, then try the real guardrail on the same calls.",
+    look: "Each square is one real tool call a model made. Green: your policy blocked a call that went outside the working folder. Red: one got through. Amber: a harmless call was blocked.",
+    learned: "A rule that only reads text can be walked around. Test a guardrail like an eval, with calls it has not seen, and put the limits that matter below the model. The real one asks a person about what it cannot read, and replaying real calls finds its holes.",
+    needs: (S) => !!S.guard?.calls.length,
+    steps: [
       { mode: "guard", open: ["poke", "attacks"], setup: [["gpolicy", ["no_absolute"]]],
         predict: { q: (ctx) => `The same rule, now against ${gat(ctx.S).escapes} ready-made attacks that really do go outside the working folder (\`ls $HOME\`, \`cd .. && ls\`, and others). Open “Ready-made attacks”. How many get through?`,
           choices: ["None", "Fewer than half", "Half or more"], run: [["gpolicy", ["no_absolute"]]],
@@ -445,7 +489,7 @@ export const LESSONS = [
     needs: (S) => !!S.guard?.calls.length,
     steps: [
       { mode: "guard", setup: [["gtab", "output"], ["gscrub", [], "sam"]],
-        text: "A guardrail can limit what an agent says too. The recordings in this site ran on a real machine, and the agent can name absolute paths (its harness tells it where its own docs are installed). So `scripts/record_runs.py` scrubs every saved file. Here the real texts are rebuilt on a **made-up** machine (the real raw output is never saved), and you build the scrubber.",
+        text: "A guardrail can limit what an agent says too. The recordings ran on a real machine and agents can name absolute paths, so `scripts/record_runs.py` scrubs every saved file. Here the real texts are rebuilt on a **made-up** machine (the raw output is never saved) and you build the scrubber.",
         exp: "`lab/scrub.py` (written for this lab). `scrub` is the function `record_runs.py` really runs: exact replacements for the working copy, the run's HOME, each answer's working folder, the machine's home, the temp folder and the folder above it. `leaks` is the reference check. `scripts/check_recorded.py` also runs `detect`, which knows no machine.",
         predict: { q: (ctx) => { const k = sk(ctx.S); return `With no scrubbing at all, how many of the ${k.total} real model answers and tool calls carry the made-up machine's details (its paths, its username)?`; },
           choices: ["Almost none", "Some, not most", "Most of them"], run: [["gscrub", [], "sam"]],
@@ -523,13 +567,110 @@ export const LESSONS = [
         deeper: "More samples shrink the luck, but the gate's absolute `min_gain` does not scale with them, so the thresholds are part of the experiment design too." },
     ],
   },
+  {
+    id: "evtrace", title: "Where did the cost go?", blurb: "A skill that helps can cost nearly twice as much. Look for why.",
+    look: "One recorded answer with the skill. Each square is a tool call. The recording has one cost per answer, not per call.",
+    learned: "A trace shows how many calls an answer made, not what each one cost. Here the calls match and the price does not: the trace tells you where not to look, and the cost number says something the pass rate hides.",
+    needs: (S) => !!casePair(S, "evidence")?.without,
+    steps: [
+      { mode: "trace", setup: [["tcase", "evidence", "with"]],
+        text: "The answers with this skill cost more than the ones without. This is the costliest one, and below it the same question and try without the skill.",
+        exp: "A row of a `skill_ab.py` results file: `tools` is the list of calls, `cost_usd` one number per answer. `skill_read` says whether the model opened the skill file.",
+        predict: { q: ({ S }) => { const p = casePair(S, "evidence"); return `Without the skill the answer made ${plural(p.without.tools.length, "tool call")} and cost ${dollars(p.without.cost_usd)}. With it, the answer cost ${dollars(p.with.cost_usd)}. How many tool calls did the answer with the skill make?`; },
+          choices: ["Far more: that is the extra cost", "About the same: the calls do not explain it", "Fewer"],
+          run: [["tcase", "evidence", "with"]],
+          answer: ({ S }) => { const p = casePair(S, "evidence"), a = p.with.tools.length, b = p.without.tools.length; return a > b + 1 ? "Far more: that is the extra cost" : a < b ? "Fewer" : "About the same: the calls do not explain it"; },
+          claims: [["the answer with the skill passed and the one without failed", ({ S }) => { const p = casePair(S, "evidence"); return p.with.correct && !p.without.correct; }], ["the skill answer cost at least 1.5 times as much", ({ S }) => { const p = casePair(S, "evidence"); return p.with.cost_usd >= 1.5 * p.without.cost_usd; }], ["the model opened the skill file", ({ S }) => casePair(S, "evidence").with.skill_read]],
+          why: ({ S }) => { const p = casePair(S, "evidence"); return `${plural(p.with.tools.length, "call")} with the skill, ${p.without.tools.length} without, and the cost went ${(p.with.cost_usd / p.without.cost_usd).toFixed(1)} times as high. The trace shows no extra calls, and the recording has one cost per answer, so it cannot say where the money went. The model opened a ${(S.skills["evidence-gated"]?.length ?? 0).toLocaleString("en-CA")}-character skill file, a likely cause the data does not show.`; },
+          expects: "About the same: the calls do not explain it",
+          miss: { "Far more: that is the extra cost": ({ S }) => `It made ${casePair(S, "evidence").with.tools.length}, the same as without. Look at the row of squares.`, Fewer: ({ S }) => `It made ${casePair(S, "evidence").with.tools.length}, the same as without, not fewer.` } },
+        hint: "Count the squares, then compare with the line above the question." },
+    ],
+  },
+  {
+    id: "dbtrace", title: "It read the skill. Then what?", blurb: "A model opened the skill and still failed the check.",
+    look: "One recorded answer. Each square is a tool call; amber ones reached outside the working folder. Click a few to read them.",
+    learned: "A trace shows what a model did, not whether it did the right thing. This answer opened the skill file and stayed in its folder, and still failed: the check is the judge, the trace is the evidence.",
+    needs: (S) => !!casePair(S, "doubt")?.with,
+    steps: [
+      { mode: "trace", setup: [["tcase", "doubt", "without"]],
+        text: "A skill about doubt-driven review. This is one recorded answer from a small model with no skill, then the same question and try with it.",
+        predict: { q: ({ S }) => { const p = casePair(S, "doubt"); return `With no skill this answer made ${plural(p.without.tools.length, "tool call")} and failed the check. How many of them reached outside the working folder?`; },
+          choices: ["None", "Some", "All"], run: [["tcase", "doubt", "without"]],
+          answer: ({ S }) => { const o = tlO(S), n = tlN(S); return o === 0 ? "None" : o === n ? "All" : "Some"; },
+          claims: [["it failed the check", ({ S }) => !casePair(S, "doubt").without.correct], ["it made at least one call", ({ S }) => casePair(S, "doubt").without.tools.length > 0]],
+          why: ({ S }) => `${tlO(S)} of ${tlN(S)} calls reached outside the working folder. It went looking beyond its folder and still failed the check. “Outside” is this lab's label: a path outside the folder, or a shell feature that can build one.`,
+          expects: "All",
+          miss: { None: ({ S }) => `${tlO(S)} of ${tlN(S)} reached outside. Count the amber squares.`, Some: ({ S }) => `${tlO(S)} of ${tlN(S)} is all of them.` } },
+        hint: "Look at the colour of every square." },
+      { mode: "trace", setup: [["tcase", "doubt", "with"]],
+        predict: { q: ({ S }) => { const p = casePair(S, "doubt"); return `Same question and try, now with the skill. The model opened the skill file and made ${plural(p.with.tools.length, "tool call")}. How many reached outside the working folder?`; },
+          choices: ["None", "Some", "All"], run: [["tcase", "doubt", "with"]],
+          answer: ({ S }) => { const o = tlO(S), n = tlN(S); return o === 0 ? "None" : o === n ? "All" : "Some"; },
+          claims: [["the model opened the skill file", ({ S }) => casePair(S, "doubt").with.skill_read], ["the answer still failed the check", ({ S }) => !casePair(S, "doubt").with.correct], ["the check names words it left out", ({ S }) => casePair(S, "doubt").with.missing.length > 0]],
+          why: ({ S }) => { const p = casePair(S, "doubt"); return `${tlO(S)} of ${tlN(S)}: it opened the skill file and stayed in its folder. It still failed the check, leaving out ${p.with.missing.map((m) => `“${m}”`).join(" and ")}. The trace shows what the model did, not whether it was right; the check judges that.`; },
+          expects: "None",
+          miss: { Some: ({ S }) => `${tlO(S)} of ${tlN(S)} reached outside: with the skill it stayed in its folder.`, All: ({ S }) => `${tlO(S)} of ${tlN(S)} reached outside: with the skill it stayed in its folder.` } },
+        hint: "The skill is a short file the model can read first." },
+    ],
+  },
+  {
+    id: "evguard", title: "Anything to stop?", blurb: "Replay this case's real tool calls through a rule.", corpus: "evidence",
+    look: "Each square is one real tool call a model made in this case. Green: your policy blocked an escape. Red: one got through. Amber: a harmless call was blocked.",
+    learned: "A rule that reads text catches what its author thought of. Here one search of a temp folder got past a rule about the home folder. Replaying real calls is how you find that out.",
+    needs: (S) => !!run(S, "evidence-gated", null, "sonnet"),
+    steps: [
+      { mode: "guard", setup: [["gpolicy", []]],
+        text: "The same skill, through the guardrail lens: the real tool calls both models made in this case, with and without the skill. A call is an **escape** if it tries to go outside the working folder (the runs were recorded in a sandbox that denied these, so they are attempts).",
+        predict: { q: (ctx) => { const k = gk(ctx.S); return `Of ${k.total} real calls, ${k.escapes} try to leave the working folder. Policy: block anything that mentions the home folder (\`~\`). How many of the ${k.escapes} escapes does it catch?`; },
+          choices: ["All of them", "All but one", "Half or fewer"], run: [["gpolicy", ["no_home"]]],
+          answer: ({ S }) => { const k = gk(S); return k.caught === k.escapes ? "All of them" : k.missed === 1 ? "All but one" : "Half or fewer"; },
+          claims: [["no harmless call is blocked", ({ S }) => gk(S).wrongly === 0], ["one escape gets through", ({ S }) => gk(S).missed === 1], ["it searched a temp folder", ({ S }) => S.guard.res.rows.some((r, i) => r.outside && !r.blocked && /<tmp|\/private\/var/.test(callText(S, i)))]],
+          why: ({ S }) => { const k = gk(S), i = S.guard.res.rows.findIndex((r) => r.outside && !r.blocked); return `${k.caught} of ${k.escapes} were caught and no harmless call was blocked. The one that got through searched a temp folder, which the rule does not mention: \`${clean(callText(S, i))}\`. A rule blocks only what its author thought of.`; },
+          expects: "All but one",
+          miss: { "All of them": ({ S }) => `${gk(S).missed} got through: it searched a temp folder, and the rule only looks for the home folder.`, "Half or fewer": ({ S }) => `${gk(S).caught} of ${gk(S).escapes} is well over half.` } },
+        hint: "Which folders do the escapes search? Does the rule mention them all?" },
+    ],
+  },
+  {
+    id: "dbguard", title: "Anything to stop?", blurb: "Replay this case's real tool calls through a blunt rule.", corpus: "doubt",
+    look: "Each square is one real tool call a model made in this case. Green: your policy blocked an escape. Red: one got through. Amber: a harmless call was blocked.",
+    learned: "Blocking every shell command looks safe and is blunt: it stops harmless work and still misses file reads. A rule's cost shows up only when you replay real calls.",
+    needs: (S) => !!run(S, "doubt", null, "haiku"),
+    steps: [
+      { mode: "guard", setup: [["gpolicy", []]],
+        text: "The same skill, through the guardrail lens: the real tool calls both models made in this case, with and without the skill. A call is an **escape** if it tries to go outside the working folder (the runs were recorded in a sandbox that denied these, so they are attempts).",
+        predict: { q: (ctx) => { const k = gk(ctx.S); return `Of ${k.total} real calls, ${k.escapes} try to leave the working folder and ${k.total - k.escapes} are harmless. Policy: block every shell command. How many harmless calls does it stop?`; },
+          choices: ["A few", "About a third", "Most of them"], run: [["gpolicy", ["no_bash"]]],
+          answer: ({ S }) => { const k = gk(S), p = k.wrongly / (k.total - k.escapes); return p < 0.2 ? "A few" : p < 0.5 ? "About a third" : "Most of them"; },
+          claims: [["some harmless calls are stopped", ({ S }) => gk(S).wrongly > 0], ["some escapes still get through", ({ S }) => gk(S).missed > 0], ["every escape that got through is a file read", ({ S }) => S.guard.res.rows.every((r, i) => !(r.outside && !r.blocked) || S.guard.calls[i].name === "read")]],
+          why: ({ S }) => { const k = gk(S); return `${k.wrongly} of the ${k.total - k.escapes} harmless calls were stopped, and ${k.missed} escapes still got through: file reads, which are not shell commands. Blocking every command is blunt and still has a hole.`; },
+          expects: "About a third",
+          miss: { "A few": ({ S }) => `${gk(S).wrongly} of ${gk(S).total - gk(S).escapes} is more than a few.`, "Most of them": ({ S }) => `${gk(S).wrongly} of ${gk(S).total - gk(S).escapes} is under half.` } },
+        hint: "How many of the calls are shell commands, and how many are file reads?" },
+    ],
+  },
 ];
+// The gate beats of the other two cases reuse steps of `recorded` (same data, same computed answers); only the framing text differs.
+const REC = LESSONS.find((l) => l.id === "recorded").steps;
+LESSONS.push(
+  { id: "evgate", title: "The gate says too costly", blurb: "A skill that helps can still fail the gate.",
+    look: "The funnel judges a recorded run: real answers from a real model. Click a ✔ or ✘ under “Poke at it yourself” to read one.",
+    learned: "A gate can say no to a skill that works, because it also looks at cost. A hand-set grid would never show that; the recorded cost does.",
+    needs: (S) => !!run(S, "evidence-gated", null, "sonnet"),
+    steps: [{ ...REC[2], open: ["poke"], text: "The same skill, through the gate. These are recorded answers from a real model; the real gate judges them here and no model is called now." }] },
+  { id: "dbgate", title: "The gate and a failing skill", blurb: "A model can read a skill and still miss the check.",
+    look: "The funnel judges a recorded run. Click a ✔ or ✘ under “Poke at it yourself” to read what the model wrote.",
+    learned: "A model can read a skill and still fail the check: reading is not the same as answering the way the check expects.",
+    needs: (S) => !!run(S, "doubt", null, "haiku"),
+    steps: [{ ...REC[0], text: "The same skill, through the gate. These are recorded answers from a real model; the real gate judges them here and no model is called now." }] },
+);
 
 // The three adventures. Every lesson belongs to exactly one; `door` is the question the Start screen asks. Order is the order played.
 export const PILLARS = [
-  { id: "observability", door: "What happened?", name: "Observability", blurb: "Read what the agent actually did, one answer at a time.", lessons: ["timeline", "trace", "guardlog"] },
-  { id: "guardrails", door: "Should it have been allowed?", name: "Guardrails", blurb: "Write a rule for what an agent may do or say, then test it on real calls.", lessons: ["guard", "scrub"] },
-  { id: "evals", door: "Did it actually work?", name: "Evals", blurb: "Check the answers, break your own checks, then decide whether a result can be trusted.", lessons: ["eval", "rank", "break", "gate", "skill", "recorded", "noise"] },
+  { id: "observability", door: "What happened?", name: "Observability", blurb: "Read what the agent actually did, one answer at a time.", beats: { dst: ["timeline", "trace", "guardlog"], evidence: ["evtrace"], doubt: ["dbtrace"] }, deeper: [] },
+  { id: "guardrails", door: "Should it have been allowed?", name: "Guardrails", blurb: "Write a rule for what an agent may do or say, then test it on real calls.", beats: { dst: ["guard", "guardreal", "scrub"], evidence: ["evguard"], doubt: ["dbguard"] }, deeper: [] },
+  { id: "evals", door: "Did it actually work?", name: "Evals", blurb: "Check the answers, break your own checks, then decide whether a result can be trusted.", beats: { dst: ["dstgate", "break", "noise"], evidence: ["evgate"], doubt: ["dbgate"] }, deeper: ["eval", "rank", "gate", "skill", "recorded"] },
 ];
 
 // Every `why` makes causal claims. Each claim is a predicate over the real run; the UI shows the explanation only when all hold,

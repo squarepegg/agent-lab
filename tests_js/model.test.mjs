@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { extractFunc, annotate, coverage, MODE_CODE, TWEAKS, applyTweak, lineDiff, brief } from "../web/codepanel.js";
 import fs from "node:fs";
-import { LESSONS, PILLARS, checkClaims } from "../web/lessons.js";
+import { LESSONS, PILLARS, CASES, checkClaims } from "../web/lessons.js";
 import { CHALLENGES } from "../web/challenges.js";
 import { parseHits, buildGraph, layout, neighbors, gateSteps, plainReason, runGrid, traceStats, PLAIN_VERDICT, encodeGate, decodeGate, GATE_ORDER, clip } from "../web/model.js";
 import { PYODIDE, callKey } from "../web/lab.js";
@@ -148,10 +148,10 @@ test("runGrid turns a recorded results file into the hand-set grid shape; an unf
   assert.deepEqual(runGrid({ rows }), { a: { without: [true], with: [false, true] } });
 });
 
-test("lessons: twelve, unique ids, and the steps built on recorded runs or logs have expected answers and a written miss for every other choice", () => {
-  assert.equal(LESSONS.length, 12);
-  assert.equal(new Set(LESSONS.map((l) => l.id)).size, 12);
-  for (const st of ["recorded", "timeline", "trace", "guardlog", "guard", "scrub"].flatMap((id) => LESSONS.find((l) => l.id === id).steps)) {
+test("lessons: twenty, unique ids, and every recorded-data lesson has expected answers and a written miss for every other choice", () => {
+  assert.equal(LESSONS.length, 20);
+  assert.equal(new Set(LESSONS.map((l) => l.id)).size, 20);
+  for (const st of ["recorded", "dstgate", "timeline", "trace", "guardlog", "guard", "guardreal", "scrub", "evtrace", "dbtrace", "evguard", "dbguard", "evgate", "dbgate"].flatMap((id) => LESSONS.find((l) => l.id === id).steps)) {
     const p = st.predict; assert.ok(p.choices.includes(p.expects));
     for (const c of p.choices.filter((x) => x !== p.expects)) assert.ok(p.miss[c], `${p.expects}: no miss for ${c}`);
   }
@@ -168,12 +168,14 @@ test("callKey: stable, and differs when the arguments differ", () => {
   assert.notEqual(callKey("gate", { a: 1 }), callKey("trace", { a: 1 }));
 });
 
-test("PILLARS: every lesson is in exactly one pillar, in lesson order, and the static shell names the same doors", () => {
-  const ids = PILLARS.flatMap((p) => p.lessons);
-  assert.deepEqual([...ids].sort(), LESSONS.map((l) => l.id).sort(), "a partition of the lessons");
+test("PILLARS and CASES: every lesson is in exactly one beat list or deeper list, in lesson order; each case has a beat in every pillar; the static shell names the same doors", () => {
+  const lists = PILLARS.flatMap((p) => [...Object.values(p.beats), p.deeper]);
+  assert.deepEqual(lists.flat().sort(), LESSONS.map((l) => l.id).sort(), "a partition of the lessons");
   assert.equal(PILLARS.length, 3);
-  const order = (p) => p.lessons.map((id) => LESSONS.findIndex((l) => l.id === id));
-  for (const p of PILLARS) assert.deepEqual(order(p), [...order(p)].sort((a, b) => a - b), `${p.id} plays in lesson order`);
+  for (const l of lists) assert.deepEqual(l.map((id) => LESSONS.findIndex((x) => x.id === id)), l.map((id) => LESSONS.findIndex((x) => x.id === id)).sort((a, b) => a - b), `${l} plays in lesson order`);
+  for (const c of CASES) for (const p of PILLARS) assert.ok(p.beats[c.id]?.length >= 1, `${c.id} has a ${p.id} beat`);
+  for (const p of PILLARS) assert.equal(p.beats.dst.length, 3, `${p.id}: the main case has three beats`);
+  for (const l of LESSONS) { if (l.corpus) assert.ok(CASES.some((c) => c.id === l.corpus), `${l.id}: corpus is a case`); if (l.before) assert.ok(LESSONS.some((x) => x.id === l.before[0]), `${l.id}: basics lesson exists`); }
   const shell = fs.readFileSync(new URL("../web/index.html", import.meta.url), "utf8").replace(/<[^>]+>/g, "").replace(/\s+/g, " ");
   for (const p of PILLARS) for (const t of [p.door, p.name, p.blurb]) assert.ok(shell.includes(t), `static shell: ${t}`);
 });
