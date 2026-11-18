@@ -122,6 +122,25 @@ assert.equal(await page.locator("#home .resume").count(), 0, "nothing to pick up
 await page.click("#home [data-act=door][data-p=evals]"); await page.click("#drawer [data-act=lpick] >> nth=0"); await page.click("#drawer [data-act=lexit]");
 assert.match(await txt("#home .resume"), /The gate says adopt/, "the lesson you left is offered first");
 await page.evaluate(() => localStorage.clear());
+// --- notes on the log and scrubber squares, the pin card inside a lesson, and a step that says where to look
+await open("#m=guard"); await page.click("[data-act=gtab][data-t=log]"); await page.click("[data-act=glive]");
+await page.locator("#svg rect.gc.deny").first().click();
+await page.fill("#nnote", "Secrets, fair enough."); await page.click("[data-act=notesave]");
+assert.equal(await page.locator("#svg rect.gc.noted").count(), 1, "a note marks a log square");
+await page.click("[data-act=gtab][data-t=output]"); await page.locator("#svg rect.gc").nth(5).click();
+await page.fill("#nnote", "Leaks here."); await page.click("[data-act=notesave]");
+assert.match(await page.evaluate(() => __lab.notesMarkdown()), /Secrets, fair enough\.[\s\S]*Leaks here\./, "both notes are in the export");
+await page.evaluate(() => localStorage.clear());
+await open(); await page.click("#home [data-act=door][data-p=observability]");
+await page.locator("#svg rect.gc").nth(2).click();
+assert.equal(await page.locator("#nnote").count(), 1, "inside a lesson there is one note box");
+assert.equal(await page.locator("#drawer > .pin #nnote").count(), 1, "and it sits under the lesson card, not in a fold");
+await page.fill("#nnote", "Third call, already off the map."); await page.click("[data-act=notesave]");
+assert.equal(await page.locator("#svg rect.gc.noted").count(), 1, "the note is pinned from inside the lesson");
+await page.evaluate(() => localStorage.clear());
+await begin("guard"); await page.click("#drawer [data-act=lpick] >> nth=0");
+assert.match(await page.locator("#svg rect.gc.focus").getAttribute("class"), /\bfp\b/, "this step rings a harmless call the rule blocked, not an escape");
+await page.evaluate(() => localStorage.clear());
 await open("#m=explore");
 // --- map: nodes, edges, hover traces neighbours, click opens file, search shows ranks
 assert.ok((await page.locator(".node").count()) >= 15);

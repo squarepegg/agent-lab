@@ -4,7 +4,8 @@
 // the last step is done.
 // step = { mode, text?, exp?, hint?, deeper?, open?, look?, widget?, setup?: [[action, ...args]],
 //          predict?: { q, choices, show?, run: [[action, ...]], answer(ctx), claims?, why(ctx), expects?, miss? } }
-//   step.look overrides lesson.look; step.open lists folds to open: "poke" (controls), "code" (the Python), "try" (edit-and-run).
+//   step.look overrides lesson.look; step.open lists folds to open: "poke" (controls), "code" (the Python), "try" (edit-and-run). step.focus: "fp" rings
+//   the harmless call a guard policy blocked, instead of the default (the first escape it let through).
 //   q is a string or (ctx) => string. show(choice, beginner) -> the label for a choice (plain words for beginners).
 // Answers are COMPUTED from the real upstream code's output after the run, never hard-coded, so a vendor refresh can change a
 // result without leaving a lesson that lies. The UI throws if answer() is not one of the choices. answer, claims and why may be async.
@@ -413,7 +414,7 @@ export const LESSONS = [
     learned: "A guardrail decides what an agent may do, before it does it. It has a cost, because it can block harmless work. It can score perfectly on calls nobody was trying to make dangerous.",
     needs: (S) => !!S.guard?.calls.length,
     steps: [
-      { mode: "guard", setup: [["gpolicy", []]],
+      { mode: "guard", focus: "fp", setup: [["gpolicy", []]],
         text: "A **guardrail** decides whether the agent may make a tool call before it runs. These calls are real: every command and file read the two models made in the recorded runs. An **escape** tries to go outside the working folder (the runs were sandboxed, so these are attempts). The rules are this lab's, not upstream's.",
         exp: "`lab/guard.py` (written for this lab). `run(calls, policy)` applies a policy, either a list of text rules or your own `allowed(name, args)`, to every recorded call and compares each decision with `reaches_outside`, a reference label worked out from the call's text.",
         predict: { q: (ctx) => { const k = gk(ctx.S); return `Policy: block every shell command. Of the ${k.total} real calls, ${k.total - k.escapes} are harmless: they stay in the working folder. How many harmless calls does this policy stop?`; },
@@ -638,7 +639,7 @@ export const LESSONS = [
     learned: "Blocking every shell command looks safe and is blunt: it stops harmless work and still misses file reads. A rule's cost shows up only when you replay real calls.",
     needs: (S) => !!run(S, "doubt", null, "haiku"),
     steps: [
-      { mode: "guard", setup: [["gpolicy", []]],
+      { mode: "guard", focus: "fp", setup: [["gpolicy", []]],
         text: "The same skill, through the guardrail lens: the real tool calls both models made in this case, with and without the skill. A call is an **escape** if it tries to go outside the working folder (the runs were recorded in a sandbox that denied these, so they are attempts).",
         predict: { q: (ctx) => { const k = gk(ctx.S); return `Of ${k.total} real calls, ${k.escapes} try to leave the working folder and ${k.total - k.escapes} are harmless. Policy: block every shell command. How many harmless calls does it stop?`; },
           choices: ["A few", "About a third", "Most of them"], run: [["gpolicy", ["no_bash"]]],

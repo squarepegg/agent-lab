@@ -252,7 +252,7 @@ async function drawer() {
   if (S.lesson?.finished) { d.innerHTML = doorsCard(); bindDrawer(); return; }
   const lesson = !!S.lesson, guided = lesson || !!S.chal, step = lesson ? lstep()[1] : null;
   const body = DRAW[S.mode]?.() ?? "", cp = codePanel(), ec = editCell();
-  let h = lessonCard() + chalCard();
+  let h = lessonCard() + chalCard() + (lesson ? pinCard() : "");
   if (!guided) h += `<h2>${m[1]}</h2>` + beginnerIntro();
   const opens = (k) => !!step?.open?.includes(k);   // lessons say which folds a step needs; free explore opens the Python for experienced users
   h += lesson ? fold("poke", "Poke at it yourself", body, opens("poke")) : body;
@@ -979,7 +979,7 @@ function renderLive(root) {
   if (!L?.res) { root.append(el("text", { class: "col", x: 0, y: 20 }, "load a decision log, or the made-up example, to see what a policy decided")); fit(520, 40); return; }
   root.append(el("text", { class: "col", x: 0, y: 10 }, `each square is one judged tool call, oldest first${L.res.dropped ? ` (the last ${L.res.rows.length} of ${L.res.counts.total})` : ""}`));
   L.res.rows.forEach((r, i) => {
-    const g = el("rect", { class: `gc ${r.action === "allow" ? "fine" : r.action} ${L.sel === i ? "sel" : ""}`, x: (i % cols) * step, y: 24 + Math.floor(i / cols) * step, width: 18, height: 18, rx: 4 }, el("title", {}, `${r.action} ${r.rule} ${r.text}`.slice(0, 120)));
+    const g = el("rect", { class: `gc ${r.action === "allow" ? "fine" : r.action} ${L.sel === i ? "sel" : ""} ${noteFor(logKey(r)) ? "noted" : ""}`, x: (i % cols) * step, y: 24 + Math.floor(i / cols) * step, width: 18, height: 18, rx: 4 }, el("title", {}, `${r.action} ${r.rule} ${r.text}`.slice(0, 120)));
     g.addEventListener("click", (e) => { e.stopPropagation(); act(() => { L.sel = i; renderScene(); return drawer(); }); });
     root.append(g);
   });
@@ -995,7 +995,7 @@ function liveDrawer() {
   h += `<div class="verdict good" id="gscore"><div class="vl">${esc(L.name)}</div><div class="big">${stopped} of ${k.total} calls were not simply allowed</div>
     <div class="vw">${k.allow} allowed, ${k.ask} asked, ${k.deny} denied${r.first ? `, from ${esc(r.first)} to ${esc(r.last)}` : ""}.${k.bad ? ` ${k.bad} lines were not decisions and were skipped.` : ""}</div></div>`;
   const sel = L.sel != null ? r.rows[L.sel] : null;
-  h += sel ? `<div class="card gcall"><div class="mut">${esc(sel.tool)} · ${esc(sel.ts)}</div><div><b>${esc(sel.action)}</b>${sel.rule ? ` by “${esc(sel.rule)}”` : ""}</div>${sel.text ? `<pre>${esc(sel.text)}</pre>` : ""}</div>` : `<div class="mut">Click a square to read that decision.</div>`;
+  h += sel ? `<div class="card gcall"><div class="mut">${esc(sel.tool)} · ${esc(sel.ts)}</div><div><b>${esc(sel.action)}</b>${sel.rule ? ` by “${esc(sel.rule)}”` : ""}</div>${sel.text ? `<pre>${esc(sel.text)}</pre>` : ""}</div>` + noteBox(logKey(sel), logLabel(sel)) : `<div class="mut">Click a square to read that decision.</div>`;
   const rules = Object.entries(r.rules).sort((a, b) => b[1] - a[1]);
   if (rules.length) h += `<h3>which rule stopped them</h3><table class="tr">${rules.map(([id, n]) => `<tr><td>${esc(id || "(none)")}</td><td>${n}</td></tr>`).join("")}</table>`;
   if (r.top.length) h += fold("glt", beg ? "The commands asked about most" : "most frequent non-allowed", `<div class="mut">Grouped by rule, action and the first two words. A line that keeps coming back is a candidate for <code>allow_paths</code> or <code>allow_commands</code>.</div><table class="tr"><tr><th>rule</th><th>action</th><th>command</th><th>times</th></tr>${r.top.map((t) => `<tr><td>${esc(t.rule)}</td><td>${esc(t.action)}</td><td><code>${esc(t.head)}</code></td><td>${t.n}</td></tr>`).join("")}</table>`, !S.lesson);
@@ -1039,7 +1039,7 @@ function renderScrub(root) {
     y += 34; root.append(el("text", { class: "col", x: 0, y }, `${kind === "answer" ? "model answers" : "tool calls"} · ${idx.length}`)); y += 10;
     idx.forEach((i, k) => {
       const st = O.res.rows[i].status;
-      const g = el("rect", { class: `gc ${st === "leak" ? (O.opts.length ? "miss" : "esc") : st === "fixed" ? "caught" : st === "damaged" ? "fp" : "fine"} ${O.sel === i ? "sel" : ""}`, x: (k % cols) * step, y: y + Math.floor(k / cols) * step, width: 18, height: 18, rx: 4 }, el("title", {}, O.texts[i].text.slice(0, 100)));
+      const g = el("rect", { class: `gc ${st === "leak" ? (O.opts.length ? "miss" : "esc") : st === "fixed" ? "caught" : st === "damaged" ? "fp" : "fine"} ${O.sel === i ? "sel" : ""} ${noteFor(scrubKey(O.texts[i])) ? "noted" : ""}`, x: (k % cols) * step, y: y + Math.floor(k / cols) * step, width: 18, height: 18, rx: 4 }, el("title", {}, O.texts[i].text.slice(0, 100)));
       g.addEventListener("click", (e) => { e.stopPropagation(); act(async () => { O.sel = i; O.selOut = await call("scrub_one", { text: O.texts[i].text, opts: O.opts, user: O.user, rebuild: true }); renderScene(); return drawer(); }); });
       root.append(g);
     });
@@ -1057,9 +1057,11 @@ function scrubDrawer() {
     <div class="vw">${k.dirty} of the ${k.total} carried the machine's details before scrubbing. ${k.fixed} were cleaned${k.damaged ? `; ${k.damaged} had a word replaced that was not part of any path` : ""}.</div></div>`;
   h += `<div class="row"><button class="btn alt" data-act="spreset" data-p="real">What record_runs.py does</button><button class="btn alt" data-act="spreset" data-p="none">Nothing</button></div>`;
   const sel = O.sel != null ? O.texts[O.sel] : null;
-  if (sel && O.selOut) h += `<div class="card gcall"><div class="mut">${sel.kind === "answer" ? "a model answer" : "a tool call"}, ${O.res.rows[O.sel].status}</div><div class="mut">before</div><pre>${esc(O.selOut.raw.slice(0, 400))}</pre><div class="mut">after your scrubber</div><pre>${esc(O.selOut.out.slice(0, 400))}</pre>
+  if (sel && O.selOut) {
+    h += `<div class="card gcall"><div class="mut">${sel.kind === "answer" ? "a model answer" : "a tool call"}, ${O.res.rows[O.sel].status}</div><div class="mut">before</div><pre>${esc(O.selOut.raw.slice(0, 400))}</pre><div class="mut">after your scrubber</div><pre>${esc(O.selOut.out.slice(0, 400))}</pre>
     <div class="${O.selOut.leaks.length ? "bad" : "ok"}">${O.selOut.leaks.length ? "✘ still shows: " + esc(O.selOut.leaks.join(", ")) : "✔ nothing identifying left"}</div></div>`;
-  else h += `<div class="mut">Click a square to see that text before and after.</div>`;
+    h += noteBox(scrubKey(sel), scrubLabel(sel));
+  } else h += `<div class="mut">Click a square to see that text before and after.</div>`;
   let t = "";
   if (O.try) t = `<div class="card gtry"><pre>${esc(O.try.out)}</pre><div class="${O.try.leaks.length ? "bad" : "ok"}"><b>${O.try.leaks.length ? "✘ Still shows: " + esc(O.try.leaks.join(", ")) + "." : O.try.raw_leaks.length ? "✔ It carried the machine's details and they are gone." : "✔ Nothing identifying in it, before or after."}</b></div></div>`;
   h += fold("stry", "Try to leak something", `<div class="mut">Type something a model might write about the machine, then see what is left.</div><div class="row tryrow"><input id="stext" value="${esc(O.text)}" placeholder="${esc(m.home)}/.ssh/config" aria-label="text to scrub"><button class="btn" data-act="stry">Scrub it</button></div>` + t, true);
@@ -1178,10 +1180,12 @@ function traceFocus() {
 }
 function guardFocus() {
   const G = S.guard, rows = G.res?.rows; if (!rows || G.tab !== "calls") return null;
-  const nothing = guardNothing(); if (guardFocus.c?.rows === rows && guardFocus.c.nothing === nothing) return guardFocus.c.v;
+  const nothing = guardNothing(), want = S.lesson && !S.lesson.finished ? lstep()[1].focus : null;   // a lesson step may say what to look at: focus: "fp" is the harmless call the policy blocked
+  if (guardFocus.c?.rows === rows && guardFocus.c.nothing === nothing && guardFocus.c.want === want) return guardFocus.c.v;
   const pick = (f, why) => { const i = rows.findIndex(f); return i < 0 ? null : { i, why }; };
-  const v = (nothing ? null : pick((r) => r.outside && !r.blocked, "the first escape your policy let through") ?? pick((r) => r.blocked && !r.outside, "the first harmless call it blocked by mistake")) ?? pick((r) => r.outside, "the first call that tries to leave the working folder");
-  guardFocus.c = { rows, nothing, v }; return v;
+  const fp = () => pick((r) => r.blocked && !r.outside, "the first harmless call it blocked by mistake"), miss = () => pick((r) => r.outside && !r.blocked, "the first escape your policy let through");
+  const v = (nothing ? null : want === "fp" ? fp() ?? miss() : miss() ?? fp()) ?? pick((r) => r.outside, "the first call that tries to leave the working folder");
+  guardFocus.c = { rows, nothing, want, v }; return v;
 }
 const notes = () => store.json("lab.notes") || [];
 const noteFor = (key) => notes().find((n) => n.key === key);
@@ -1189,17 +1193,33 @@ const traceKey = (i) => `trace:${S.tl.run}:${S.tl.probe}:${S.tl.arm}:${S.tl.n}:$
 const callKey = (c) => `guard:${c.run}:${c.probe}:${c.arm}:${c.n}:${guardText(c).slice(0, 120)}`;
 const traceLabel = (i) => `${S.tl.probe}, ${S.tl.arm === "with" ? "with" : "without"} the skill, call ${i + 1}: ${guardText(S.tl.calls[i]).slice(0, 80)}`;
 const callLabel = (c) => `${c.probe}, ${c.arm === "with" ? "with" : "without"} the skill: ${guardText(c).slice(0, 80)}`;
-function noteBox(key, label) {
+// Inside a lesson the box lives in the pin card under the lesson card (pinCard), not in the folded controls, so there is only ever one.
+function noteBox(key, label, pinned = false) {
+  if (S.lesson && !pinned) return "";
   const n = noteFor(key);
   return `<div class="nbox"><label class="fld">Your note<textarea id="nnote" data-key="${esc(key)}" data-label="${esc(label)}" placeholder="What do you notice here? One line is plenty.">${esc(n?.text ?? "")}</textarea></label><div class="row"><button class="btn sm" data-act="notesave">${n ? "Update note" : "Pin note"}</button>${n ? `<button class="btn sm alt" data-act="notedel" data-key="${esc(n.key)}">Remove</button>` : ""}</div></div>`;
 }
 function notesMarkdown() { return `# agent-lab notes\n\nNotes pinned to recorded tool calls. Written in the browser and kept on this device.\n\n` + notes().map((n) => `## ${n.label}\n\n${n.text}\n`).join("\n"); }
+const logKey = (r) => `log:${r.ts}:${r.action}:${(r.text || r.tool).slice(0, 80)}`;
+const logLabel = (r) => `${r.action}${r.rule ? ` by ${r.rule}` : ""}: ${(r.text || r.tool).slice(0, 80)}`;
+const scrubKey = (t) => `scrub:${t.kind}:${t.text.slice(0, 120)}`;
+const scrubLabel = (t) => `${t.kind === "answer" ? "answer" : "tool call"}: ${t.text.slice(0, 80)}`;
+// Whatever square is selected on the current canvas, as something a note can be pinned to.
+function selectedRef() {
+  const sc = MODES.find((m) => m[0] === S.mode)?.[2], G = S.guard;
+  if (sc === "scene-trace" && S.tl?.sel != null) { const i = S.tl.sel; return { key: traceKey(i), label: traceLabel(i), text: guardText(S.tl.calls[i]) }; }
+  if (sc !== "scene-guard" || !G) return null;
+  if (G.tab === "log") { const r = G.live?.res?.rows[G.live.sel]; return r ? { key: logKey(r), label: logLabel(r), text: r.text || r.tool } : null; }
+  if (G.tab === "output") { const t = G.out.sel != null ? G.out.texts[G.out.sel] : null; return t ? { key: scrubKey(t), label: scrubLabel(t), text: t.text } : null; }
+  const c = G.sel != null ? G.calls[G.sel] : null; return c ? { key: callKey(c), label: callLabel(c), text: guardText(c) } : null;
+}
+function pinCard() { const s = selectedRef(); return s ? `<div class="card pin"><div class="mut">The square you picked</div><pre>${esc(s.text.slice(0, 160))}</pre>${noteBox(s.key, s.label, true)}</div>` : ""; }
 // On a phone the squares stay: the same squares as the canvas, as buttons you tap. Tapping does what clicking the canvas square does.
 const psq = (items) => `<div class="psqs ${items.length > 120 ? "many" : ""}">${items.map((x, i) => `<button class="psq ${x.cls} ${x.sel ? "sel" : ""} ${x.focus ? "focus" : ""} ${x.noted ? "noted" : ""}" data-psq="${i}" aria-label="${esc(x.label)}"></button>`).join("")}</div>`;
 function guardSquares() {
   const G = S.guard, O = G.out;
-  if (G.tab === "log") return G.live?.res ? psq(G.live.res.rows.map((r, i) => ({ cls: r.action === "allow" ? "fine" : r.action, label: `${r.action} ${r.rule} ${r.text}`.slice(0, 80), sel: G.live.sel === i }))) : "";
-  if (G.tab === "output") return O.res ? psq(O.texts.map((t, i) => { const st = O.res.rows[i].status; return { cls: st === "leak" ? (O.opts.length ? "miss" : "esc") : st === "fixed" ? "caught" : st === "damaged" ? "fp" : "fine", label: t.text.slice(0, 80), sel: O.sel === i }; })) : "";
+  if (G.tab === "log") return G.live?.res ? psq(G.live.res.rows.map((r, i) => ({ cls: r.action === "allow" ? "fine" : r.action, label: `${r.action} ${r.rule} ${r.text}`.slice(0, 80), sel: G.live.sel === i, noted: !!noteFor(logKey(r)) }))) : "";
+  if (G.tab === "output") return O.res ? psq(O.texts.map((t, i) => { const st = O.res.rows[i].status; return { cls: st === "leak" ? (O.opts.length ? "miss" : "esc") : st === "fixed" ? "caught" : st === "damaged" ? "fp" : "fine", label: t.text.slice(0, 80), sel: O.sel === i, noted: !!noteFor(scrubKey(t)) }; })) : "";
   const nothing = guardNothing();
   return G.calls.length ? psq(G.calls.map((c, i) => { const r = G.res?.rows[i]; return { cls: r ? (r.blocked ? (r.outside ? "caught" : "fp") : r.outside ? (nothing ? "esc" : "miss") : "fine") : "fine", label: guardText(c).slice(0, 80), sel: G.sel === i, focus: guardFocus()?.i === i, noted: !!noteFor(callKey(c)) }; })) : "";
 }
