@@ -12,9 +12,9 @@
   "--no-extensions",
   "--no-mcp"
  ],
- "probes_sha256": "ea2e8de60f47a0b798ebf1962176cf4d40ab83153d322f8c1ea93c8c94090cd6",
- "date": "2026-11-16",
- "cost_usd": 0.203,
+ "probes_sha256": "e3d6db8d8baba13375ae86136be9e530d5ea54fd0719a198622e677ee2ca88a1",
+ "date": "2026-11-17",
+ "cost_usd": 1.671,
  "rows": [
   {
    "probe": "dst-model-conformance",
@@ -27,9 +27,9 @@
    ],
    "skill_read": false,
    "tools": [],
-   "cost_usd": 0.004,
+   "cost_usd": 0.0036,
    "finished": true,
-   "answer": "When you replace a downstream service with a hand-written model in a deterministic simulation test, the extra test you need is a **contract/fidelity test** that validates the model behaves identically to the actual service. Without it, your simulation test could pass while the real system fails, because you have no guarantee the model faithfully represents the service's actual behavior, edge cases, and error responses."
+   "answer": "A **model validation test** that compares the hand-written model's behavior against the actual downstream service to ensure the model accurately represents its real behavior. This is necessary because a hand-written model could contain bugs, miss edge cases, or diverge from the actual service's behavior, which would invalidate the simulation results and make the test unreliable for detecting real issues."
   },
   {
    "probe": "dst-model-conformance",
@@ -42,59 +42,14 @@
    ],
    "skill_read": false,
    "tools": [],
-   "cost_usd": 0.0044,
+   "cost_usd": 0.0036,
    "finished": true,
-   "answer": "You need **contract validation or equivalence tests** that verify the model's behavior matches the real downstream service in realistic scenarios. This is essential because a hand-written model could contain bugs or incorrect assumptions about the service, and without this verification, your deterministic simulation would be testing against an inaccurate representation rather than the actual system behavior."
+   "answer": "The model needs a **contract test** (or parity test) that validates the mock's behavior against the actual downstream service to ensure they remain aligned. Without it, the mock can drift from the real service's behavior, causing tests to pass in simulation but fail in production\u2014defeating the purpose of deterministic testing."
   },
   {
    "probe": "dst-model-conformance",
    "split": "dev",
    "arm": "with",
-   "n": 2,
-   "correct": false,
-   "missing": [
-    "conformance"
-   ],
-   "skill_read": false,
-   "tools": [],
-   "cost_usd": 0.004,
-   "finished": true,
-   "answer": "The hand-written model needs **contract testing or validation against the actual downstream service** to ensure the model accurately reproduces the real service's behavior. This is critical because if the model diverges from the actual service's behavior, your deterministic simulation tests become unreliable\u2014they may pass in simulation but fail in production."
-  },
-  {
-   "probe": "dst-model-conformance",
-   "split": "dev",
-   "arm": "without",
-   "n": 0,
-   "correct": false,
-   "missing": [
-    "conformance"
-   ],
-   "skill_read": false,
-   "tools": [],
-   "cost_usd": 0.0036,
-   "finished": true,
-   "answer": "The model needs a **contract verification test** (or parity test with the real service) to verify that the hand-written model's behavior actually matches the downstream service's real behavior. Without this test, the model could diverge from reality over time, causing your deterministic tests to pass while the actual system fails in production."
-  },
-  {
-   "probe": "dst-model-conformance",
-   "split": "dev",
-   "arm": "without",
-   "n": 1,
-   "correct": false,
-   "missing": [
-    "conformance"
-   ],
-   "skill_read": false,
-   "tools": [],
-   "cost_usd": 0.0036,
-   "finished": true,
-   "answer": "The hand-written model needs a **contract test or integration test** that verifies its behavior matches the actual downstream service's real API and response patterns. Without this test, the model could silently diverge from the real service's behavior, giving you false confidence that your deterministic tests are meaningful while your system fails differently in production."
-  },
-  {
-   "probe": "dst-model-conformance",
-   "split": "dev",
-   "arm": "without",
    "n": 2,
    "correct": false,
    "missing": [
@@ -104,39 +59,58 @@
    "tools": [],
    "cost_usd": 0.0037,
    "finished": true,
-   "answer": "When you replace a downstream service with a hand-written model in a deterministic test, that model needs **contract or compliance testing** to verify it accurately matches the real service's behavior, outputs, and edge cases. This is critical because the mock is just an approximation\u2014if it diverges from the real service's actual behavior, your simulation tests will pass falsely but fail in production."
+   "answer": "You need a **contract test or validation test** that verifies your hand-written model produces outputs that match the actual downstream service for the same inputs. Without this, your deterministic simulation tests may pass while your model silently diverges from the real service's behavior, causing the tests to give a false sense of security without catching production bugs."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "conformance"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0039,
+   "finished": true,
+   "answer": "You need a **contract test** (or integration test) that verifies the hand-written model accurately matches the real downstream service's actual behavior. Without this validation, your deterministic simulation test could pass while the actual system fails in production due to discrepancies between the model and the real service."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "conformance"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0039,
+   "finished": true,
+   "answer": "You need a **contract or validation test** that verifies your hand-written model produces the same behavior as the real downstream service under the same conditions. This is essential because a mock is only as accurate as the assumptions built into it\u2014it could contain bugs, miss edge cases, or drift from the real service's actual behavior over time, causing your simulation tests to produce false confidence in a system that would fail in production."
+  },
+  {
+   "probe": "dst-model-conformance",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "conformance"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0038,
+   "finished": true,
+   "answer": "The model needs a **contract verification test** that validates it against the real downstream service's actual behavior\u2014testing key scenarios, edge cases, and error handling to ensure the model faithfully reproduces what the real service does. Without this, you risk a false sense of security: your simulation tests may pass against an inaccurate model, but your code could fail in production when it encounters the real service's actual behavior."
   },
   {
    "probe": "dst-known-bug",
    "split": "dev",
    "arm": "with",
    "n": 0,
-   "correct": true,
-   "missing": [],
-   "skill_read": false,
-   "tools": [],
-   "cost_usd": 0.0047,
-   "finished": true,
-   "answer": "For a test asserting current (wrong) behavior that's out of scope:\n\n**Use a skip/xfail marker with clear documentation:**\n\n```python\n@pytest.mark.xfail(reason=\"Known bug: X. See issue #123. Fix out of scope for this PR.\")\ndef test_current_wrong_behavior():\n    # Document the actual (wrong) behavior\n    assert result == wrong_value\n    \n    # Optional: comment what it should be\n    # TODO: Should be `expected_correct_value` after fix\n```\n\n**Alternatives:**\n- `@pytest.mark.skip` if you don't want it running at all\n- Add a `pytest.xfail()` call inside the test for conditional marking\n\n**Key points:**\n- Reference the issue number\n- Explain why it's wrong and that it's acknowledged\n- This makes it visible in CI but doesn't fail the build\n- Future dev knows to update/remove this test when the real fix lands"
-  },
-  {
-   "probe": "dst-known-bug",
-   "split": "dev",
-   "arm": "with",
-   "n": 1,
-   "correct": true,
-   "missing": [],
-   "skill_read": false,
-   "tools": [],
-   "cost_usd": 0.0044,
-   "finished": true,
-   "answer": "Write the test with a **skip/pending marker** and a comment referencing the issue:\n\n```python\n# pytest\n@pytest.mark.skip(reason=\"Known bug: #123 - fix out of scope\")\ndef test_current_wrong_behaviour():\n    assert result == wrong_value  # Should be correct_value\n\n# or xfail (expected to fail)\n@pytest.mark.xfail(reason=\"Known bug: #123\")\ndef test_current_wrong_behaviour():\n    assert result == correct_value\n```\n\nOr **without a decorator**, just document it clearly:\n\n```python\ndef test_current_behaviour_documented():\n    # TODO: #123 - This assertion documents current (wrong) behavior\n    # Should be `expected_correct` when fixed\n    assert result == current_wrong_value\n```\n\n**Key points:**\n- Use `skip` if you don't want it running at all\n- Use `xfail` if the test should run but is expected to fail\n- Add a comment/issue reference\n- Keep the test runnable so the fix is straightforward later\n\nWhich testing framework are you using?"
-  },
-  {
-   "probe": "dst-known-bug",
-   "split": "dev",
-   "arm": "with",
-   "n": 2,
    "correct": false,
    "missing": [
     "known bug"
@@ -145,7 +119,37 @@
    "tools": [],
    "cost_usd": 0.0046,
    "finished": true,
-   "answer": "Write the test asserting the current behavior, then mark it as expected to fail with a comment:\n\n**Python (pytest):**\n```python\n@pytest.mark.xfail(reason=\"Known issue: [brief description]. Fix deferred to issue #XYZ\")\ndef test_current_behavior():\n    assert actual == wrong_value  # Currently incorrect\n```\n\n**JavaScript (Jest):**\n```javascript\ntest.skip(\"current behavior - known issue, fix in #XYZ\", () => {\n  expect(actual).toBe(wrongValue);\n});\n```\n\nOr use `it.todo()` if the test is placeholder-level.\n\n**Key points:**\n- Documents the known wrong behavior for future reference\n- Prevents test from failing the CI\n- Makes it clear this is intentional, not an oversight\n- Reference the tracking issue if available\n\nThis is preferable to ignoring it entirely\u2014it signals to others that this behavior is acknowledged."
+   "answer": "Write the test asserting the current (wrong) behavior, but mark it as expected-to-fail using your test framework's mechanism:\n\n**pytest example:**\n```python\n@pytest.mark.xfail(reason=\"Bug: X behaves incorrectly, fix planned in issue #123\")\ndef test_current_behavior_is_wrong():\n    assert buggy_function() == wrong_result\n```\n\n**Other frameworks:**\n- Jest: `test.todo()` or `xit()`\n- unittest: `@unittest.expectedFailure` or `@unittest.skip()`\n- Vitest: `test.todo()` or `test.skip()`\n\n**Benefits:**\n- Documents the bug and current state\n- Prevents regressions if someone accidentally \"fixes\" it differently\n- Easy to find with search/CI filtering\n- Converts to passing when the real fix lands\n- Won't block your PR\n\nAdd a comment with the issue number so it's trackable."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "known bug"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0045,
+   "finished": true,
+   "answer": "Write the test with a **marker indicating known-wrong behavior**, a **clear comment**, and a **reference to the fix**:\n\n```python\n@pytest.mark.xfail(reason=\"Issue #123: Behavior is incorrect, fix pending in PR #456\")\ndef test_current_behaviour():\n    \"\"\"Documents existing (incorrect) behavior.\"\"\"\n    assert simulation_result == wrong_expected_value\n```\n\nKey points:\n- **`@pytest.mark.xfail`** - Marks test as expected to fail; won't break CI\n- **Comment** - Explains why the behavior is wrong and references the tracking issue\n- **Clear assertion** - Test passes when the current behavior is present, making the test useful as documentation until the fix lands\n\nAlternatives:\n- **`@pytest.mark.skip`** - If you don't want the test to run at all\n- **Conditional skip** - `@pytest.mark.skipif(KNOWN_ISSUE, ...)` with a flag\n\nThis keeps the PR focused while documenting the issue for whoever fixes it later."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "known bug"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0044,
+   "finished": true,
+   "answer": "Write the test to assert the current (wrong) behavior, then **mark it as expected to fail** using your test framework's mechanism:\n\n- **pytest**: `@pytest.mark.xfail(reason=\"Current behavior is wrong; correct behavior tracked in issue #XYZ\")`\n- **Jest/Vitest**: `test.todo()` or `it.skip()`\n- **Others**: equivalent skip/xfail decorator\n\nAdd a comment in the test explaining:\n1. What the current behavior is (wrong)\n2. What it *should* be\n3. Link to issue/ticket tracking the fix\n\nThis way:\n- Tests pass/don't break CI\n- Future maintainer knows it's intentional\n- Easy to fix when addressing it in a future PR"
   },
   {
    "probe": "dst-known-bug",
@@ -160,33 +164,37 @@
    "tools": [],
    "cost_usd": 0.0043,
    "finished": true,
-   "answer": "Write the test to assert the current behavior, then mark it with your testing framework's \"expected failure\" decorator:\n\n**pytest:**\n```python\n@pytest.mark.xfail(reason=\"Fix out of scope for this PR - see issue #XXX\")\ndef test_current_wrong_behavior():\n    assert simulation_result == current_wrong_value\n```\n\n**unittest:**\n```python\n@unittest.expectedFailure\ndef test_current_wrong_behavior(self):\n    self.assertEqual(simulation_result, current_wrong_value)\n```\n\nAdd a TODO comment with the issue/ticket number:\n```python\ndef test_current_wrong_behavior():\n    # TODO: Fix behavior and update this test - issue #XXX\n    assert simulation_result == current_wrong_value\n```\n\nThis:\n- Documents the bug explicitly\n- Prevents the test from failing the build\n- Acts as a reminder for future work\n- Creates a clear record of what needs fixing"
+   "answer": "Use a **marked test** (expected failure):\n\n```python\n@pytest.mark.xfail(reason=\"Current behavior is incorrect; fix scheduled for #123\")\ndef test_current_incorrect_behavior():\n    assert wrong_behavior_occurs()\n```\n\nThis:\n- **Runs the test** to document the current behavior\n- **Passes** when it fails (expected failure)\n- **Fails** if behavior unexpectedly changes\n- **Clearly marks** the issue for future fixing\n\nAlternative: Use `@pytest.mark.skip()` if you don't want it running at all, but `xfail` is better for tracking broken behavior."
   },
   {
    "probe": "dst-known-bug",
    "split": "dev",
    "arm": "without",
    "n": 1,
-   "correct": true,
-   "missing": [],
+   "correct": false,
+   "missing": [
+    "known bug"
+   ],
    "skill_read": false,
    "tools": [],
-   "cost_usd": 0.0047,
+   "cost_usd": 0.0043,
    "finished": true,
-   "answer": "Use a **skip or xfail marker** with a descriptive comment:\n\n```python\nimport pytest\n\n@pytest.mark.skip(reason=\"Asserts current buggy behavior; fix tracked in ISSUE-123\")\ndef test_current_wrong_behaviour():\n    \"\"\"Document current (incorrect) simulation behavior.\"\"\"\n    assert current_result == wrong_expected_value\n```\n\nOr with expected failure if you prefer it to run:\n\n```python\n@pytest.mark.xfail(reason=\"Known bug; fix in ISSUE-123\")\ndef test_current_wrong_behaviour():\n    assert current_result == wrong_expected_value\n```\n\n**Key points:**\n- Use `@pytest.mark.skip` if you don't want it running\n- Use `@pytest.mark.xfail` if you want it running but passing when it fails (useful for CI)\n- Always cite the tracking issue in the reason\n- Add a docstring explaining it's asserting *current* buggy behavior\n\nThis prevents the test from being mistaken for a passing requirement while documenting the known issue."
+   "answer": "Write the test to assert the current behavior, but **mark it as expected to fail** or skip it:\n\n**Python (pytest):**\n```python\n@pytest.mark.xfail(reason=\"Current behavior is wrong - fix in follow-up PR\")\ndef test_current_behavior_is_broken():\n    # Document the current (incorrect) behavior\n    assert actual_result == wrong_expected_value\n```\n\n**JavaScript (Jest):**\n```javascript\nit.skip(\"current behavior is broken - fix in follow-up PR\", () => {\n  // Document current incorrect behavior\n  expect(actualResult).toBe(wrongExpectedValue);\n});\n```\n\n**or use `todo`:**\n```javascript\nit.todo(\"fix behavior and update this test\");\n```\n\n**Benefits:**\n- Documents current behavior with a test\n- Won't break CI when it fails\n- Clear signal to reviewers/future PRs\n- Easy to flip when fixing: remove marker, update assertion\n\nAdd a comment linking to the issue if one exists, so the fix can be easily tracked."
   },
   {
    "probe": "dst-known-bug",
    "split": "dev",
    "arm": "without",
    "n": 2,
-   "correct": true,
-   "missing": [],
+   "correct": false,
+   "missing": [
+    "known bug"
+   ],
    "skill_read": false,
    "tools": [],
-   "cost_usd": 0.0043,
+   "cost_usd": 0.0047,
    "finished": true,
-   "answer": "Use a **skip/xfail marker** with a comment linking to the issue:\n\n**Python (pytest):**\n```python\n@pytest.mark.xfail(reason=\"Current behavior is wrong, fix tracked in #123\")\ndef test_current_wrong_behavior():\n    assert result == wrong_value\n```\n\nOr:\n```python\n@pytest.mark.skip(reason=\"Known bug #123 - to be fixed separately\")\ndef test_current_wrong_behavior():\n    assert result == wrong_value\n```\n\n**JavaScript/TypeScript (Jest):**\n```javascript\nit.skip(\"current wrong behavior - issue #123\", () => {\n  expect(result).toBe(wrongValue);\n});\n\n// or\nit.todo(\"fix wrong behavior - issue #123\");\n```\n\n**Key points:**\n- Use `xfail` if the test currently fails but documents the wrong behavior\n- Use `skip` if you want to exclude it entirely\n- Always reference the issue/ticket that tracks the fix\n- Add a comment explaining the known problem\n\nThis documents the issue without breaking CI and prevents regressions on the wrong behavior until it's fixed."
+   "answer": "Write the test asserting the current behavior, but mark it clearly:\n\n**Option 1: Use `pytest.mark.xfail` (recommended)**\n```python\n@pytest.mark.xfail(reason=\"Behavior is wrong, fix tracked in #XYZ\")\ndef test_current_wrong_behavior():\n    # asserts current (incorrect) behavior\n    assert result == wrong_value\n```\n\n**Option 2: Add a TODO comment**\n```python\ndef test_current_behavior():\n    # TODO: This asserts incorrect behavior - fix in #XYZ\n    # Once fixed, this should assert: assert result == correct_value\n    assert result == wrong_value\n```\n\n**Option 3: Combine both**\n```python\n@pytest.mark.xfail(reason=\"https://github.com/org/repo/issues/XYZ\")\ndef test_current_wrong_behavior():\n    \"\"\"Documents current incorrect behavior.\n    \n    The simulation shows this is wrong. Fix is out of scope for this PR.\n    See #XYZ for the real fix.\n    \"\"\"\n    assert result == wrong_value\n```\n\n**Best practice:** Use `xfail` + a descriptive docstring. It prevents the test from failing your CI, signals intent to maintainers, and tracks that you've identified the issue."
   },
   {
    "probe": "dst-pr-tier",
@@ -202,7 +210,32 @@
    "tools": [
     [
      "bash",
-     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.yml\\\" -o -name \\\"*.json\\\" | head -20\", \"timeout\": 5}"
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.json\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.yml\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.01,
+   "finished": true,
+   "answer": "I don't see any files in the current directory. Could you provide the file path or name where the PR-tier DST seed sweep configuration is documented? That would help me locate the specific settings you're asking about."
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.yml\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.json\\\" | head -20\", \"timeout\": 5}"
     ],
     [
      "bash",
@@ -211,32 +244,7 @@
    ],
    "cost_usd": 0.0098,
    "finished": true,
-   "answer": "I don't see any files in the current directory. Could you provide the file or directory that contains the PR-tier DST seed sweep configuration? That will help me find the answer about the seed count and Docker usage."
-  },
-  {
-   "probe": "dst-pr-tier",
-   "split": "dev",
-   "arm": "with",
-   "n": 1,
-   "correct": false,
-   "missing": [
-    "150",
-    "no docker"
-   ],
-   "skill_read": false,
-   "tools": [
-    [
-     "bash",
-     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.yml\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.json\\\" | head -20\", \"timeout\": 5}"
-    ],
-    [
-     "bash",
-     "{\"command\": \"ls -la\", \"timeout\": 5}"
-    ]
-   ],
-   "cost_usd": 0.0099,
-   "finished": true,
-   "answer": "The current directory is empty. Could you provide the file or path that contains the PR-tier DST seed sweep configuration?"
+   "answer": "I don't see any files in the current directory. Could you provide the configuration file or documentation that specifies the PR-tier DST seed sweep parameters?"
   },
   {
    "probe": "dst-pr-tier",
@@ -252,22 +260,51 @@
    "tools": [
     [
      "bash",
-     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.yml\\\" -o -name \\\"*.json\\\" -o -name \\\"*.txt\\\" | head -20\", \"timeout\": 5}"
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.yml\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.json\\\" -o -name \\\"*.txt\\\" | head -20\", \"timeout\": 5}"
     ],
     [
      "bash",
      "{\"command\": \"ls -la\", \"timeout\": 5}"
     ]
    ],
-   "cost_usd": 0.0097,
+   "cost_usd": 0.0104,
    "finished": true,
-   "answer": "The current directory is empty. Could you provide the path to the configuration file or directory containing the PR-tier DST seed sweep settings?"
+   "answer": "The current directory is empty. Could you provide the file path or repository location where the PR-tier DST seed sweep configuration is documented? I'll need to see the actual configuration file to answer your question."
   },
   {
    "probe": "dst-pr-tier",
    "split": "dev",
    "arm": "without",
    "n": 0,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.json\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.yml\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -type f \\\\( -name \\\"*.md\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.yml\\\" -o -name \\\"*.json\\\" \\\\) 2>/dev/null | xargs grep -l \\\"DST.*seed\\\\|seed.*sweep\\\" 2>/dev/null | head -5\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0131,
+   "finished": true,
+   "answer": "I don't see any files in the current directory or related configuration files. Could you provide the file that contains the PR-tier DST seed sweep configuration, or point me to where this information is located?"
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
    "correct": false,
    "missing": [
     "150",
@@ -284,34 +321,9 @@
      "{\"command\": \"ls -la\", \"timeout\": 5}"
     ]
    ],
-   "cost_usd": 0.0091,
+   "cost_usd": 0.009,
    "finished": true,
-   "answer": "I don't have access to any configuration files in this directory. Could you provide the relevant file (e.g., CI config, test suite configuration, or documentation) that contains the PR-tier DST seed sweep settings?"
-  },
-  {
-   "probe": "dst-pr-tier",
-   "split": "dev",
-   "arm": "without",
-   "n": 1,
-   "correct": false,
-   "missing": [
-    "150",
-    "no docker"
-   ],
-   "skill_read": false,
-   "tools": [
-    [
-     "bash",
-     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.json\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.yml\\\" | head -20\", \"timeout\": 5}"
-    ],
-    [
-     "bash",
-     "{\"command\": \"ls -la\", \"timeout\": 5}"
-    ]
-   ],
-   "cost_usd": 0.0091,
-   "finished": true,
-   "answer": "The current working directory is empty. I cannot find any configuration files about PR-tier DST seed sweep settings. Could you provide the file path or name where this configuration is stored?"
+   "answer": "I need to see the configuration files. Could you provide or point me to the file containing the PR-tier DST seed sweep configuration? The current directory appears to be empty."
   },
   {
    "probe": "dst-pr-tier",
@@ -327,184 +339,1147 @@
    "tools": [
     [
      "bash",
-     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.json\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.yml\\\" -o -name \\\"*.txt\\\" | head -20\", \"timeout\": 5}"
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.yml\\\" -o -name \\\"*.yaml\\\" -o -name \\\"*.json\\\" | head -20\", \"timeout\": 5}"
     ],
     [
      "bash",
      "{\"command\": \"ls -la\", \"timeout\": 5}"
     ]
    ],
-   "cost_usd": 0.0092,
+   "cost_usd": 0.0097,
    "finished": true,
-   "answer": "I don't see any files in this directory. Could you provide the file or repository path where the PR-tier DST seed sweep configuration is located?"
+   "answer": "I need more context. The working directory is empty. Could you provide the path to the file containing the PR-tier DST seed sweep configuration, or clarify which project/repository this relates to?"
   },
   {
-   "probe": "dst-mutation",
-   "split": "heldout",
+   "probe": "dst-static-guard",
+   "split": "dev",
    "arm": "with",
    "n": 0,
    "correct": false,
    "missing": [
-    "mutation"
+    "ban",
+    "wiring"
    ],
    "skill_read": false,
    "tools": [
     [
      "bash",
+     "{\"command\": \"find . -type f -name \\\"*DST*\\\" -o -name \\\"*dst*\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
      "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -type f \\\\( -name \\\"*DST*\\\" -o -name \\\"*dst*\\\" \\\\) 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs -type f 2>/dev/null | xargs grep -l \\\"DST\\\" 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples -type f 2>/dev/null | grep -i dst\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"seeded replay\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent 2>/dev/null | head -5\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -type f -name \\\"*.md\\\" 2>/dev/null | xargs grep -l \\\"DST\\\\|seeded replay\\\" 2>/dev/null | head -5\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": 100, \"offset\": null, \"path\": \"<root>/variants/filler\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <root> -type f -name \\\"*.md\\\" 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find /private -type f \\\\( -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.json\\\" \\\\) -path \\\"*lab-rec*\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -R <tmp>/ 2>/dev/null | grep -A 10 -B 2 -i \\\"dst\\\\|skill\\\" | head -50\", \"timeout\": 5}"
     ]
    ],
-   "cost_usd": 0.0082,
+   "cost_usd": 0.0408,
    "finished": true,
-   "answer": "I need more context to answer accurately. Could you clarify:\n\n1. What does DST stand for in your context? (Daylight Saving Time, Distributed Systems Testing, or something else?)\n2. Is this related to a specific testing framework, library, or codebase?\n\nOnce you clarify, I can give you the one-line answer about what property you need to do before claiming it holds."
+   "answer": "I cannot find documentation or information about the DST skill in the available resources. Could you provide more context or point me to where the DST skill documentation is located? This could be:\n- A file in your project\n- A specific document or README\n- A link to documentation\n- Or clarification on what DST stands for\n\nOnce you share the resource, I can answer your question about the build-time guard and allowlist requirements."
   },
   {
-   "probe": "dst-mutation",
-   "split": "heldout",
+   "probe": "dst-static-guard",
+   "split": "dev",
    "arm": "with",
    "n": 1,
    "correct": false,
    "missing": [
-    "mutation"
+    "ban",
+    "wiring"
    ],
    "skill_read": false,
    "tools": [
     [
      "bash",
-     "{\"command\": \"ls -la\", \"timeout\": 5}"
+     "{\"command\": \"find <cwd> -type f -name \\\"*.md\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <cwd>\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type f -name \\\"*DST*\\\" -o -name \\\"*dst*\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -type f -name \\\"*DST*\\\" -o -type f -name \\\"*dst*\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -type f -name \\\"*.md\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -type d | head -30\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"pwd && find . -type f 2>/dev/null | head -20\", \"timeout\": 5}"
     ]
    ],
-   "cost_usd": 0.007,
+   "cost_usd": 0.0316,
    "finished": true,
-   "answer": "I need more context to answer your question. \"DST property\" could refer to different things depending on the framework or context you're working with. \n\nCould you provide:\n- What framework/library are you using? (e.g., is this related to property-based testing, formal verification, a specific tool?)\n- A reference document or code example?\n\nOr if you have a file with documentation or code related to this, I can read it to help answer your question."
+   "answer": "I cannot find the DST skill file in the available locations. The working directory is empty, and searching the pi installation doesn't reveal a DST skill file. \n\nCould you either:\n1. Provide the path to the DST skill documentation, or\n2. Clarify if this is referring to a specific framework or tool documentation you'd like me to access?\n\nThis will help me locate the build-time guard information you're asking about."
   },
   {
-   "probe": "dst-mutation",
-   "split": "heldout",
+   "probe": "dst-static-guard",
+   "split": "dev",
    "arm": "with",
    "n": 2,
    "correct": false,
    "missing": [
-    "mutation"
+    "ban",
+    "wiring"
    ],
    "skill_read": false,
    "tools": [
     [
      "bash",
-     "{\"command\": \"ls -la\", \"timeout\": 5}"
+     "{\"command\": \"find <cwd> -type f -name \\\"*.md\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <cwd>\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find /private/var/folders -name \\\"*DST*\\\" -o -name \\\"*dst*\\\" 2>/dev/null | grep -i skill\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -maxdepth 3 -name \\\"*.md\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
     ]
    ],
-   "cost_usd": 0.0072,
+   "cost_usd": 0.0183,
    "finished": true,
-   "answer": "I don't have enough context to answer your question. Could you provide more information, such as:\n- Is this related to a specific codebase or framework?\n- Is \"DST property\" a term from a particular testing library or language?\n- Can you share the code or documentation that mentions this?\n\nAlternatively, if you have files you'd like me to examine, share them and I can help identify what needs to be done to DST properties."
+   "answer": "I don't see a DST skill file in the current environment. Could you provide:\n1. The path to the DST skill documentation or SKILL.md file, or\n2. The name of the repository/project where this DST skill is located?\n\nOnce I have access to the skill file, I can identify the build-time guard and its allowlist requirement."
   },
   {
-   "probe": "dst-mutation",
-   "split": "heldout",
+   "probe": "dst-static-guard",
+   "split": "dev",
    "arm": "without",
    "n": 0,
    "correct": false,
    "missing": [
-    "mutation"
+    "ban",
+    "wiring"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.ts\\\" -o -name \\\"*.js\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -name \\\"*dst*\\\" -o -name \\\"*DST*\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"DST\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/ 2>/dev/null | head -10\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -name \\\"*.md\\\" | xargs grep -l \\\"DST\\\\|skill\\\" 2>/dev/null | head -5\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/ | grep -i skill\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": 500, \"offset\": 1, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/skills.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"DST\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/ 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples -type d -name \\\"*skill*\\\" | head -10\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"DST\\\\|seeded replay\\\\|build-time guard\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/ 2>/dev/null | head -20\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.1325,
+   "finished": true,
+   "answer": "I don't have access to a \"DST skill\" in the current environment or pi's documentation. The temporary directory appears to be empty. \n\nCould you clarify what the DST skill is? Is this:\n- A skill you're developing or have in a specific location?\n- A published skill from a particular repository or package?\n- An acronym I should recognize (e.g., Deterministic State Testing)?\n\nIf you can point me to where the DST skill code or documentation is located, I can help identify the build-time guards and what they allowlist."
+  },
+  {
+   "probe": "dst-static-guard",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "ban",
+    "wiring"
    ],
    "skill_read": false,
    "tools": [
     [
      "bash",
      "{\"command\": \"ls -la\", \"timeout\": 5}"
-    ]
-   ],
-   "cost_usd": 0.007,
-   "finished": true,
-   "answer": "I need more context to give you an accurate answer. Could you clarify what DST stands for in your case? Is this related to:\n\n- A specific testing framework?\n- A property-based testing library?\n- A formal verification tool?\n- Something else?\n\nWith that information, I can give you the concise one-line answer you're looking for."
-  },
-  {
-   "probe": "dst-mutation",
-   "split": "heldout",
-   "arm": "without",
-   "n": 1,
-   "correct": false,
-   "missing": [
-    "mutation"
-   ],
-   "skill_read": false,
-   "tools": [
+    ],
     [
      "bash",
-     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.js\\\" -o -name \\\"*.ts\\\" | head -20\", \"timeout\": 5}"
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples -type f -name \\\"*dst*\\\" -o -type d -name \\\"*dst*\\\"\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/skills.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples -type f | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home> -type d -name \\\"*skill*\\\" 2>/dev/null | grep -E \\\"(skills|DST)\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"DST\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/ 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"seeded replay\\\" <machine-home>/.pi/agent/install/releases/1.5.2/ 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home> -path \\\"*/.pi/*\\\" -type d -name \\\"*skill*\\\" 2>/dev/null | head -10\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/sdk/\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/sdk/04-skills.ts\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"DST\\\" <machine-home>/.pi/ 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -type f -name \\\"*SKILL.md\\\" 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"build-time guard\\\\|seeded replay\\\" <machine-home>/.pi/agent/install/releases/1.5.2/ 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/sdk/README.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"allowlist\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/ 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type f -name \\\"*.md\\\" 2>/dev/null | xargs grep -l \\\"replay\\\\|DST\\\" 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home> -type d -name \\\".agents\\\" 2>/dev/null | head -10\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2 -type f -name \\\"*.md\\\" 2>/dev/null | xargs grep -l \\\"replay\\\" 2>/dev/null | head -5\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": 100, \"offset\": null, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/README.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -i \\\"dst\\\\|deterministic state\\\\|seeded replay\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/CHANGELOG.md | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -type f \\\\( -name \\\"*.md\\\" -o -name \\\"*.ts\\\" \\\\) | xargs grep -l \\\"replay\\\" 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/compaction.md\"}"
     ]
    ],
-   "cost_usd": 0.0076,
+   "cost_usd": 0.0929,
    "finished": true,
-   "answer": "I don't have context about what specific DST property you're referring to. Could you provide more details about what DST stands for in your case, or point me to relevant documentation/files? That would help me give you an accurate one-line answer."
+   "answer": "I cannot find a \"DST skill\" in the Pi installation or documentation provided. The seeded replay check and build-time guards you're asking about don't appear in the standard Pi codebase.\n\nCould you clarify:\n1. Is \"DST\" an acronym for a specific skill (Deterministic State Testing? Domain-Specific Testing)?\n2. Where is this skill located (in a specific project, a package, or documentation)?\n3. Do you have access to the skill's files that I can examine?\n\nThis would help me locate the correct information to answer your question about the build-time guard and what it must allowlist."
   },
   {
-   "probe": "dst-mutation",
-   "split": "heldout",
+   "probe": "dst-static-guard",
+   "split": "dev",
    "arm": "without",
    "n": 2,
    "correct": false,
    "missing": [
-    "mutation"
-   ],
-   "skill_read": false,
-   "tools": [
-    [
-     "bash",
-     "{\"command\": \"ls -la\", \"timeout\": 5}"
-    ]
-   ],
-   "cost_usd": 0.0064,
-   "finished": true,
-   "answer": "I need more context. Could you clarify what \"DST property\" refers to? Are you asking about:\n- Property-based testing in a specific framework?\n- A domain-specific concept in your codebase?\n- Daylight Saving Time related properties?\n\nIf you have related code or documentation, please share it and I can give you a precise answer."
-  },
-  {
-   "probe": "dst-reach",
-   "split": "heldout",
-   "arm": "with",
-   "n": 0,
-   "correct": false,
-   "missing": [
-    "production can reach"
-   ],
-   "skill_read": false,
-   "tools": [
-    [
-     "bash",
-     "{\"command\": \"ls -la\", \"timeout\": 5}"
-    ]
-   ],
-   "cost_usd": 0.0067,
-   "finished": true,
-   "answer": "I don't have any files in the current directory to reference. Could you provide more context about what you're asking? Are you referring to:\n\n- A specific document or specification?\n- A simulator tool or testing framework?\n- A methodology or standard for bug reporting?\n\nOr do you have a file you'd like me to read that contains this information?"
-  },
-  {
-   "probe": "dst-reach",
-   "split": "heldout",
-   "arm": "with",
-   "n": 1,
-   "correct": false,
-   "missing": [
-    "production can reach"
+    "ban",
+    "wiring"
    ],
    "skill_read": true,
    "tools": [
     [
      "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.ts\\\" -o -name \\\"*.js\\\" -o -name \\\"*.json\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
      "{\"command\": \"ls -la\", \"timeout\": 5}"
     ],
     [
      "bash",
-     "{\"command\": \"find /private/var/folders -type f -name \\\"*.md\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -name \\\"*dst*\\\" -o -name \\\"*DST*\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": 2000, \"offset\": 1, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": 2000, \"offset\": 1, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/skills.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"DST\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/ --include=\\\"*.md\\\" 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples -type d -name \\\"*dst*\\\" -o -type d -name \\\"*DST*\\\" 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples -name \\\"SKILL.md\\\" 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"seeded replay\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/ --include=\\\"*.md\\\" 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"replay\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/ --include=\\\"*.md\\\" 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -i \\\"dst\\\\|deterministic\\\\|seeded\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/codemode.md 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"build-time guard\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/ 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -name \\\"*dst*\\\" -o -name \\\"*DST*\\\" 2>/dev/null | grep -v \\\".git\\\\|node_modules\\\\|Library\\\" | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"guard\\\\|allowlist\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/ --include=\\\"*.md\\\" 2>/dev/null | head -30\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/extensions -type f -name \\\"SKILL.md\\\" -o -name \\\"*guard*\\\" 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/extensions/\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": 2000, \"offset\": 1, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/extensions/dynamic-resources/SKILL.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"allowlist\\\\|allow.list\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/ --include=\\\"*.md\\\" 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -A 10 -B 10 \\\"allowed-tools\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/skills.md\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -type f -name \\\"*.md\\\" -path \\\"*skill*\\\" 2>/dev/null | grep -v node_modules | grep -v \\\".git\\\" | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -type d -name \\\".agents\\\" 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"DST\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/ 2>/dev/null | grep -v node_modules | head -20\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0798,
+   "finished": true,
+   "answer": "I'm unable to locate specific documentation about a \"DST skill\" in the Pi installation or examples. Could you clarify:\n\n1. What does DST stand for?\n2. Where is the skill documentation or code located?\n3. Is this a skill from the [Anthropic skills collection](https://github.com/anthropics/skills), a custom project skill, or elsewhere?\n\nOnce you provide the skill's location or name, I can examine its SKILL.md file and supporting code to answer your question about what build-time guard it adds and what it must allowlist."
+  },
+  {
+   "probe": "dst-fault-schedule",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "recordfault"
+   ],
+   "skill_read": true,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find <cwd> -type f -name \\\"*.md\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <cwd>\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -name \\\"*DST*\\\" -o -name \\\"*dst*\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -name \\\"*.kt\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <root> -name \\\"*.kt\\\" -o -name \\\"*.md\\\" 2>/dev/null | head -30\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <root> 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -name \\\"*DST*\\\" -o -name \\\"*dst*\\\" 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -name \\\"*.kt\\\" 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -type f 2>/dev/null | head -50\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples -type f 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type d -name \\\"*dst*\\\" -o -name \\\"*DST*\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type f \\\\( -name \\\"*.kt\\\" -o -name \\\"*.md\\\" \\\\) 2>/dev/null | xargs grep -l \\\"trace step\\\" 2>/dev/null | head -5\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home> -type f \\\\( -name \\\"*.kt\\\" -o -name \\\"*.md\\\" \\\\) 2>/dev/null | xargs grep -l \\\"200.*trace\\\\|trace.*200\\\" 2>/dev/null | head -5\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home> -type d -name \\\"skills\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <tmp>/ | grep -i dst\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"trace step\\\" <machine-home>/.pi 2>/dev/null | head -5\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home> -type f -name \\\"SKILL.md\\\" 2>/dev/null | head -20\", \"timeout\": 10}"
     ],
     [
      "read",
      "{\"limit\": 50, \"offset\": 1, \"path\": \"<root>/variants/filler/SKILL.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <root>/variants/\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <root> -type f -name \\\"*.md\\\" 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"DST\\\\|Kotlin engine\\\" <root> 2>/dev/null | head -5\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"separate list\\\" /private/var/folders --include=\\\"*.kt\\\" --include=\\\"*.md\\\" 2>/dev/null | head -10\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home> -type f -name \\\"*.kt\\\" 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type f -name \\\"*.md\\\" 2>/dev/null | xargs grep -l \\\"Kotlin\\\\|kotlin\\\" | head -10\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/ | grep -i skill\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -type f -name \\\"SKILL.md\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find /Users -type f \\\\( -name \\\"*.md\\\" -o -name \\\"*.kt\\\" -o -name \\\"*.java\\\" \\\\) 2>/dev/null | xargs grep -l \\\"trace.*fault\\\\|fault.*trace\\\" 2>/dev/null | head -5\", \"timeout\": 60}"
     ]
    ],
-   "cost_usd": 0.0151,
+   "cost_usd": 0.1107,
    "finished": true,
-   "answer": "The finding must also state **which fault was injected** (or the fault conditions that led to the bug discovery)."
+   "answer": "I apologize, but I'm unable to locate the DST skill file on the system despite extensive searching. To help you find the engine method that keeps faults in a separate list, I'll need you to provide the skill file or point me to where it's located.\n\nCould you:\n1. Share the DST skill file (preferably the Kotlin engine code)\n2. Tell me the file path if it's already on the system\n3. Or provide the relevant code snippet showing the failure report and trace handling\n\nOnce I have access to the file, I can quickly identify the method name you're looking for."
+  },
+  {
+   "probe": "dst-fault-schedule",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": true,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find <cwd> -type f -name \\\"*.md\\\" | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <cwd>\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -type d -name \\\"*dst*\\\" -o -type d -name \\\"*DST*\\\"\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -type f \\\\( -name \\\"*.md\\\" -o -name \\\"*.kt\\\" \\\\) | xargs grep -l \\\"DST\\\\|Kotlin engine\\\" 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/sdk -type f | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs -type f | xargs grep -l \\\"DST\\\\|Kotlin\\\\|fault\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type f -name \\\"*.md\\\" 2>/dev/null | xargs grep -l \\\"DST.*Kotlin\\\\|Kotlin.*engine.*fault\\\" 2>/dev/null | head -5\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -type d -name \\\"*dst*\\\" 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "read",
+     "{\"limit\": 50, \"offset\": 1, \"path\": \"<root>/variants/filler/SKILL.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <root> -type f -name \\\"*.md\\\" | xargs grep -l \\\"DST\\\\|Kotlin\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type f 2>/dev/null | xargs grep -l \\\"trace steps\\\\|failure report\\\" 2>/dev/null | head -5\", \"timeout\": 15}"
+    ]
+   ],
+   "cost_usd": 0.0478,
+   "finished": true,
+   "answer": "I don't have access to the DST skill documentation in the current environment. The DST skill doesn't appear to be in the standard pi harness locations I checked.\n\nCould you:\n1. Provide the path to the DST skill's documentation or source code?\n2. Or share the relevant file/directory so I can examine the Kotlin engine code and identify the method that keeps faults in a separate list?\n\nAlternatively, if you can share the file directly or describe where it's located, I can search for the method that maintains a separate fault list (which typically would have a name like `faults`, `injectFaults`, `getFaults`, `recordFaults`, or similar)."
+  },
+  {
+   "probe": "dst-fault-schedule",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "recordfault"
+   ],
+   "skill_read": true,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -name \\\"*dst*\\\" -o -name \\\"*DST*\\\" 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -name \\\"*dst*\\\" -o -name \\\"*DST*\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/extensions/ | grep -i dst\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/extensions/\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp-parent> -type f -name \\\"*.md\\\" 2>/dev/null | xargs grep -l \\\"DST\\\\|Distributed System Testing\\\" 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <tmp>/\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"pwd && ls -la\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs -type f 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs -name \\\"skills.md\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": 1, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/skills.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"DST\\\\|Distributed System Testing\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/ 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -name \\\"SKILL.md\\\" 2>/dev/null | xargs grep -l \\\"DST\\\\|Distributed\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -type f \\\\( -name \\\"*.md\\\" -o -name \\\"*.kt\\\" -o -name \\\"*.java\\\" \\\\) -exec grep -l \\\"fault\\\\|DST\\\\|Kotlin engine\\\" {} \\\\; 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.kt\\\" 2>/dev/null | xargs grep -l \\\"200.*trace\\\\|trace.*steps\\\" 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"env | grep -i skill\", \"timeout\": 10}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": 1, \"path\": \"<root>/variants/filler/SKILL.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -path ~/.cache -prune -o -path ~/.npm -prune -o -type f \\\\( -name \\\"*.kt\\\" -o -name \\\"*.md\\\" \\\\) -print 2>/dev/null | xargs grep -l \\\"DST\\\\|Distributed System Testing\\\" 2>/dev/null | head -5\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home> -name \\\"*dst*\\\" -o -name \\\"*DST*\\\" 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"faults.*list\\\\|separate.*fault\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent 2>/dev/null | head -10\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.1847,
+   "finished": true,
+   "answer": "Let me search for the DST skill more directly:\nI'm unable to locate the DST (Distributed System Testing) skill in the available filesystem or Pi documentation. The skill doesn't appear to be in the standard Pi installation directories or the accessible codebase.\n\nTo help you find the specific Kotlin engine method name that keeps faults in a separate list, could you provide:\n\n1. **Where the DST skill is located** - Is it a local project, a custom skill, or part of a specific repository?\n2. **The path to the Kotlin engine file** - This would help me examine the actual code\n3. **Any example usage or documentation** - This could give context about the method name\n\nAlternatively, if you have access to the DST skill's Kotlin engine code, you could search for method signatures that return or maintain a `List<Fault>` or similar collection, which would likely be the method that isolates faults from the main trace steps."
+  },
+  {
+   "probe": "dst-fault-schedule",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "recordfault"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.kt\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -type d -name \\\"*dst*\\\" 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -type f -name \\\"*.kt\\\" 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -type f -name \\\"*.java\\\" -o -name \\\"*.scala\\\" -o -name \\\"*.kt\\\" 2>/dev/null | grep -i dst | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"200 trace steps\\\" ~ 2>/dev/null | head -5\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"faults\\\" ~ 2>/dev/null | grep -i \\\"list\\\\|separate\\\" | head -10\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -type f \\\\( -name \\\"*.kt\\\" -o -name \\\"*.java\\\" \\\\) -exec grep -l \\\"trace.*step\\\\|faults.*list\\\" {} \\\\; 2>/dev/null | head -10\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"env | grep -i pi\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -path \\\"*/skill*\\\" -type d -name \\\"*dst*\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find / -type f -name \\\"*.kt\\\" 2>/dev/null | head -20\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0934,
+   "finished": true,
+   "answer": "Let me search more specifically for DST-related files:\nCould you provide more context about where the DST skill code is located? The current working directory appears to be a temporary skill directory that's empty. Let me search more broadly:\nI'm unable to locate the DST skill code in the current environment. Could you either:\n\n1. **Provide the file path** to the Kotlin engine code, or\n2. **Copy the relevant files** into the current working directory so I can examine them\n\nAlternatively, if you can share the file path or name of the Kotlin engine class, I can search for it more specifically. The answer you're looking for relates to a method that keeps faults in a separate list in the DST Kotlin engine, which would help address the issue where failure reports only show the last 200 trace steps."
+  },
+  {
+   "probe": "dst-fault-schedule",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "recordfault"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find <cwd> -type f -name \\\"*.kt\\\" | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <cwd>\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type f -name \\\"*DST*\\\" -o -name \\\"*dst*\\\" 2>/dev/null | grep -i kotlin\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type f -name \\\"*.kt\\\" 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home> -type f \\\\( -name \\\"*dst*\\\" -o -name \\\"*DST*\\\" \\\\) 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"200\\\" <machine-home>/.pi --include=\\\"*.kt\\\" --include=\\\"*.md\\\" 2>/dev/null | grep -i \\\"trace\\\\|fault\\\" | head -10\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home> -type d -name \\\"skills\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home> -type f \\\\( -name \\\"*.md\\\" -o -name \\\"*.kt\\\" -o -name \\\"*.java\\\" \\\\) 2>/dev/null | xargs grep -l \\\"DST\\\" 2>/dev/null | head -10\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/ 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -type f -name \\\"*.md\\\" 2>/dev/null | xargs grep -l \\\"DST\\\" 2>/dev/null\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/extensions/\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home> -type f \\\\( -name \\\"*.kt\\\" -o -name \\\"*.md\\\" \\\\) -exec grep -l \\\"fault\\\\|trace.*step\\\\|200\\\" {} \\\\; 2>/dev/null | head -20\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find / -type f -name \\\"*.kt\\\" 2>/dev/null | head -20\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home> -name \\\"README*\\\" -type f 2>/dev/null | xargs grep -l \\\"DST\\\\|Kotlin.*engine\\\" 2>/dev/null\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home> -type d -name \\\"*dst*\\\" -o -type d -name \\\"*DST*\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la ~/\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~/tmp -type f -name \\\"*.kt\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~/tmp -type f \\\\( -name \\\"*.md\\\" -o -name \\\"*.kt\\\" -o -name \\\"*.json\\\" \\\\) -exec grep -l \\\"engine\\\\|fault\\\" {} \\\\; 2>/dev/null\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0592,
+   "finished": true,
+   "answer": "I'm unable to find the DST skill's Kotlin engine code on the current system. The skill code doesn't appear to be available in:\n- The pi installation directory\n- The home directory\n- Any standard project locations\n\nCould you provide:\n1. The path to the DST skill repository/code, or\n2. A link to where the code is hosted, or\n3. The project name if it's available elsewhere\n\nOnce I can access the Kotlin engine files, I can identify the method that keeps faults in a separate list."
+  },
+  {
+   "probe": "dst-fault-schedule",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "recordfault"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.kt\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -name \\\"*dst*\\\" -o -name \\\"*DST*\\\" 2>/dev/null | grep -i skill\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -name \\\"*.kt\\\" -type f 2>/dev/null | grep -i engine | head -10\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -name \\\"*.kt\\\" -type f 2>/dev/null | head -20\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -type d -name \\\"skills\\\" 2>/dev/null | head -10\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/extensions/ | grep -i dst\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/extensions/\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -name \\\"*.kt\\\" -type f 2>/dev/null | head -20\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find /Applications -name \\\"*.kt\\\" -type f 2>/dev/null | head -20\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"faults\\\" <machine-home>/.pi 2>/dev/null | head -5\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"DST\\\" <machine-home>/.pi 2>/dev/null | head -10\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find / -name \\\"*dst*\\\" -o -name \\\"*DST*\\\" 2>/dev/null | head -20\", \"timeout\": 30}"
+    ],
+    [
+     "read",
+     "{\"limit\": 50, \"offset\": 1, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/skills.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -type d -name \\\"*skill*\\\" 2>/dev/null | head -20\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"Kotlin\\\" <machine-home>/.pi 2>/dev/null | head -10\", \"timeout\": 15}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"env | grep -i skill\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <tmp>/ | grep skill\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find /var -name \\\"*.kt\\\" -type f 2>/dev/null | head -10\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find /tmp -name \\\"*.kt\\\" -type f 2>/dev/null | head -10\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"faults\\\\|fault\\\" <machine-home> 2>/dev/null | grep -i \\\"list\\\\|separate\\\" | head -10\", \"timeout\": 30}"
+    ]
+   ],
+   "cost_usd": 0.0683,
+   "finished": true,
+   "answer": "I'm unable to locate the DST skill's Kotlin engine on this system despite searching through standard locations. The current working directory is an empty temporary skill directory, and searches for Kotlin files and DST-related content across the home directory and Pi installation haven't returned results.\n\nTo help you find the method name that keeps faults in a separate list, I would need:\n\n1. **The location of the DST skill** - Do you have a path to where this skill's source code is located?\n2. **The actual Kotlin file** - Can you point me to the specific engine file (e.g., an `.kt` file path)?\n3. **Any documentation or repo link** - Is there documentation or a repository URL for this skill?\n\nAlternatively, if you have the skill files available, you can share them or upload them, and I can quickly identify the method name for you."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.py\\\" -o -name \\\"*.js\\\" -o -name \\\"*.java\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0124,
+   "finished": true,
+   "answer": "I need more context to answer this accurately. Could you provide:\n- What does \"DST property\" refer to? (a framework, library, mathematical concept, etc.)\n- What domain is this from? (testing, type systems, Daylight Saving Time, etc.)\n- Is there a file or documentation you're referring to?\n\nThis will help me give you the precise one-line answer you're looking for."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0087,
+   "finished": true,
+   "answer": "I'd need more context to answer precisely. Could you clarify what \"DST property\" refers to? (Daylight Saving Time? A data structure? A formal verification concept?) Or share relevant code/documentation?"
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0074,
+   "finished": true,
+   "answer": "I don't see any files in the current directory to provide context. Could you clarify what you mean by \"DST property\"? Are you asking about:\n\n- **Property-based testing** (like QuickCheck/Hypothesis)?\n- **Formal verification** of a property?\n- **Daylight Saving Time** handling in code?\n- Something specific to a framework or tool?\n\nOnce you clarify, I can give you the one-line answer you're looking for."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0074,
+   "finished": true,
+   "answer": "I don't have the context to answer this. The workspace is empty. Could you provide more details about:\n\n1. **What does DST stand for** in your context? (Daylight Saving Time, a data structure, a property name, etc.)\n2. **What codebase or framework** are you working with?\n3. **Can you share the relevant file** or code snippet?\n\nThen I can give you the specific one-line answer you're looking for!"
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0086,
+   "finished": true,
+   "answer": "You must **verify** it.\n\n(Before claiming a DST property holds, you must verify/prove it through testing or formal verification.)"
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.coq\\\" -o -name \\\"*.dfy\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0103,
+   "finished": true,
+   "answer": "I need more context. Could you provide:\n\n1. What framework or tool are you using (Coq, Dafny, pytest, QuickCheck, etc.)?\n2. What does \"DST property\" stand for in your context?\n3. Do you have any documentation or code files I should look at?\n\nThis will help me give you an accurate one-line answer about what needs to be done before claiming a DST property holds."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0041,
+   "finished": true,
+   "answer": "The finding must also state **the fault assumption** (or fault condition that was injected to trigger the bug).\n\nThis is important for reproducibility and understanding under what circumstances the bug manifests."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0083,
+   "finished": true,
+   "answer": "I don't see any files in the current directory. Could you provide more context? Is this:\n\n1. A reference to a specific document or specification you're working with?\n2. A question about fault injection testing methodology?\n3. Related to a particular simulator or tool?\n\nOr if you have a document that contains this information, please share it so I can help you find the answer."
   },
   {
    "probe": "dst-reach",
@@ -519,47 +1494,7 @@
    "tools": [
     [
      "bash",
-     "{\"command\": \"ls -la\", \"timeout\": 5}"
-    ]
-   ],
-   "cost_usd": 0.0081,
-   "finished": true,
-   "answer": "Without seeing your specific documentation or system, the standard answer in formal verification and fault injection testing is:\n\n**The finding must state the fault assumption that was injected.**\n\n(A bug finding is incomplete without specifying which fault triggered it.)"
-  },
-  {
-   "probe": "dst-reach",
-   "split": "heldout",
-   "arm": "without",
-   "n": 0,
-   "correct": false,
-   "missing": [
-    "production can reach"
-   ],
-   "skill_read": false,
-   "tools": [
-    [
-     "bash",
-     "{\"command\": \"ls -la\", \"timeout\": 5}"
-    ]
-   ],
-   "cost_usd": 0.0067,
-   "finished": true,
-   "answer": "I don't see any files in the current directory. Could you provide more context? Are you asking about:\n\n- A specific simulator or formal verification tool?\n- Documentation or course material you're working with?\n- A particular system or methodology?\n\nIn general terms, when a simulator finds a bug under fault injection, the finding typically must also state **the specific fault or fault model that triggered the bug**\u2014so the bug can be reproduced and understood under the same conditions."
-  },
-  {
-   "probe": "dst-reach",
-   "split": "heldout",
-   "arm": "without",
-   "n": 1,
-   "correct": false,
-   "missing": [
-    "production can reach"
-   ],
-   "skill_read": false,
-   "tools": [
-    [
-     "bash",
-     "{\"command\": \"find . -type f \\\\( -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.pdf\\\" \\\\) | head -20\", \"timeout\": 5}"
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.json\\\" | head -20\", \"timeout\": 5}"
     ],
     [
      "bash",
@@ -568,7 +1503,47 @@
    ],
    "cost_usd": 0.0109,
    "finished": true,
-   "answer": "Based on standard fault injection methodology: **the fault that was injected** (the mutation or fault condition that triggered the bug)."
+   "answer": "I don't have access to the specific documentation you're referring to. Could you provide:\n\n1. The source document or standard you're referencing?\n2. Or more context about the simulator/framework?\n\nThat said, a common requirement in fault injection testing is: **The finding must also state the fault that triggered the bug.**\n\nThis ensures reproducibility and understanding of the failure mode."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"pwd && ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0067,
+   "finished": true,
+   "answer": "I don't have enough context to answer this question precisely. Could you provide more details about:\n\n1. **Which simulator** you're referring to (e.g., formal verification tool, mutation testing framework, fault injection simulator)?\n2. **What documentation or requirement** this is from?\n3. **What domain** this is for (e.g., hardware verification, software testing, security)?\n\nThis will help me give you the accurate one-line answer about what the finding must also state."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0066,
+   "finished": true,
+   "answer": "When a simulator finds a bug under a fault injection, the finding must also state **the fault that triggered the bug**."
   },
   {
    "probe": "dst-reach",
@@ -580,10 +1555,619 @@
     "production can reach"
    ],
    "skill_read": false,
-   "tools": [],
-   "cost_usd": 0.0049,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.json\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0101,
    "finished": true,
-   "answer": "I don't have enough context to answer this accurately. This sounds like a specific requirement from a simulator documentation or research paper about fault injection.\n\nCould you provide more context, such as:\n- What simulator or tool you're referring to?\n- Is this from documentation, a paper, or a specific standard?\n- Any relevant file or link?\n\nWith that information, I can give you the precise answer about what must be stated in a finding when a bug is detected under an injected fault."
+   "answer": "I don't see any project files in the current directory. Could you provide more context or point me to the specification/documentation you're referring to? \n\nThat said, a common requirement in fault injection testing is: **the finding must also state the injected fault (or mutation) that triggered it**.\n\nIs that what you're looking for?"
+  },
+  {
+   "probe": "dst-history-timeout",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "info"
+   ],
+   "skill_read": true,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -name \\\"SKILL.md\\\" -o -name \\\"*.md\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -name \\\"*.md\\\" | xargs grep -l \\\"DST\\\\|Jepsen\\\\|timeout\\\" 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples -type f -name \\\"*.md\\\" | xargs grep -l \\\"DST\\\\|Jepsen\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -name \\\"SKILL.md\\\" 2>/dev/null | xargs grep -l \\\"timeout\\\\|DST\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "read",
+     "{\"limit\": 100, \"offset\": 1, \"path\": \"<root>/variants/filler/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0326,
+   "finished": true,
+   "answer": "**Record as \"unknown\"**: A client timeout means the operation's outcome is indeterminate\u2014the request may have succeeded on the server, so we can't definitively say it failed."
+  },
+  {
+   "probe": "dst-history-timeout",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "info",
+    "may or may not"
+   ],
+   "skill_read": true,
+   "tools": [
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/variants/filler\"}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/variants/filler/SKILL.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0151,
+   "finished": true,
+   "answer": "I don't see any relevant files in the current directory. Could you clarify which skill you're referring to? The only available skill shown is \"filler\" which contains placeholder text. Are you looking for documentation about DST/Jepsen testing, or is there a specific file you'd like me to examine?"
+  },
+  {
+   "probe": "dst-history-timeout",
+   "split": "heldout",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "may or may not"
+   ],
+   "skill_read": true,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find <cwd> -type f -name \\\"*.md\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <cwd>\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": 100, \"offset\": 1, \"path\": \"<root>/variants/filler/SKILL.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -name \\\"*dst*\\\" -o -name \\\"*jepsen*\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0209,
+   "finished": true,
+   "answer": "I need to find the skill content. Let me search for files related to DST or Jepsen:\nI don't see any skill files in the current directory. Could you provide the skill file or clarify which skill contains the DST history check documentation? The available filler skill doesn't contain information about Jepsen-style testing. Once you share the skill file, I can look up the specific answer about client timeout outcomes."
+  },
+  {
+   "probe": "dst-history-timeout",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "info",
+    "may or may not"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.js\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -name \\\"*dst*\\\" -o -name \\\"*jepsen*\\\" -o -name \\\"*timeout*\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"DST\\\\|Jepsen\\\\|client timeout\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent --include=\\\"*.md\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"timeout\\\\|indeterminate\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent --include=\\\"*.md\\\" 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "read",
+     "{\"limit\": 5000, \"offset\": null, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/skills.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples -type d -name \\\"*skill*\\\" | head -10\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"indeterminate\\\\|outcome type\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent --include=\\\"*.md\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -name \\\"*SKILL.md\\\" -o -name \\\"*skill*.md\\\" 2>/dev/null | grep -i dst | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -name \\\"SKILL.md\\\" 2>/dev/null\", \"timeout\": 15}"
+    ]
+   ],
+   "cost_usd": 0.0489,
+   "finished": true,
+   "answer": "Could you clarify where the skill is located? The temporary directory is empty. Is this a skill you'd like me to create, or are you referring to an existing skill in a specific location?"
+  },
+  {
+   "probe": "dst-history-timeout",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "info",
+    "may or may not"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.txt\\\" -o -name \\\"*.js\\\" -o -name \\\"*.ts\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples -type f | grep -i skill\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"client timeout\\\\|DST\\\\|history check\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/ 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -type f \\\\( -name \\\"*dst*\\\" -o -name \\\"*jepsen*\\\" -o -name \\\"*history*\\\" \\\\) 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -name \\\"SKILL.md\\\" -o -name \\\"*.skill\\\"\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"timeout\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/ 2>/dev/null | grep -i \\\"outcome\\\\|fail\\\\|record\\\"\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"outcome\\\\|record\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/ 2>/dev/null | grep -i \\\"key-value\\\\|distributed\\\" | head -10\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/skills.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"invoke\\\\|unknown\\\\|uncertain\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/ 2>/dev/null | grep -i \\\"outcome\\\\|timeout\\\" | head -10\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0421,
+   "finished": true,
+   "answer": "I don't find this in the pi documentation. Could you point me to the skill file or document you're referring to? Is it in the current working directory, or somewhere else? The answer is likely \"invoke\" or \"unknown\" (not \"fail\" because a timeout means we don't know if the operation succeeded), but I need to see the actual skill to give you the exact answer."
+  },
+  {
+   "probe": "dst-history-timeout",
+   "split": "heldout",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "info",
+    "may or may not"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -name \\\"*dst*\\\" -o -name \\\"*jepsen*\\\" 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -name \\\"*.md\\\" 2>/dev/null | xargs grep -l \\\"DST\\\\|Jepsen\\\\|timeout\\\" 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type d -name \\\"skills\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples -type f -name \\\"*dst*\\\" -o -name \\\"*jepsen*\\\" 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"DST\\\\|Jepsen\\\\|client timeout\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/ 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs -type f -name \\\"*.md\\\" | xargs grep -l \\\"timeout\\\\|outcome\\\" 2>/dev/null | head -5\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"client timeout\\\\|outcome.*timeout\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/ --include=\\\"*.md\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"env | grep -i skill\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find /private/var/folders -name \\\"*dst*\\\" -o -name \\\"*jepsen*\\\" 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"env | grep -i \\\"pi_\\\\|session\\\\|skill\\\"\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0975,
+   "finished": true,
+   "answer": "Let me check the docs for DST or skills related content:\nI cannot find any DST (Distributed Systems Testing) or Jepsen-specific documentation in the Pi harness or standard knowledge base. Could you provide more context about which skill you're referring to? This appears to be a specialized skill about distributed systems history checking that isn't part of the standard Pi documentation.\n\nIf you have access to the skill's source code or documentation, please share it and I can help identify the answer about the outcome type for client timeouts."
+  },
+  {
+   "probe": "dst-durability-model",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "visible",
+    "durable",
+    "sync"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -name \\\"*DST*\\\" -o -name \\\"*dst*\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -type f -name \\\"*.md\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -type f \\\\( -name \\\"*.md\\\" -o -name \\\"*.js\\\" -o -name \\\"*.ts\\\" \\\\) 2>/dev/null | xargs grep -l \\\"write-ahead log\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -type f \\\\( -name \\\"*.md\\\" -o -name \\\"*.js\\\" -o -name \\\"*.ts\\\" \\\\) 2>/dev/null | xargs grep -l \\\"DST\\\" 2>/dev/null | head -5\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0242,
+   "finished": true,
+   "answer": "I don't see a DST skill in the available skills, and searching the pi documentation didn't yield results for write-ahead log file modeling. \n\nCould you clarify:\n1. Is this a skill you're working on, or one that should be documented somewhere?\n2. Do you have a link to or path to the DST skill documentation?\n3. Is this referring to a specific system or framework (e.g., a testing framework or paper)?\n\nWith that context, I can help you locate the answer or extract the relevant information about the two byte buffers and when they change."
+  },
+  {
+   "probe": "dst-durability-model",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "visible",
+    "durable",
+    "sync"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find <cwd> -name \\\"*DST*\\\" -o -name \\\"*dst*\\\" 2>/dev/null\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <cwd>\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type f -name \\\"*DST*\\\" -o -name \\\"*dst*\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type f \\\\( -name \\\"*.md\\\" -o -name \\\"*.txt\\\" \\\\) 2>/dev/null | xargs grep -l \\\"DST\\\" 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/ | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/ | grep -i skill\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/skills.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"DST\\\\|write-ahead\\\\|write ahead\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/ 2>/dev/null | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type f -name \\\"*.md\\\" 2>/dev/null | xargs grep -l \\\"write.ahead\\\\|DST\\\\|SUT\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find / -name \\\"*DST*\\\" -o -name \\\"*dst*\\\" 2>/dev/null | grep -i skill | head -10\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0855,
+   "finished": true,
+   "answer": "Let me search more broadly for any DST-related documentation or skills:\nLet me check if there's a DST-related skill file somewhere else or if it's a reference I should check:\nI apologize, but I'm unable to locate a DST skill in the available Pi documentation or your system. The DST skill doesn't appear to be in:\n\n- The Pi documentation at `<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/`\n- Available skills locations\n\nCould you provide more context about where the DST skill is located, or would you like me to:\n\n1. Search for files related to \"write-ahead log\" or crash recovery patterns in your project?\n2. Load a specific skill using `/skill:dst` if it's discoverable in your current working directory?\n3. Check a specific directory where this skill might be stored?\n\nThis would help me find the documentation describing how the DST skill models files for SUTs with write-ahead logs and identify the two byte buffers and when they change."
+  },
+  {
+   "probe": "dst-durability-model",
+   "split": "heldout",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "visible",
+    "durable",
+    "sync"
+   ],
+   "skill_read": true,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -type f \\\\( -name \\\"*.md\\\" -o -name \\\"*.ts\\\" -o -name \\\"*.js\\\" \\\\) | xargs grep -l \\\"DST\\\" 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <tmp> -type f -name \\\"*.md\\\" 2>/dev/null | xargs grep -l \\\"DST\\\\|write-ahead\\\" 2>/dev/null\", \"timeout\": 10}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<root>/variants/filler/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0233,
+   "finished": true,
+   "answer": "I don't see a DST skill in the available context. Could you provide the file or location containing the DST skill documentation or code? This will help me answer your question about how it models the file for a SUT with a write-ahead log and identify the two byte buffers."
+  },
+  {
+   "probe": "dst-durability-model",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "visible",
+    "durable",
+    "sync"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": null, \"offset\": null, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/skills.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples -type d -name \\\"*dst*\\\" -o -type d -name \\\"*skill*\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples -type f -name \\\"*.md\\\" | grep -i dst\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"write-ahead log\\\" <machine-home>/.pi/ 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"byte buffer\\\" <machine-home>/.pi/ 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"unsynced\\\\|unsync\\\" <machine-home>/.pi/ 2>/dev/null | head -5\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"DST\\\" <machine-home>/.pi/ 2>/dev/null | grep -i skill | head -10\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0423,
+   "finished": true,
+   "answer": "I cannot find documentation about a \"DST skill\" in the Pi installation or available resources. The specific details you're asking about\u2014two byte buffers modeling write-ahead log behavior with crash semantics\u2014suggest this is either:\n\n1. A custom skill you're developing or have access to\n2. A skill from an external package or repository\n3. Referenced in documentation not in the Pi installation\n\nCould you provide:\n- The path to the DST skill's `SKILL.md` or source files?\n- Or the repository/package where this skill is defined?\n\nThis will help me locate the exact implementation details you're asking about."
+  },
+  {
+   "probe": "dst-durability-model",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "visible",
+    "durable",
+    "sync"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" -o -name \\\"*.ts\\\" -o -name \\\"*.js\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi -type f -name \\\"*dst*\\\" -o -name \\\"*DST*\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": 200, \"offset\": null, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/skills.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples -type d -name \\\"*skill*\\\"\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"write-ahead log\\\" <machine-home> 2>/dev/null | head -10\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -name \\\"*DST*\\\" -o -name \\\"*dst*\\\" 2>/dev/null | grep -v \\\".git\\\" | head -20\", \"timeout\": 10}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"byte buffer\\\" ~ 2>/dev/null | head -10\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0333,
+   "finished": true,
+   "answer": "I couldn't locate the DST skill in your system. Could you provide:\n\n1. The path to where the DST skill is located, or\n2. A reference to where this skill is documented (research paper, GitHub repo, etc.)?\n\nThe question about the write-ahead log model with two byte buffers sounds like a specific technical design, but I need access to the actual skill definition to give you the accurate answer you're looking for."
+  },
+  {
+   "probe": "dst-durability-model",
+   "split": "heldout",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "visible",
+    "durable",
+    "sync"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"find . -type f -name \\\"*.md\\\" | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent -name \\\"*dst*\\\" -o -name \\\"*DST*\\\" 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "read",
+     "{\"limit\": 100, \"offset\": 1, \"path\": \"<machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs/skills.md\"}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"DST\\\" <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/docs 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la <machine-home>/.pi/agent/install/releases/1.5.2/node_modules/@earendil-works/pi-coding-agent/examples/\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find ~ -name \\\"*dst*\\\" -type f 2>/dev/null | head -20\", \"timeout\": 5}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -r \\\"write-ahead\\\\|WAL\\\\|SUT\\\" <machine-home>/.pi 2>/dev/null | head -20\", \"timeout\": 5}"
+    ]
+   ],
+   "cost_usd": 0.0325,
+   "finished": true,
+   "answer": "I don't see a DST skill in the pi documentation or current directory. Could you clarify:\n\n1. Is this a skill that should exist in a repository or package you're referencing?\n2. Should I create a DST skill that models this behavior?\n3. Is there a specific documentation file or repository URL you're referring to?\n\nThe question about write-ahead log modeling with two byte buffers suggests domain-specific content that I'd need to either find or have you provide."
   }
  ]
 }

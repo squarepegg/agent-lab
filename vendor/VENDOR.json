@@ -18,7 +18,7 @@
   "check_skills.py": {
    "path": "scripts/check_skills.py",
    "repo": "toolkit",
-   "sha256": "85b3954cc513e0360afcdcca1f60dbba03a916009c52324e2950c7acd69fb1ac"
+   "sha256": "8cd43704145cacb0937b28ee8e0cdef986c5c55db16b808ece8c125e2e6746d3"
   },
   "eval_run.py": {
    "path": "scripts/eval_run.py",
@@ -38,6 +38,6 @@
  },
  "upstream_commits": {
   "map": "7ca5094b655519a6d20d61d93b1bd5417666bba9",
-  "toolkit": "9f7cb2b1210728fe66cbe902fe027c0bb116667f"
+  "toolkit": "60dd76a9ee50b94ddc65c35ae09760342e81eae1"
  }
 }

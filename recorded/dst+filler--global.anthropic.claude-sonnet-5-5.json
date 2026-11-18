@@ -12,9 +12,9 @@
   "--no-extensions",
   "--no-mcp"
  ],
- "probes_sha256": "ea2e8de60f47a0b798ebf1962176cf4d40ab83153d322f8c1ea93c8c94090cd6",
- "date": "2026-11-16",
- "cost_usd": 0.377,
+ "probes_sha256": "e3d6db8d8baba13375ae86136be9e530d5ea54fd0719a198622e677ee2ca88a1",
+ "date": "2026-11-17",
+ "cost_usd": 0.77,
  "rows": [
   {
    "probe": "dst-model-conformance",
@@ -27,7 +27,7 @@
    "tools": [],
    "cost_usd": 0.0115,
    "finished": true,
-   "answer": "It needs a conformance (contract) test that runs the same inputs against both the hand-written model and the real service, or a recorded real-service trace, and checks that their responses match. These tests can be run periodically or in CI.\n\nThe model is only a guess about how the service behaves. If it drifts from the real service, the simulation will pass against behavior that never happens in production and miss real bugs."
+   "answer": "It needs a conformance (contract) test that runs the same inputs against both the model and the real service, or a recorded trace of it, and checks that their observable behavior matches. This includes responses, error cases, ordering, and edge cases. Without it, the model can drift from the real service, and your simulation will pass against behavior that production never exhibits, which makes the whole test untrustworthy."
   },
   {
    "probe": "dst-model-conformance",
@@ -40,7 +40,7 @@
    "tools": [],
    "cost_usd": 0.0114,
    "finished": true,
-   "answer": "It needs a conformance (contract) test that runs the same inputs against both the model and the real service, or a recorded trace of it, and checks that their observable behavior matches, including errors, timeouts, and edge cases. Without it, the model can drift from the real service, so the simulation could pass against behavior production never shows and miss behavior production does show."
+   "answer": "It needs a conformance (contract) test that runs the same inputs against both the model and the real service, or a recorded trace of it, and checks that their observable behavior matches. That includes success responses, error cases, ordering and timing. Without it, the model can drift from the real service, so your simulation may pass against behavior the real service never has and miss failures it does have."
   },
   {
    "probe": "dst-model-conformance",
@@ -53,7 +53,7 @@
    "tools": [],
    "cost_usd": 0.0115,
    "finished": true,
-   "answer": "It needs a conformance (contract) test that runs the same inputs against both the model and the real service, or a recorded trace of it, and checks that their observable behavior matches. That includes responses, errors, ordering, and edge cases. Without it, the model can drift from the real service, and your simulation will pass against behavior that doesn't exist in production, or miss behavior that does."
+   "answer": "The model needs a conformance (contract) test that runs the same inputs against both the model and the real service, or a recorded trace of the real service, and checks that their observable behavior matches. This is necessary because the simulation is only as trustworthy as the model. If the model drifts from the real service, the tests can pass against behavior production never has, and they can miss failures production does have."
   },
   {
    "probe": "dst-model-conformance",
@@ -66,7 +66,7 @@
    "tools": [],
    "cost_usd": 0.0106,
    "finished": true,
-   "answer": "It needs a conformance (contract) test that runs the same inputs against both the hand-written model and the real downstream service, or a recorded or spec-derived version of it, and checks that their responses match. This includes error cases, ordering, and edge cases. Without it, the model can drift from the real service's behavior, so the simulation could pass against a fiction and miss bugs that appear in production."
+   "answer": "The model needs a contract (conformance) test. This test runs the same inputs against both the model and the real service, or a recorded sample of its behavior, and checks that their outputs, errors, and edge-case semantics match. Without it, the simulation can pass against a model that has drifted from reality, so you'd be verifying your system against a fiction and getting false confidence."
   },
   {
    "probe": "dst-model-conformance",
@@ -79,7 +79,7 @@
    "tools": [],
    "cost_usd": 0.0107,
    "finished": true,
-   "answer": "It needs a conformance (contract) test that runs the same inputs against both the hand-written model and the real downstream service, or a recorded trace of it, and checks that their observable behavior matches. That includes responses, errors, ordering, and edge cases. Without it, the model can drift from the real service, and your simulation can pass against behavior the real service never shows. That would hide real bugs and give you false confidence."
+   "answer": "The model needs a conformance (contract) test that runs the same set of operations against both the hand-written model and the real service, or a recorded or real instance of it, and checks that their observable behavior matches. That includes return values, error cases, ordering, and edge cases. Without it, the model can drift from the real service's behavior. The simulation would then pass against a fiction, and bugs that only show up with the real service would go undetected."
   },
   {
    "probe": "dst-model-conformance",
@@ -92,55 +92,12 @@
    "tools": [],
    "cost_usd": 0.0106,
    "finished": true,
-   "answer": "It needs a conformance (contract) test that runs the same inputs against both the model and the real service, or a recorded trace of the real service. The test should assert that they behave equivalently, including on errors, timeouts, ordering and edge cases. Without it, the model can drift from the real service's behavior, so the simulation would pass against a service that doesn't exist and give you false confidence."
+   "answer": "The model needs a conformance (contract) test that runs the same inputs against both the model and the real service, or a recorded trace of the real service, and checks that their observable behavior matches. That includes error cases, ordering, and edge cases. Without it, the simulation only proves your code works against your assumptions about the service, so the model can drift from reality and the test can pass while production fails."
   },
   {
    "probe": "dst-known-bug",
    "split": "dev",
    "arm": "with",
-   "n": 0,
-   "correct": true,
-   "missing": [],
-   "skill_read": false,
-   "tools": [],
-   "cost_usd": 0.0154,
-   "finished": true,
-   "answer": "Write it as a characterization test that pins the current behavior and marks it as known-wrong, so nobody mistakes it for the intended spec.\n\n1. **Name and comment it clearly.** Say that it documents a bug, not the desired behavior. Link the tracking issue.\n   ```python\n   def test_foo_current_behavior_known_bug():\n       # KNOWN BUG: foo() returns 0 for empty input; should raise ValueError.\n       # Pins current behavior only. See ISSUE-1234. Update when fixed.\n       assert foo([]) == 0\n   ```\n\n2. **Assert the actual output, not the correct one.** Keep the assertion narrow. Pin only the behavior in question, so unrelated changes don't break it.\n\n3. **Also record the intended behavior.** Add the correct assertion as a strict expected-failure test (`pytest.mark.xfail(strict=True)`, `@Disabled(\"ISSUE-1234\")`, `test.fails`, etc.):\n   ```python\n   @pytest.mark.xfail(strict=True, reason=\"ISSUE-1234\")\n   def test_foo_empty_input_should_raise():\n       with pytest.raises(ValueError):\n           foo([])\n   ```\n   When someone fixes the bug, strict xfail fails loudly. They then delete the pinning test and remove the marker.\n\n4. **File the issue first.** The test should point to a real ticket, not a vague TODO.\n\nDon't silently assert the wrong value without a comment. The next reader will assume it's correct."
-  },
-  {
-   "probe": "dst-known-bug",
-   "split": "dev",
-   "arm": "with",
-   "n": 1,
-   "correct": false,
-   "missing": [
-    "known bug"
-   ],
-   "skill_read": false,
-   "tools": [],
-   "cost_usd": 0.0162,
-   "finished": true,
-   "answer": "Write it as a **characterization test** that pins the current behaviour, and mark it clearly as known-wrong so nobody mistakes it for the desired behaviour.\n\n1. **Assert the actual current output.** This keeps the suite green and catches unintended changes.\n2. **Name it for what it does.** Use something like `test_foo_current_behaviour_known_bug` instead of `test_foo_works`.\n3. **Add a comment with three things:**\n   - What the correct behaviour should be.\n   - Why the current behaviour is wrong. Link your simulation or its results if you can.\n   - A link to a tracking issue, for example `# BUG: see #1234. Expected X, currently returns Y. Update this test when fixed.`\n4. **Keep the assertion narrow.** Assert only the wrong part, so unrelated changes don't break the test.\n5. **Optionally add the desired-behaviour test too, marked as an expected failure.** Examples are `@pytest.mark.xfail(strict=True, reason=\"#1234\")` and `it.failing`. With `strict`, an unexpected pass fails the suite. That tells whoever fixes the bug to remove the marker and delete the characterization test.\n\nExample (pytest):\n\n```python\ndef test_rate_limit_current_behaviour_known_bug():\n    # BUG #1234: should reject at 100 requests, but allows 101 (off-by-one).\n    # Pinning current behaviour; update when fixed.\n    assert limiter.allowed(101) is True\n\n@pytest.mark.xfail(strict=True, reason=\"#1234 off-by-one in limiter\")\ndef test_rate_limit_correct_behaviour():\n    assert limiter.allowed(101) is False\n```\n\nOpen the tracking issue before merging, so the comment doesn't point at nothing."
-  },
-  {
-   "probe": "dst-known-bug",
-   "split": "dev",
-   "arm": "with",
-   "n": 2,
-   "correct": false,
-   "missing": [
-    "known bug"
-   ],
-   "skill_read": false,
-   "tools": [],
-   "cost_usd": 0.0165,
-   "finished": true,
-   "answer": "Write it as a characterization test that pins the current behaviour but is clearly marked as wrong, so nobody mistakes it for the intended behaviour.\n\n1. **Name it for what it does.** For example, `test_current_behaviour_foo_returns_X_when_Y`. Avoid names like `test_foo_works`.\n2. **Put the correct behaviour in a comment.** State what should happen and why the current result is wrong. For example: `# BUG: should return Z (see simulation results / issue #123). Asserting current behaviour so this PR doesn't change it silently.`\n3. **Link a tracking issue.** Include the ticket or issue number in the comment. Without one, the test is likely to be forgotten.\n4. **Assert the exact current output.** Then any change in behaviour, including the eventual fix, fails the test and forces someone to look at it.\n5. **Optionally add the desired assertion as an expected failure.** Use `xfail(strict=True)`, `@Disabled`, `it.failing` or your framework's equivalent. It holds the correct assertion and flips to a failure once the bug is fixed, which prompts removal of the characterization test.\n6. **Keep it narrow.** Cover only the specific wrong behaviour. Don't snapshot the whole output.\n\nExample (pytest):\n\n```python\ndef test_current_behaviour_rounding_truncates_instead_of_rounds():\n    # BUG (#123): should return 3, simulation shows correct value is 3.\n    # Pins current behaviour; update when #123 is fixed.\n    assert compute(2.7) == 2\n\n@pytest.mark.xfail(strict=True, reason=\"#123: should round, not truncate\")\ndef test_desired_rounding():\n    assert compute(2.7) == 3\n```\n\nIn the PR description, say that the behaviour is known to be wrong, that the fix is out of scope, and where it's tracked."
-  },
-  {
-   "probe": "dst-known-bug",
-   "split": "dev",
-   "arm": "without",
    "n": 0,
    "correct": true,
    "missing": [],
@@ -148,39 +105,105 @@
    "tools": [],
    "cost_usd": 0.0145,
    "finished": true,
-   "answer": "Write it as a **characterization test** that pins the current behavior, and make it obvious that the behavior is known to be wrong.\n\n1. **Name and comment it as a known bug.** Say that it documents current behavior and not the desired behavior. Link the tracking issue.\n   ```python\n   def test_foo_current_behavior_KNOWN_BUG_issue_1234():\n       # Documents CURRENT (incorrect) behavior. Correct result should be X.\n       # See #1234. Update this test when the bug is fixed.\n       assert foo(input) == current_wrong_value\n   ```\n\n2. **Assert the actual output.** Don't loosen the assertion to make it pass. Pinning the exact value means the test fails when someone fixes the bug, which tells them to update it.\n\n3. **Record the expected behavior.** Put the correct assertion in the comment. Alternatively, add it as an expected-failure test (`xfail(strict=True)`, `@Ignore`, `test.failing`, or your framework's equivalent) with the issue reference. With a strict xfail, the test starts failing loudly once the bug is fixed.\n\n4. **Open a tracking issue.** Do this before merging, so the test points to something real.\n\n5. **Keep it narrow.** Assert only the buggy part, so unrelated changes don't break the test.\n\nDon't assert the wrong value as if it were correct, and don't skip or delete the test. A test that looks like a spec for wrong behavior misleads readers, and a missing test lets the behavior change without anyone noticing."
+   "answer": "Write it as a **characterization test** that pins the current behaviour, and mark it clearly as wrong-but-known:\n\n1. **Assert what actually happens now**, so the test passes and guards against unintended changes.\n2. **Name it honestly**, e.g. `test_current_behaviour_X_returns_Y_known_bug`. Don't name it as if the behaviour were correct.\n3. **Add a comment** that states the expected behaviour, why it's wrong, and links the tracking issue:\n   ```python\n   # KNOWN BUG (#1234): should return 0, but currently returns -1.\n   # This test pins current behaviour. When the bug is fixed, update\n   # this assertion to the correct value and remove this comment.\n   assert compute(x) == -1\n   ```\n4. **Optionally add the desired-behaviour test too**, marked as an expected failure (`@pytest.mark.xfail(strict=True, reason=\"#1234\")`, `it.failing`, `#[should_panic]`, etc.). With `strict`, it fails loudly once the bug is fixed, which prompts you to remove both tests.\n5. **File the issue** before merging, so the pinned test points at something real.\n\nAvoid asserting the wrong value without any annotation. The next reader will assume it's intended."
   },
   {
    "probe": "dst-known-bug",
    "split": "dev",
-   "arm": "without",
+   "arm": "with",
    "n": 1,
    "correct": true,
    "missing": [],
    "skill_read": false,
    "tools": [],
-   "cost_usd": 0.0148,
+   "cost_usd": 0.0158,
    "finished": true,
-   "answer": "Write it as a **characterization test** that pins the current behaviour, and make it obvious that the behaviour is wrong and temporary:\n\n1. **Name it for what it does now.** Use something like `test_foo_returns_stale_value_known_bug`. Avoid names that suggest the behaviour is correct.\n2. **Assert the current output, and put the correct expectation next to it.**\n   ```python\n   def test_parse_negative_offset_current_behavior():\n       # KNOWN BUG: TICKET-123. Should raise ValueError, but currently returns 0.\n       # This test pins the current behaviour so the fix shows up as a deliberate diff.\n       assert parse(-1) == 0  # TODO(TICKET-123): expected: raises ValueError\n   ```\n3. **Link a tracking issue.** If there isn't one, file it first. A bare TODO will get forgotten.\n4. **Optionally add the desired test as an expected failure.** Use `@pytest.mark.xfail(strict=True, reason=\"TICKET-123\")`, `it.failing`, `#[should_panic]` or your framework's equivalent. With `strict=True`, the xfail test flips to a failure when someone fixes the bug. That prompts them to delete the characterization test and remove the marker.\n5. **Keep the assertion narrow.** Assert only the buggy part, so unrelated changes don't break the test.\n6. **Mention it in the PR description.** Say that the behaviour is known to be wrong, that the fix is deferred, and where it's tracked.\n\nDon't assert the wrong behaviour without a comment, because the next reader will assume it's intended."
+   "answer": "Write it as a **characterization test** that pins the current behaviour, but label it clearly as a known defect so nobody mistakes it for the desired behaviour.\n\n1. **Assert what the code does today.** Use the actual output, so the test passes now and fails when someone changes the behaviour.\n2. **Name it honestly.** For example, `test_current_behavior_X_returns_Y_known_bug`. Don't name it as though Y were correct.\n3. **Add a comment with three things:**\n   - What the correct behaviour should be.\n   - Why the current behaviour is wrong. Link your simulation result if you can.\n   - A tracking issue, such as `# KNOWN BUG: see #1234. Expected: Z. Update this test when fixed.`\n4. **Optionally add the desired-behaviour test next to it.** Mark it `xfail(strict=True)` or `@Ignore(\"#1234\")`, depending on your framework. With `strict`, it flips to a failure when the bug is fixed, which tells the fixer to delete the characterization test and remove the marker.\n5. **Keep the scope narrow.** Assert only the wrong behaviour you're documenting, not unrelated incidental details. That way the test breaks only when the fix lands.\n6. **File the issue before merging**, so the comment points to something real.\n\nExample (pytest):\n```python\n# KNOWN BUG #1234: should return 0 for empty input; currently returns None.\ndef test_empty_input_returns_none_known_bug():\n    assert compute([]) is None\n\n@pytest.mark.xfail(strict=True, reason=\"#1234\")\ndef test_empty_input_returns_zero():\n    assert compute([]) == 0\n```"
   },
   {
    "probe": "dst-known-bug",
    "split": "dev",
-   "arm": "without",
+   "arm": "with",
    "n": 2,
-   "correct": true,
-   "missing": [],
+   "correct": false,
+   "missing": [
+    "known bug"
+   ],
    "skill_read": false,
    "tools": [],
    "cost_usd": 0.0156,
    "finished": true,
-   "answer": "Write it as a **characterization test** that pins the current behaviour, and label it clearly as a known defect, not as correct behaviour.\n\n1. **Name it honestly.** Say what it does and that it's temporary. For example, `test_current_behavior_X_returns_stale_value_KNOWN_BUG`.\n\n2. **Add a comment with context.** Include:\n   - what the correct behaviour should be,\n   - why the current behaviour is wrong (link your simulation or results),\n   - a link to the tracking issue, e.g. `# TODO(#1234): should return Y; update this test when fixed`.\n\n3. **Assert the current output, not the desired one.** Use the actual observed values so the test passes today. If the fix lands, this test fails and forces someone to update it on purpose.\n\n4. **Optionally add the desired-behaviour test too.** Write it as the correct assertion and mark it expected-fail, e.g. `@pytest.mark.xfail(strict=True, reason=\"#1234\")` or `@Disabled(\"#1234\")`. With `strict`, it will flag when the bug is fixed, so you remember to remove both markers.\n\n5. **Keep the scope narrow.** Pin only the behaviour in question, not incidental details, so unrelated changes don't break it.\n\n6. **File the issue before merging.** A pinned bug with no ticket gets forgotten and starts to look intentional.\n\nExample (Python):\n\n```python\n# KNOWN BUG #1234: compute() should return 42 but returns 41 (off-by-one).\n# This pins current behaviour; replace with the xfail test's assertion once fixed.\ndef test_compute_current_behavior_off_by_one():\n    assert compute(10) == 41\n\n@pytest.mark.xfail(strict=True, reason=\"#1234 off-by-one in compute\")\ndef test_compute_correct_behavior():\n    assert compute(10) == 42\n```"
+   "answer": "Write the test so it passes on today's behavior, and make it obvious that the behavior is wrong and temporary.\n\n1. **Name it as a known issue.** For example, `test_current_behaviour_known_bug_<ticket>`, or `test_foo_returns_stale_value_KNOWN_BUG`.\n2. **Assert the actual current output.** This pins the behavior, so any change, including the eventual fix, shows up as a failure.\n3. **Add a comment with three things:**\n   - What the correct behavior should be.\n   - Why the current behavior is wrong, for example \"simulation shows X\".\n   - A link to a tracking issue, such as `# TODO(#1234): fix; update this assertion to expected value`.\n4. **Optionally, include the desired assertion too.** Put it in a separate test marked as an expected failure, such as `@pytest.mark.xfail(strict=True, reason=\"#1234\")` or the equivalent in your framework. With `strict`, the test fails loudly once the bug is fixed, which prompts someone to remove the marker and delete the characterization test.\n\nExample (pytest):\n\n```python\ndef test_discount_applied_twice_known_bug():\n    # BUG #1234: the discount is applied twice. Correct total is 90.\n    # When fixed, change this to 90 and delete the xfail test below.\n    assert checkout(100) == 81\n\n@pytest.mark.xfail(strict=True, reason=\"#1234 double discount\")\ndef test_discount_applied_once():\n    assert checkout(100) == 90\n```\n\nAlso mention the issue in the PR description so reviewers know the pinned value is intentional."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0141,
+   "finished": true,
+   "answer": "Write it as a characterization test that pins the current behavior, and mark it clearly as a known defect, not as correct behavior.\n\n1. **Name it for what it does now.** For example, `test_current_behavior_rounds_down_KNOWN_BUG`. Don't name it `test_rounds_correctly`.\n2. **Comment the expected behavior and link a tracking issue.**\n   ```python\n   # KNOWN BUG (#1234): the correct result is 42, but the code currently returns 41.\n   # This test pins the current behavior so the fix PR changes it deliberately.\n   # When fixing: update the expected value and rename the test.\n   def test_current_behavior_known_bug():\n       assert compute(x) == 41  # should be 42\n   ```\n3. **Assert exact current output.** That way the test fails when the behavior changes, and the fixer has to look at it.\n4. **Optionally add the correct assertion as an expected failure.** Use `@pytest.mark.xfail(strict=True, reason=\"#1234\")` or your framework's equivalent. With `strict=True`, the xfail test starts failing once the bug is fixed. That tells the fixer to delete the characterization test and remove the marker.\n5. **File the issue before merging.** The comment should point to a real issue, not a vague TODO.\n\nDon't write the test so it looks like the behavior is intended. A reader should never mistake the buggy value for the spec."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0149,
+   "finished": true,
+   "answer": "Write it as a **characterization test** that pins down today's behaviour and is clearly marked as a known bug, not as correct behaviour.\n\n**Guidelines**\n\n1. **Name it honestly.** Say that it documents current behaviour, for example `test_foo_currently_returns_stale_value_known_bug`. Don't name it as if the behaviour were correct.\n2. **Assert the actual output, and explain why it's wrong.** Add a comment with the expected correct behaviour, a link to the tracking issue, and the simulation evidence.\n   ```python\n   # KNOWN BUG: see #1234. Correct behaviour is X; we currently return Y.\n   # This test pins current behaviour so the fix PR changes it deliberately.\n   # When fixing: update the assertion to X and remove the marker.\n   def test_foo_currently_returns_y_known_bug():\n       assert foo(inp) == Y\n   ```\n3. **Keep it narrow.** Assert only the buggy part, so unrelated changes don't break it.\n4. **File an issue first.** The test should point to a real ticket, so it doesn't become a permanent \"spec\" for the bug.\n5. **Optionally, add the desired behaviour as an expected-failure test.** Use `xfail(strict=True)`, `@Disabled`, `it.failing` or your framework's equivalent. Once the fix lands, the strict xfail fails, which prompts removing the marker. Use this alongside the characterization test, or instead of it if your team prefers.\n\nAvoid two things. Don't silently assert the wrong value with no comment. Don't skip the test or delete it, because then nothing guards against further drift."
+  },
+  {
+   "probe": "dst-known-bug",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0149,
+   "finished": true,
+   "answer": "Write the test so it documents the current behavior without blessing it as correct:\n\n1. **Name it for what it does now.** Use something like `test_returns_stale_value_when_cache_expired__current_behavior`. Avoid names like `test_works_correctly`.\n\n2. **Add a comment above the assertion.** Say what the correct behavior should be, why the test pins the current behavior, and link the tracking issue:\n   ```python\n   # KNOWN BUG (#1234): should raise TimeoutError, but currently returns None.\n   # This test pins current behavior so the fix PR shows up as a deliberate diff.\n   # When fixing: update this assertion to the expected behavior and remove this note.\n   assert result is None\n   ```\n\n3. **Optionally keep the desired behavior alongside it.** Add a second test with the correct assertion, marked `xfail(strict=True)` (pytest) or `skip`/`@Disabled` with the issue reference. With `strict=True`, the test fails once the bug is fixed, which prompts someone to flip both tests.\n   ```python\n   @pytest.mark.xfail(strict=True, reason=\"#1234: should raise TimeoutError\")\n   def test_raises_when_cache_expired():\n       with pytest.raises(TimeoutError):\n           fetch(...)\n   ```\n\n4. **File the issue first.** The comment and `xfail` reason should point to a real ticket, not a vague TODO.\n\n5. **Keep the pin narrow.** Assert only the buggy part, not the whole output. Unrelated changes then won't break the test.\n\nThe goal is that whoever fixes the bug sees the test fail, understands why, and updates it on purpose."
   },
   {
    "probe": "dst-pr-tier",
    "split": "dev",
    "arm": "with",
    "n": 0,
+   "correct": false,
+   "missing": [
+    "150",
+    "no docker"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -i -n \\\"seed|docker\\\" --max-count=5 . 2>/dev/null | head -40\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la; rg -il \\\"dst\\\" . | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0149,
+   "finished": true,
+   "answer": "The working directory is empty, so I couldn't find the seed count or the Docker policy for the PR-tier DST seed sweep. No config, docs, or CI files are available here. Point me at the repo or the doc that defines it and I'll check."
+  },
+  {
+   "probe": "dst-pr-tier",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
    "correct": false,
    "missing": [
     "150",
@@ -197,38 +220,9 @@
      "{\"command\": \"ls -la; rg -i \\\"DST|sweep\\\" -l . ~/.pi 2>/dev/null | head\", \"timeout\": 20}"
     ]
    ],
-   "cost_usd": 0.0147,
+   "cost_usd": 0.0148,
    "finished": true,
-   "answer": "I can't answer that. The working directory is empty, and I found nothing about a PR-tier DST seed sweep, so I don't know the seed count or whether Docker is allowed. If you point me to the repo or doc that defines it, I'll look it up."
-  },
-  {
-   "probe": "dst-pr-tier",
-   "split": "dev",
-   "arm": "with",
-   "n": 1,
-   "correct": false,
-   "missing": [
-    "150",
-    "no docker"
-   ],
-   "skill_read": false,
-   "tools": [
-    [
-     "bash",
-     "{\"command\": \"rg -i -n \\\"seed\\\" --glob '!node_modules' . | head -50\", \"timeout\": 20}"
-    ],
-    [
-     "bash",
-     "{\"command\": \"grep -rIil \\\"seed\\\" . 2>/dev/null | grep -v node_modules | head -20\", \"timeout\": 20}"
-    ],
-    [
-     "bash",
-     "{\"command\": \"ls -la; grep -i -n \\\"seed\\\\|docker\\\\|DST\\\" <root>/variants/filler/SKILL.md\", \"timeout\": 20}"
-    ]
-   ],
-   "cost_usd": 0.0176,
-   "finished": true,
-   "answer": "Nothing in the working directory mentions seeds. I'll check the skill file in case it covers this.\nI can't answer this. The working directory is empty, and the only skill available (`filler`) says nothing about DST, seed counts, or Docker. If you point me to the repo or doc that defines the PR-tier sweep, I'll look it up."
+   "answer": "I couldn't find an answer. The working directory is empty, and a search for \"DST\" and \"sweep\" in it and in `~/.pi` returned nothing. I don't know the PR-tier seed count or whether Docker is allowed. If you point me to the repo or doc that defines the tiers, I'll look it up."
   },
   {
    "probe": "dst-pr-tier",
@@ -244,16 +238,16 @@
    "tools": [
     [
      "bash",
-     "{\"command\": \"rg -il \\\"seed\\\" . 2>/dev/null | head -20\", \"timeout\": 20}"
+     "{\"command\": \"rg -i -n \\\"seed|docker\\\" . 2>/dev/null | head -50\", \"timeout\": 20}"
     ],
     [
      "bash",
-     "{\"command\": \"ls -la; rg -i \\\"DST|sweep\\\" -l . ~/.pi 2>/dev/null | head\", \"timeout\": 20}"
+     "{\"command\": \"ls -la; git log --oneline 2>/dev/null | head\", \"timeout\": 10}"
     ]
    ],
-   "cost_usd": 0.0147,
+   "cost_usd": 0.015,
    "finished": true,
-   "answer": "I couldn't find an answer. The working directory is empty, and a search for \"DST\", \"sweep\" and \"seed\" turned up no files that define the PR-tier seed count or a Docker policy. If you can point me to the repo or doc that covers it, I'll look there."
+   "answer": "I can't answer this from the repo. The working directory is empty, and a search for \"seed\" or \"docker\" found nothing. Point me to the file that describes the PR-tier DST seed sweep, such as a CI config, README or test plan, and I'll look it up."
   },
   {
    "probe": "dst-pr-tier",
@@ -270,15 +264,11 @@
     [
      "bash",
      "{\"command\": \"rg -il \\\"seed sweep|DST\\\" . 2>/dev/null | head -20\", \"timeout\": 20}"
-    ],
-    [
-     "bash",
-     "{\"command\": \"ls -la; rg -il \\\"seed\\\" . | head\", \"timeout\": 20}"
     ]
    ],
-   "cost_usd": 0.0135,
+   "cost_usd": 0.0118,
    "finished": true,
-   "answer": "The working directory is empty, so I couldn't find anything that sets the PR-tier DST seed sweep's seed count or its Docker policy. Point me to the repo or doc that defines it and I'll give you the answer."
+   "answer": "I couldn't find an answer. Searching the working directory for \"DST\" and \"seed sweep\" returned no matches, so I have no source for the PR-tier seed count or the Docker rule. If you point me to the doc or repo that covers it, I'll look there."
   },
   {
    "probe": "dst-pr-tier",
@@ -294,16 +284,20 @@
    "tools": [
     [
      "bash",
-     "{\"command\": \"rg -il \\\"seed sweep|DST\\\" . 2>/dev/null | head -20\", \"timeout\": 20}"
+     "{\"command\": \"rg -i -n \\\"seed\\\" --glob '!node_modules' . | rg -i \\\"pr|tier|docker|sweep\\\" | head -30\", \"timeout\": 20}"
     ],
     [
      "bash",
-     "{\"command\": \"ls -la; rg -i \\\"seed\\\" . | head\", \"timeout\": 20}"
+     "{\"command\": \"grep -rIin \\\"seed\\\" . --exclude-dir=node_modules --exclude-dir=.git | grep -i -E \\\"pr|tier|docker|sweep\\\" | head -30\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la; grep -rIil -E \\\"dst|sweep\\\" . --exclude-dir=.git | head\", \"timeout\": 20}"
     ]
    ],
-   "cost_usd": 0.0136,
+   "cost_usd": 0.0164,
    "finished": true,
-   "answer": "I can't answer this from the working directory, because it's empty and has no DST or seed-sweep configuration or docs. Point me at the repo or doc that defines the PR-tier policy and I'll look up the seed count and the Docker rule."
+   "answer": "I can't answer that. The working directory is empty, so there's no DST config, CI file or doc to read the seed count or the Docker rule from. If you point me to the repo or file that defines the PR tier, I'll look it up."
   },
   {
    "probe": "dst-pr-tier",
@@ -319,16 +313,345 @@
    "tools": [
     [
      "bash",
-     "{\"command\": \"rg -il \\\"seed sweep|DST\\\" . 2>/dev/null | head -20\", \"timeout\": 20}"
+     "{\"command\": \"rg -il \\\"seed sweep|DST\\\" . --max-count=3 | head -20\", \"timeout\": 20}"
     ],
     [
      "bash",
-     "{\"command\": \"ls -la; rg -i \\\"seed|docker\\\" . 2>/dev/null | head\", \"timeout\": 20}"
+     "{\"command\": \"grep -ril \\\"seed\\\" . 2>/dev/null | head -20; ls -a\", \"timeout\": 20}"
     ]
    ],
-   "cost_usd": 0.0137,
+   "cost_usd": 0.0134,
    "finished": true,
-   "answer": "I can't answer that. The working directory is empty, so there's no DST seed sweep config or documentation to check. If you point me to the repo or file that defines the PR-tier sweep, I'll look up the seed count and the Docker rule."
+   "answer": "The working directory is empty, so I couldn't find any DST documentation or config. I can't say how many seeds the PR-tier sweep should run or whether it may use Docker. If you tell me where the repo or docs are, I'll check."
+  },
+  {
+   "probe": "dst-static-guard",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "ban",
+    "wiring"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -ril \\\"DST\\\\|deterministic simulation\\\" <machine-home>/.pi/agent <root> 2>/dev/null | head; pwd; ls\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find / -ipath \\\"*dst*\\\" -name \\\"SKILL.md\\\" 2>/dev/null | head; ls -R <root> 2>/dev/null | head\", \"timeout\": 30}"
+    ]
+   ],
+   "cost_usd": 0.0173,
+   "finished": true,
+   "answer": "I couldn't find a DST skill. The only skill available here is `filler`, and a search of the skill directories and the working directory found nothing about DST or deterministic simulation testing.\n\nI'd be guessing if I answered, so I won't. If you give me the path to the DST skill, I'll read it and answer in two lines."
+  },
+  {
+   "probe": "dst-static-guard",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "wiring"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -ril \\\"DST\\\\|deterministic simulation\\\" <machine-home>/.pi <root> 2>/dev/null | grep -i skill | head; ls <root>/variants\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find / -ipath \\\"*skill*\\\" -iname \\\"*dst*\\\" 2>/dev/null | head; ls ~/.pi/agent 2>&1 | head -30\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -R . ~/.pi/agent/skills 2>&1 | head -30\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0211,
+   "finished": true,
+   "answer": "I can't answer this from the skill itself, because no DST skill is available here. The only skill installed is `filler`, and I found no DST skill file anywhere I could search.\n\nFrom general knowledge of deterministic simulation testing, the guard is probably a build-time lint or ban on nondeterministic APIs in the code under test. That would cover wall-clock time, unseeded randomness, raw threads and network or filesystem access. Its allowlist would then be the injected, seeded shims, such as the simulated clock, the seeded RNG and the simulated I/O layer. This is a guess and not something I read in the skill.\n\nIf you point me to the skill file, I'll give you the exact answer."
+  },
+  {
+   "probe": "dst-static-guard",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "ban",
+    "wiring"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -ril \\\"dst\\\\|deterministic\\\" <root>/variants/ 2>/dev/null | head; ls ~/.pi/agent 2>/dev/null\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find / -ipath \\\"*dst*\\\" -name \\\"SKILL.md\\\" 2>/dev/null | head; ls <root>/variants/\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -R <root>/variants/ | head -30; ls\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0198,
+   "finished": true,
+   "answer": "I couldn't find a DST skill, so I can't answer from its text. The only skill available is \"filler\", and the variants directory that holds it gave an \"Operation not permitted\" error when I listed it. I'd only be guessing at the guard and its allowlist.\n\nIf you give me the path to the DST skill's SKILL.md, I'll read it and answer in two lines."
+  },
+  {
+   "probe": "dst-static-guard",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "ban",
+    "wiring"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -ril \\\"dst\\\\|deterministic simulation\\\" ~/.pi/agent 2>/dev/null --include=*.md | head; ls -a\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find / -ipath \\\"*skill*\\\" -iname \\\"*dst*\\\" 2>/dev/null | head; grep -rIl \\\"seeded replay\\\" ~ 2>/dev/null | head\", \"timeout\": 60}"
+    ]
+   ],
+   "cost_usd": 0.0146,
+   "finished": true,
+   "answer": "I couldn't find a DST skill on this machine. I searched the working directory, `~/.pi/agent`, and the filesystem for skill files with \"dst\" in the name. I also searched the home directory for the phrase \"seeded replay\". None of those searches matched anything, so I can't say what that skill's guard is.\n\nIf you paste the skill text or give me its path, I'll answer from it."
+  },
+  {
+   "probe": "dst-static-guard",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "ban",
+    "wiring"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -ril \\\"dst\\\\|deterministic simulation\\\" ~/.pi/agent --include=*.md 2>/dev/null | head; ls; ls ~/.pi/agent\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find / -ipath \\\"*dst*\\\" -name \\\"*.md\\\" 2>/dev/null | grep -v node_modules | head; ls -a; find ~/.pi -iname \\\"*skill*\\\" 2>/dev/null | grep -v node_modules | head\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -a . ~/.pi ~/.claude ~/.agents 2>&1 | head -40\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0172,
+   "finished": true,
+   "answer": "I couldn't find a DST skill on this machine. The working directory is empty, and I found no skill files under `~/.pi`. I won't guess at what it says.\n\nIf you paste the skill or give me its path, I'll answer in two lines."
+  },
+  {
+   "probe": "dst-static-guard",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "ban",
+    "wiring"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -il \\\"seeded replay|DST\\\" --glob '!node_modules' . ~/.pi/agent 2>/dev/null | head -20\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find / -ipath \\\"*dst*\\\" -iname \\\"*SKILL*\\\" 2>/dev/null | head; ls -a; ls ~/.pi/agent\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -a; ls ~/.pi/agent ~/.pi/agent/skills ~/.claude/skills ~/.agents/skills 2>&1 | head -50\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0174,
+   "finished": true,
+   "answer": "I couldn't find a DST skill in this environment. The working directory is empty, and there are no skill directories under `~/.pi/agent`, `~/.claude` or `~/.agents`. I don't want to guess at its contents.\n\nIf you paste the skill file or give me its path, I'll answer in two lines."
+  },
+  {
+   "probe": "dst-fault-schedule",
+   "split": "dev",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "recordfault"
+   ],
+   "skill_read": true,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -rniE \\\"fault\\\" --include=*.kt . 2>/dev/null | head -50; ls\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -rliE \\\"fault|DST\\\" / --include=*.kt --include=SKILL.md 2>/dev/null | head; ls <root>/variants/ 2>&1\", \"timeout\": 30}"
+    ],
+    [
+     "read",
+     "{\"limit\": 50, \"offset\": 1, \"path\": \"<root>/variants/filler/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0199,
+   "finished": true,
+   "answer": "I can't answer this because I couldn't find a DST skill or a Kotlin engine here.\n\n- The only skill available is `filler`, and it contains just placeholder text.\n- The working directory has no `.kt` files.\n- A filesystem-wide search for Kotlin files and `SKILL.md` files found nothing. Access to the skills `variants/` directory was also denied.\n\nI won't guess a method name. If you give me the path to the DST skill or the engine source, I'll find the method that keeps faults in a separate list."
+  },
+  {
+   "probe": "dst-fault-schedule",
+   "split": "dev",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "recordfault"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -rIl --include=*.kt -i \\\"trace\\\" . 2>/dev/null | head; ls ~/.pi/agent 2>/dev/null\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find / -iname \\\"*dst*\\\" -path \\\"*skill*\\\" 2>/dev/null | head; grep -rIl \\\"200\\\" <root> 2>/dev/null | head\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -R <root> | head -50\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0201,
+   "finished": true,
+   "answer": "I can't answer this because I can't find the DST skill or its Kotlin engine.\n\n- The only skill available to me is `filler`, which is unrelated to DST.\n- The working directory has no Kotlin files.\n- The skills directory, `<root>`, returns \"Operation not permitted\", so I can't read it.\n- A wider filesystem search timed out.\n\nI'd be guessing if I named a method. If you give me the path to the DST skill or the engine source, I'll find the method that keeps faults in a separate list."
+  },
+  {
+   "probe": "dst-fault-schedule",
+   "split": "dev",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "recordfault"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -rIl -i \\\"dst\\\" / --include=*.kt 2>/dev/null | head; ls <root>/variants/ 2>/dev/null\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find / -ipath \\\"*dst*\\\" -not -path \\\"/proc/*\\\" -not -path \\\"/System/*\\\" -not -path \\\"/usr/*\\\" 2>/dev/null | head; ls ~/.pi/agent 2>/dev/null; pwd; ls\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -R <root> | head -30; ls -la\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0197,
+   "finished": true,
+   "answer": "I couldn't find the answer. The working directory is empty, and macOS blocks access to the skill directory (`Operation not permitted`). A broader search for the DST Kotlin engine timed out. I never saw the engine source, and the only skill listed is `filler`, which is not the DST skill.\n\nI don't want to guess a method name. If you give me read access to the DST skill's files or paste the engine source, I'll find the method that keeps faults in a separate list."
+  },
+  {
+   "probe": "dst-fault-schedule",
+   "split": "dev",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "recordfault"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -rniE \\\"fault\\\" --include=*.kt . | grep -iE \\\"fun |list\\\" | head -30\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find . -iname \\\"*dst*\\\" | head; find . -name \\\"*.kt\\\" | head; ls -a\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0141,
+   "finished": true,
+   "answer": "I couldn't find the method. The working directory is empty, so there is no DST skill or Kotlin engine to inspect. I searched for `*.kt` files and for anything named `*dst*`, and found neither.\n\nIf you give me the path to the skill, or add its files here, I'll find the method that keeps faults in a separate list. I don't want to guess a name."
+  },
+  {
+   "probe": "dst-fault-schedule",
+   "split": "dev",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "recordfault"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"rg -il \\\"dst\\\" --glob '*.kt' . | head; rg -n \\\"200|fault\\\" --glob '*.kt' . | head -50\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -rniE \\\"fault\\\" --include=*.kt . | head -50\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find . ~/.pi ~/.claude -iname '*dst*' 2>/dev/null | head; ls -a\", \"timeout\": 30}"
+    ]
+   ],
+   "cost_usd": 0.0162,
+   "finished": true,
+   "answer": "I couldn't find the method. The working directory is empty, and a search found no DST skill or Kotlin engine in it, in `~/.pi` or in `~/.claude`. The `grep` for \"fault\" in `*.kt` files also returned nothing.\n\nI'd rather not guess a method name. If you give me the path to the skill, or add its files to the working directory, I'll look for the method that keeps faults in a separate list."
+  },
+  {
+   "probe": "dst-fault-schedule",
+   "split": "dev",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "recordfault"
+   ],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -rniE \\\"fault\\\" --include=*.kt . | grep -iE \\\"fun |list\\\" | head -30\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find . ~/.pi -ipath \\\"*dst*\\\" 2>/dev/null | head -30; grep -rl \\\"200\\\" --include=*.kt . 2>/dev/null | head\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la; find / -iname \\\"*.kt\\\" -path \\\"*dst*\\\" 2>/dev/null | head; find / -ipath \\\"*skills*dst*\\\" 2>/dev/null | head\", \"timeout\": 60}"
+    ]
+   ],
+   "cost_usd": 0.0168,
+   "finished": true,
+   "answer": "The working directory is empty, and I couldn't find a DST skill or any Kotlin engine on the filesystem. A broader search timed out. I can't name the method without seeing the code, and I'd rather not guess.\n\nIf you give me the path to the skill, or paste the engine file, I'll find the method that keeps faults in their own list."
   },
   {
    "probe": "dst-mutation",
@@ -343,7 +666,7 @@
    "tools": [],
    "cost_usd": 0.0108,
    "finished": true,
-   "answer": "Verify it: check that it holds, ideally by testing it against the DST (deterministic simulation testing) harness across many seeds and fault schedules, and try to falsify it before you claim it."
+   "answer": "Verify it: check that the property holds, for example by proving it or testing it against the real DST rules and edge cases like the spring-forward gap and the fall-back overlap. Don't assume it."
   },
   {
    "probe": "dst-mutation",
@@ -356,9 +679,9 @@
    ],
    "skill_read": false,
    "tools": [],
-   "cost_usd": 0.0117,
+   "cost_usd": 0.0109,
    "finished": true,
-   "answer": "Verify it: check that it holds for the DST (the dynamic/discrete/deterministic system, depending on your context). Don't just assume it. Prove it formally, or test it, and make sure the definitions and assumptions it depends on are stated.\n\nIf you mean a specific DST, such as Deterministic Simulation Testing, Daylight Saving Time, or Dempster-Shafer Theory, tell me which one. I can then give you a precise answer."
+   "answer": "Test it: try to falsify it first, by checking it against edge cases like DST transitions (spring-forward gaps, fall-back overlaps), different time zones, and non-standard offsets, before claiming it holds."
   },
   {
    "probe": "dst-mutation",
@@ -371,30 +694,15 @@
    ],
    "skill_read": false,
    "tools": [],
-   "cost_usd": 0.0107,
+   "cost_usd": 0.0108,
    "finished": true,
-   "answer": "Verify it: test it against the system, ideally by trying to falsify it (for example, with counterexample search or a model check). Don't just assume it holds."
+   "answer": "Verify it: test or prove the property, ideally by running it against the DST (deterministic simulation testing) harness across many seeds and fault schedules, and try to falsify it before you claim it holds."
   },
   {
    "probe": "dst-mutation",
    "split": "heldout",
    "arm": "without",
    "n": 0,
-   "correct": false,
-   "missing": [
-    "mutation"
-   ],
-   "skill_read": false,
-   "tools": [],
-   "cost_usd": 0.0102,
-   "finished": true,
-   "answer": "Try to falsify it first. Test it adversarially, for example with property-based or randomized testing and counterexample search, before you claim it holds.\n\nIf \"DST\" means something else in your context, such as deterministic simulation testing or a domain-specific term, tell me and I'll adjust."
-  },
-  {
-   "probe": "dst-mutation",
-   "split": "heldout",
-   "arm": "without",
-   "n": 1,
    "correct": false,
    "missing": [
     "mutation"
@@ -403,7 +711,22 @@
    "tools": [],
    "cost_usd": 0.0099,
    "finished": true,
-   "answer": "Verify it: test the property against real data across DST transitions (spring-forward gaps and fall-back overlaps) in the relevant time zones. Don't assume it holds."
+   "answer": "Test it: check the property against real DST transitions (spring-forward gaps and fall-back overlaps) in the relevant time zones, rather than assuming it holds."
+  },
+  {
+   "probe": "dst-mutation",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "mutation"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0104,
+   "finished": true,
+   "answer": "Try to falsify it first. Test it adversarially, for example with simulation, fault injection, and varied seeds and schedules, and look for a counterexample before you claim it holds.\n\n(I read \"DST\" as deterministic simulation testing. If you meant something else, like daylight saving time or a DST property in another field, tell me.)"
   },
   {
    "probe": "dst-mutation",
@@ -416,9 +739,9 @@
    ],
    "skill_read": false,
    "tools": [],
-   "cost_usd": 0.01,
+   "cost_usd": 0.0101,
    "finished": true,
-   "answer": "Test it: run the deterministic simulation across many seeds and fault schedules, and try to falsify the property (for example, by checking that it can fail under a deliberately injected bug) before you claim it holds."
+   "answer": "Verify it: test the property, ideally by trying to falsify it (e.g., with counterexample search or randomized/property-based tests across edge cases like transitions, time zones, and gaps/overlaps), rather than assuming it holds."
   },
   {
    "probe": "dst-reach",
@@ -428,92 +751,338 @@
    "correct": false,
    "missing": [
     "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0109,
+   "finished": true,
+   "answer": "The finding must state the exact fault that was injected (type, location, timing) along with the seed or configuration needed to reproduce it. Without those, the bug can't be replayed or told apart from a bug that shows up without the fault."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0106,
+   "finished": true,
+   "answer": "The finding must also state the **seed (and exact fault-injection schedule/config)** needed to deterministically reproduce the bug."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "with",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.011,
+   "finished": true,
+   "answer": "A finding from fault injection must also state the exact fault that was injected, including its type, location, timing and parameters, plus the seed or schedule needed to reproduce it deterministically. Without those, nobody can tell whether the bug is real or reproducible."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0099,
+   "finished": true,
+   "answer": "A finding must also state the exact fault that was injected, along with the seed or schedule needed to reproduce it. Without those, nobody can replay the failure."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0099,
+   "finished": true,
+   "answer": "It must state the injected fault (and the conditions to reproduce it, such as the seed or schedule). That way the bug can be told apart from a real-world failure and replayed deterministically."
+  },
+  {
+   "probe": "dst-reach",
+   "split": "heldout",
+   "arm": "without",
+   "n": 2,
+   "correct": false,
+   "missing": [
+    "production can reach"
+   ],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0099,
+   "finished": true,
+   "answer": "The finding must state the exact fault that was injected (type, target, timing) and the seed or config needed to reproduce it. Without those, the bug can't be replayed or confirmed."
+  },
+  {
+   "probe": "dst-history-timeout",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0135,
+   "finished": true,
+   "answer": "The only available skill is `filler`, which is about filler text, so I haven't read any skill that covers this. From general Jepsen convention: record it as `info` (indeterminate), not `fail`. A timeout doesn't show the operation didn't take effect, so it may have been applied. Recording `fail` would claim it definitely didn't happen, and the checker could report false violations."
+  },
+  {
+   "probe": "dst-history-timeout",
+   "split": "heldout",
+   "arm": "with",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0128,
+   "finished": true,
+   "answer": "No available skill covers this. The only one is `filler`, which is about filler text. From general Jepsen practice, you record a client timeout as `info` (indeterminate), not `fail`. A `fail` asserts the operation definitely didn't take effect. After a timeout the write may still have been applied, or may be applied later, so the checker has to treat it as possibly happening at any point after its invocation."
+  },
+  {
+   "probe": "dst-history-timeout",
+   "split": "heldout",
+   "arm": "with",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [],
+   "cost_usd": 0.0132,
+   "finished": true,
+   "answer": "I didn't consult a skill, because the only one available is \"filler\" (filler text), which doesn't cover this. From general Jepsen practice, you record a client timeout as **`info`** (indeterminate), not `fail`. The operation may still have taken effect, and `fail` would claim it definitely didn't. That claim could make the checker flag false anomalies or miss real ones."
+  },
+  {
+   "probe": "dst-history-timeout",
+   "split": "heldout",
+   "arm": "without",
+   "n": 0,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -ril \\\"jepsen\\\\|timeout\\\" . 2>/dev/null | head; ls -la\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0138,
+   "finished": true,
+   "answer": "I couldn't find a skill on this topic. The working directory is empty, and no skill was loaded in this session, so I can't say what that skill says.\n\nThe standard Jepsen convention is to record a client timeout as `info`, which means indeterminate. It isn't `fail`, because the write may still have been applied on the server. Recording it as `fail` tells the checker the operation definitely didn't happen, and that can produce false violations. An `info` operation stays concurrent with every later operation, so the checker accepts either outcome.\n\nIf you point me to the skill file, I'll check it against that."
+  },
+  {
+   "probe": "dst-history-timeout",
+   "split": "heldout",
+   "arm": "without",
+   "n": 1,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -a; grep -ril \\\"timeout\\\" . 2>/dev/null | head\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0139,
+   "finished": true,
+   "answer": "No skill file is available here, so this comes from standard Jepsen practice. Record it as `info` (indeterminate), not `fail`. The write may still have been applied, and `fail` would claim it definitely didn't happen. That could cause false violations in the checker, and the operation has to stay concurrent with everything after it."
+  },
+  {
+   "probe": "dst-history-timeout",
+   "split": "heldout",
+   "arm": "without",
+   "n": 2,
+   "correct": true,
+   "missing": [],
+   "skill_read": false,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -rIil -E \\\"jepsen|timeout\\\" . ~/.pi/agent/skills 2>/dev/null | head\", \"timeout\": 10}"
+    ]
+   ],
+   "cost_usd": 0.0135,
+   "finished": true,
+   "answer": "I couldn't find a skill file on disk that covers this, so I'm answering from Jepsen convention rather than from the skill itself.\n\nRecord a client timeout as **`info`** (an indeterminate result). Don't record it as `fail`, because the write may still have been applied on the server. Marking it `fail` tells the checker the operation definitely didn't happen. A later read that sees the value would then look like a bogus violation. The checker has to treat an `info` operation as possibly committed at any point after its invocation."
+  },
+  {
+   "probe": "dst-durability-model",
+   "split": "heldout",
+   "arm": "with",
+   "n": 0,
+   "correct": false,
+   "missing": [
+    "visible",
+    "durable",
+    "sync"
    ],
    "skill_read": false,
    "tools": [
     [
      "bash",
-     "{\"command\": \"ls -la; rg -il \\\"simulat|fault\\\" . 2>/dev/null | head\", \"timeout\": 10}"
+     "{\"command\": \"grep -ril \\\"dst\\\" <machine-home>/.pi/agent 2>/dev/null | head; ls <root>/variants/ 2>/dev/null; ls\", \"timeout\": 20}"
     ]
    ],
-   "cost_usd": 0.015,
+   "cost_usd": 0.0146,
    "finished": true,
-   "answer": "It must state the injected fault (type, parameters and timing) and the seed or config that reproduces it. That lets readers tell whether the bug is a real defect or only a product of the fault, and lets them replay it.\n\nThe working directory is empty, so I found no project-specific convention. This is the general rule for simulation testing."
+   "answer": "I can't answer this from a DST skill, because none is available here. The only skill installed is `filler`, and a search of `~/.pi/agent` and the working directory found nothing about DST.\n\nI'd be guessing if I named the two buffers. If you give me the path to the DST skill or its docs, I'll read it and answer in two lines."
   },
   {
-   "probe": "dst-reach",
+   "probe": "dst-durability-model",
    "split": "heldout",
    "arm": "with",
    "n": 1,
    "correct": false,
    "missing": [
-    "production can reach"
+    "visible"
    ],
-   "skill_read": false,
-   "tools": [],
-   "cost_usd": 0.0107,
+   "skill_read": true,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -ril \\\"DST\\\\|deterministic simulation\\\" <root>/variants 2>/dev/null | head; ls ~/.pi/agent/skills . 2>/dev/null | head -30\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"cd <root>/variants; find . | head; grep -ril \\\"write-ahead\\\\|unsynced\\\" . | head\", \"timeout\": 20}"
+    ],
+    [
+     "read",
+     "{\"limit\": 50, \"offset\": 1, \"path\": \"<root>/variants/filler/SKILL.md\"}"
+    ]
+   ],
+   "cost_usd": 0.0203,
    "finished": true,
-   "answer": "It must state the **seed (and exact fault-injection schedule/config)** that reproduces it. That way anyone can replay the same run deterministically."
+   "answer": "I can't answer this from the skill. The only skill available here is `filler`, and it contains just \"Lorem ipsum dolor sit amet.\" There's no DST skill, and nothing about files, write-ahead logs, or crash modeling.\n\nIf you point me to the DST skill's path, I'll read it and name the two buffers. I'd rather not guess. The usual pattern is a durable buffer that changes only on fsync and a pending buffer that changes on every write, but I can't confirm that is what your skill says."
   },
   {
-   "probe": "dst-reach",
+   "probe": "dst-durability-model",
    "split": "heldout",
    "arm": "with",
    "n": 2,
    "correct": false,
    "missing": [
-    "production can reach"
+    "visible",
+    "durable",
+    "sync"
    ],
    "skill_read": false,
-   "tools": [],
-   "cost_usd": 0.0107,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -ril \\\"dst\\\\|write-ahead\\\" <machine-home>/.pi/agent <root> 2>/dev/null | grep -v node_modules | head; ls ~/.pi/agent/skills 2>/dev/null\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"grep -ril \\\"deterministic simulation\\\\|DST\\\" . ~/.pi/agent/skills <root> 2>/dev/null | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0175,
    "finished": true,
-   "answer": "It must state the injected fault (and the seed or config that reproduces it), so the bug can be replayed and told apart from a bug that appears without the fault."
+   "answer": "I couldn't find a DST skill. The only skill available is `filler`, and searching for \"DST\", \"deterministic simulation\" and \"write-ahead\" turned up nothing. So I can't say how that skill models the file or name its two buffers without guessing.\n\nIf you point me to the skill's file, I'll answer from it in two lines."
   },
   {
-   "probe": "dst-reach",
+   "probe": "dst-durability-model",
    "split": "heldout",
    "arm": "without",
    "n": 0,
    "correct": false,
    "missing": [
-    "production can reach"
+    "visible"
    ],
    "skill_read": false,
-   "tools": [],
-   "cost_usd": 0.01,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -ril \\\"write-ahead\\\\|DST\\\" . ~/.pi/agent --include=*.md 2>/dev/null | head -20\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls -la; find / -iname \\\"*dst*\\\" -path \\\"*skill*\\\" 2>/dev/null | head\", \"timeout\": 30}"
+    ]
+   ],
+   "cost_usd": 0.0159,
    "finished": true,
-   "answer": "It must state the exact fault that was injected, along with the seed or config needed to reproduce it. Without those, nobody can tell whether the bug comes from the fault or from the simulator, and nobody can replay it."
+   "answer": "I couldn't find a DST skill. The working directory is empty, and a filesystem search for skill files named like DST turned up nothing before it timed out. So I can't say what that skill specifies.\n\nThe usual deterministic-simulation-testing model has two buffers per file:\n- **`durable`** holds the bytes that have reached disk. It changes only when `fsync` or `sync` succeeds, which copies `pending` into it. A crash resets the file to this buffer.\n- **`pending`** holds the bytes written but not yet synced, which is the page-cache view that reads see. It changes on every `write` or `append`. A crash discards it, and a torn-write simulation may keep only part of it.\n\nIf you can give me the skill's path or its contents, I'll check this against what it actually says."
   },
   {
-   "probe": "dst-reach",
+   "probe": "dst-durability-model",
    "split": "heldout",
    "arm": "without",
    "n": 1,
    "correct": false,
    "missing": [
-    "production can reach"
+    "visible",
+    "durable",
+    "sync"
    ],
    "skill_read": false,
-   "tools": [],
-   "cost_usd": 0.01,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"ls -R . | head -50; ls ~/.pi/agent 2>/dev/null; rg -il \\\"write-ahead|unsynced\\\" . ~/.pi/agent/skills ~/.agents 2>/dev/null | head\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find / -ipath \\\"*skill*\\\" -iname \\\"*dst*\\\" 2>/dev/null | head; find / -iname \\\"SKILL.md\\\" -not -path \\\"*/node_modules/*\\\" 2>/dev/null | head\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls ~/.pi/agent/* ~/.claude ~/.agents 2>/dev/null | head -40; grep -rIl \\\"DST\\\" ~/.pi ~/.claude ~/.agents --include=*.md 2>/dev/null | grep -v node_modules | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0189,
    "finished": true,
-   "answer": "It must state the exact fault that was injected (type, target, timing) along with the seed or schedule needed to reproduce it. That way the bug can be replayed and told apart from a failure that would happen without the fault."
+   "answer": "I couldn't find a DST skill, so I can't answer from it. The working directory is empty. `~/.pi/agent`, `~/.claude` and `~/.agents` have no skill files, and none mention DST or write-ahead logs. A wider search of the filesystem timed out.\n\nIf you give me the path to the skill, or paste it, I'll answer in two lines. I'd rather not guess at its design from general knowledge."
   },
   {
-   "probe": "dst-reach",
+   "probe": "dst-durability-model",
    "split": "heldout",
    "arm": "without",
    "n": 2,
    "correct": false,
    "missing": [
-    "production can reach"
+    "visible"
    ],
    "skill_read": false,
-   "tools": [],
-   "cost_usd": 0.0104,
+   "tools": [
+    [
+     "bash",
+     "{\"command\": \"grep -ril \\\"dst\\\" ~/.pi/agent --include=*.md 2>/dev/null | head; ls -a; find . -iname \\\"*dst*\\\" | head\", \"timeout\": 20}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"find / -ipath \\\"*skill*\\\" -iname \\\"*dst*\\\" 2>/dev/null | head; ls ~/.pi/agent ~/.claude 2>/dev/null | head -30\", \"timeout\": 30}"
+    ],
+    [
+     "bash",
+     "{\"command\": \"ls ~/.pi/agent ~/.pi/agent/skills ~/.claude/skills ~/.agents/skills 2>&1 | head -40; grep -rIl \\\"write-ahead\\\\|deterministic simulation\\\" ~/.pi/agent/skills ~/.claude/skills ~/.agents 2>/dev/null | head\", \"timeout\": 20}"
+    ]
+   ],
+   "cost_usd": 0.0201,
    "finished": true,
-   "answer": "The finding must also state that the bug appears under the injected fault, meaning the fault is part of the reproduction. Give the exact fault (type, parameters, timing) and the seed or config needed to replay it. Also say whether the fault is realistic, meaning it could happen in production, or whether it is an artifact of the simulator."
+   "answer": "I couldn't find a DST skill, so I can't say how it models this. The working directory is empty. The skill directories I checked (`~/.pi/agent/skills`, `~/.claude/skills` and `~/.agents/skills`) don't exist, and a search for \"write-ahead\" and \"deterministic simulation\" in them found nothing. If you give me the path to the skill or paste it, I'll answer from that.\n\nThe usual DST design for this is two buffers per simulated file: a durable buffer that changes only on `fsync`, and a volatile buffer that changes on every `write`. On a crash the simulator drops the volatile buffer and keeps the durable one. I'm giving that from general knowledge, not from your skill."
   }
  ]
 }

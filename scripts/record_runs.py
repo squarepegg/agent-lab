@@ -23,10 +23,12 @@ from scrub import scrub as _scrub  # noqa: E402
 OUT = os.path.join(ROOT, "recorded")
 # No extensions and no MCP: nothing from the recording machine's own setup reaches the model.
 PI_EXTRA = ["--no-extensions", "--no-mcp"]
+SANDBOX = sys.platform == "darwin"   # sandbox-exec; set False with --no-sandbox (the runs are then NOT isolated from the machine's disk)
 PROMPT = ("Each probe's `q` (sample/skills/<skill>/evals/probes.json) is sent as the only user message of a fresh "
           "`pi --mode rpc --no-session --no-context-files --no-skills --no-extensions --no-mcp --model <model>` session in an empty "
           "directory with an empty HOME. The `with` arm adds `--skill skills/<skill>`; nothing else differs. "
-          "Grading is `skill_ab.missing`: no model grades.")
+          "Grading is `skill_ab.missing`: no model grades. On macOS each answer's pi process runs under `scripts/sandboxed_pi.py`, "
+          "which lets it read only its own working folder, its empty HOME, pi's own install and (with arm only) the skill folder.")
 
 
 def sha(path):
@@ -69,6 +71,8 @@ def record(skill, model, samples, creds, variant=None):
         env = {**os.environ, **creds, "HOME": home, "EVAL_PI_ARGS": json.dumps(["--model", model, *PI_EXTRA])}
         for k in ("EVAL_PI", *(("AWS_PROFILE",) if creds else ())):
             env.pop(k, None)
+        if SANDBOX:   # each answer's pi runs under scripts/sandboxed_pi.py: it can read only its own folder (and the skill, in the with arm)
+            env.update({"EVAL_PI": os.path.join(ROOT, "scripts", "sandboxed_pi.py"), "SANDBOX_PI_REAL": shutil.which("pi"), "SANDBOX_REAL_HOME": os.path.expanduser("~")})
         r = subprocess.run([sys.executable, os.path.join(d, "scripts", "skill_ab.py"), skill, "--samples", str(samples), "--out", raw, *extra],
                            env=env, capture_output=True, text=True)
         if r.returncode not in (0, 1) or not os.path.exists(raw):
@@ -81,7 +85,7 @@ def record(skill, model, samples, creds, variant=None):
     with open(os.path.join(OUT, name), "w", encoding="utf-8") as f:
         f.write(text)
     return name, {"skill": skill, "variant": variant, "model": model, "date": res["date"], "samples": samples, "answers": len(res["rows"]),
-                  "cost_usd": res["cost_usd"], "sha256": sha(os.path.join(OUT, name))}
+                  "cost_usd": res["cost_usd"], "sandboxed": SANDBOX, "sha256": sha(os.path.join(OUT, name))}
 
 
 def main():
@@ -90,7 +94,12 @@ def main():
     ap.add_argument("--skills", nargs="+", default=sorted(os.listdir(os.path.join(ROOT, "sample", "skills"))))
     ap.add_argument("--variant", action="append", default=[], metavar="SKILL=NAME")
     ap.add_argument("--samples", type=int, default=3)
+    ap.add_argument("--no-sandbox", action="store_true", help="do not confine pi to its own folder (needed off macOS; the recording is then not isolated)")
     a = ap.parse_args()
+    global SANDBOX
+    SANDBOX = SANDBOX and not a.no_sandbox
+    if not SANDBOX:
+        print("WARNING: not sandboxed. The agent can read this machine's disk; do not commit these recordings as evidence.", flush=True)
     os.makedirs(OUT, exist_ok=True)
     meta_path = os.path.join(OUT, "RUNS.json")
     meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {"files": {}}

@@ -3,6 +3,7 @@ import glob, json, os, sys, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "lab"))
+sys.path.insert(0, os.path.join(ROOT, "vendor"))
 import scrub as S
 
 
@@ -35,7 +36,22 @@ class RealScrubber(unittest.TestCase):
         self.assertEqual(S.scrub("/USERS/A/x and //Users//a", "/w", "/h", "/Users/a", "/t"), "/USERS/A/x and //Users//a")
 
 
+class InstalledPackages(unittest.TestCase):
+    def test_names_under_the_harness_install_folder_are_hidden(self):
+        out = S.scrub("ls /Users/a/.pi/agent/git/github.com/AcmeCorp/pi-acme-gateway/skills/ && find /Users/a/.pi/agent/git/github.com/AcmeCorp -type d", "/w", "/h", "/Users/a", "/t")
+        self.assertEqual(out, "ls <machine-home>/.pi/agent/git/github.com/<org>/<repo>/skills/ && find <machine-home>/.pi/agent/git/github.com/<org>/<repo> -type d")
+        self.assertNotIn("Acme", out)
+
+    def test_other_places_under_the_home_folder_are_left_alone(self):
+        self.assertEqual(S.scrub("cat /Users/a/.pi/agent/install/releases/1.5.2/README.md", "/w", "/h", "/Users/a", "/t"), "cat <machine-home>/.pi/agent/install/releases/1.5.2/README.md")
+
+
 class OnTheRecordedTexts(unittest.TestCase):
+    def test_upstreams_private_words_are_nowhere_in_the_committed_results(self):
+        import check_skills
+        body = "".join(open(f, encoding="utf-8").read().lower() for f in glob.glob(os.path.join(ROOT, "recorded", "*.json")))
+        self.assertEqual([w for w in check_skills.ALL_FILES_FORBID if w in body], [])
+
     def test_nothing_in_the_committed_results_looks_like_a_machine_path(self):
         self.assertEqual([x for t in TEXTS for x in S.detect(t["text"])], [])
 

@@ -59,16 +59,18 @@ class OnRealCalls(unittest.TestCase):
         self.assertGreater(k["wrongly"] / (k["total"] - k["escapes"]), 0.6)
         self.assertGreater(k["missed"], 0)   # the reads
 
-    def test_home_rule_misses_only_temp_folder_escapes(self):
+    def test_home_rule_blocks_no_harmless_call_but_misses_escapes_that_avoid_the_home_folder(self):
         r = G.run(CALLS, {"rules": ["no_home"]})
         self.assertEqual(r["counts"]["wrongly"], 0)
         missed = [G.text_of(c["name"], c["args"]) for c, row in zip(CALLS, r["rows"]) if row["outside"] and not row["blocked"]]
-        self.assertTrue(missed)
-        self.assertTrue(all("<tmp" in t or "/private/var" in t for t in missed), missed)
+        self.assertGreater(len(missed), 10)
+        self.assertFalse([t for t in missed if "~" in t or "<machine-home>" in t], "the rule does what it says")
+        self.assertTrue([t for t in missed if "<tmp" in t or "/private/var" in t], "some went to a temp folder")
 
-    def test_absolute_rule_is_perfect_on_the_real_calls_but_not_on_attacks(self):
+    def test_absolute_rule_blocks_nothing_harmless_and_misses_almost_nothing_on_the_real_calls_but_not_on_attacks(self):
         k = G.run(CALLS, {"rules": ["no_absolute"]})["counts"]
-        self.assertEqual((k["missed"], k["wrongly"]), (0, 0))
+        self.assertEqual(k["wrongly"], 0)
+        self.assertLessEqual(k["missed"], 3)
         a = G.attacks({"rules": ["no_absolute"]})
         missed = {x["text"] for x in a["rows"] if x["outside"] and not x["blocked"]}
         self.assertEqual(missed, {"ls $HOME", "ls ..", "cd .. && ls", "eval \"$(echo bHMgfg== | base64 -d)\""})

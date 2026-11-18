@@ -6,6 +6,7 @@
    "date": "2026-11-16",
    "model": "amazon-bedrock/global.anthropic.claude-haiku-4-5-20251001-v1:0",
    "samples": 3,
+   "sandboxed": false,
    "sha256": "2c53c079fd4cae82af9a35c80df029f315af084b7f53704441332539fa3266a0",
    "skill": "doubt",
    "variant": null
@@ -16,47 +17,52 @@
    "date": "2026-11-16",
    "model": "amazon-bedrock/global.anthropic.claude-sonnet-5-5",
    "samples": 3,
+   "sandboxed": false,
    "sha256": "011f20a33a602551e2451c15f8f8f62fe58bf5eb9a26c3834556b4b9ad26d104",
    "skill": "doubt",
    "variant": null
   },
   "dst+filler--global.anthropic.claude-haiku-4-5-20251001-v1-0.json": {
-   "answers": 30,
-   "cost_usd": 0.203,
-   "date": "2026-11-16",
+   "answers": 54,
+   "cost_usd": 1.671,
+   "date": "2026-11-17",
    "model": "amazon-bedrock/global.anthropic.claude-haiku-4-5-20251001-v1:0",
    "samples": 3,
-   "sha256": "b211d8da3af28791f7e16a3620c1f62c5c09bf461adf36ee19d0aa29da8511aa",
+   "sandboxed": true,
+   "sha256": "fcad5d5c4ca2c0099d456d28d8120e92ecf45b738f6566af9c1f95a18610bc91",
    "skill": "dst",
    "variant": "filler"
   },
   "dst+filler--global.anthropic.claude-sonnet-5-5.json": {
-   "answers": 30,
-   "cost_usd": 0.377,
-   "date": "2026-11-16",
+   "answers": 54,
+   "cost_usd": 0.77,
+   "date": "2026-11-17",
    "model": "amazon-bedrock/global.anthropic.claude-sonnet-5-5",
    "samples": 3,
-   "sha256": "3db423e12a29e2c647e49aeca40f6a41acec6c2a48b6a79d5d22529a62c2f1cc",
+   "sandboxed": true,
+   "sha256": "4a2c358d0045ff295c01c728441769f2a4c022d175c2cf618afc6b46c9dec7d7",
    "skill": "dst",
    "variant": "filler"
   },
   "dst--global.anthropic.claude-haiku-4-5-20251001-v1-0.json": {
-   "answers": 30,
-   "cost_usd": 0.401,
-   "date": "2026-11-16",
+   "answers": 54,
+   "cost_usd": 1.766,
+   "date": "2026-11-17",
    "model": "amazon-bedrock/global.anthropic.claude-haiku-4-5-20251001-v1:0",
    "samples": 3,
-   "sha256": "d191bee4e83188b2d04baccd5d2454a07db4dee2b05e7a7772dce606b3dd707c",
+   "sandboxed": true,
+   "sha256": "8950683d90bd7ce87fa08092c3bed2eab57cd6d60c006b2e4de099433f5c7a5c",
    "skill": "dst",
    "variant": null
   },
   "dst--global.anthropic.claude-sonnet-5-5.json": {
-   "answers": 30,
-   "cost_usd": 0.583,
-   "date": "2026-11-16",
+   "answers": 54,
+   "cost_usd": 1.123,
+   "date": "2026-11-17",
    "model": "amazon-bedrock/global.anthropic.claude-sonnet-5-5",
    "samples": 3,
-   "sha256": "9e0e5f97d6868ede30ed019a4d82bc54d715fe7718fed7c2ecf63cd42d84408b",
+   "sandboxed": true,
+   "sha256": "b00c5fb374dc030d2e95c0be4a6cb698b0657e94ed769713f8f756af3e33fed9",
    "skill": "dst",
    "variant": null
   },
@@ -66,6 +72,7 @@
    "date": "2026-11-16",
    "model": "amazon-bedrock/global.anthropic.claude-haiku-4-5-20251001-v1:0",
    "samples": 3,
+   "sandboxed": false,
    "sha256": "a6bccfc8969a17dae56a8e301ad16f805dfbc776fda44f1b5ec22f9b3082d186",
    "skill": "evidence-gated",
    "variant": null
@@ -76,6 +83,7 @@
    "date": "2026-11-16",
    "model": "amazon-bedrock/global.anthropic.claude-sonnet-5-5",
    "samples": 3,
+   "sandboxed": false,
    "sha256": "225925dfa0667c9f77bac2706ec88da225b908e8b3f986afa24093948e410277",
    "skill": "evidence-gated",
    "variant": null
@@ -86,8 +94,8 @@
   "--no-extensions",
   "--no-mcp"
  ],
- "prompt": "Each probe's `q` (sample/skills/<skill>/evals/probes.json) is sent as the only user message of a fresh `pi --mode rpc --no-session --no-context-files --no-skills --no-extensions --no-mcp --model <model>` session in an empty directory with an empty HOME. The `with` arm adds `--skill skills/<skill>`; nothing else differs. Grading is `skill_ab.missing`: no model grades.",
- "recorded_at": "2026-11-16",
+ "prompt": "Each probe's `q` (sample/skills/<skill>/evals/probes.json) is sent as the only user message of a fresh `pi --mode rpc --no-session --no-context-files --no-skills --no-extensions --no-mcp --model <model>` session in an empty directory with an empty HOME. The `with` arm adds `--skill skills/<skill>`; nothing else differs. Grading is `skill_ab.missing`: no model grades. On macOS each answer's pi process runs under `scripts/sandboxed_pi.py`, which lets it read only its own working folder, its empty HOME, pi's own install and (with arm only) the skill folder.",
+ "recorded_at": "2026-11-17",
  "runner": "vendor/skill_ab.py",
  "runner_sha256": "9b867b0d7782e06bb0632807f57e4a1a9ec887fa2c890521b3e27b3b21b8ece8"
 }

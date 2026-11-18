@@ -182,8 +182,8 @@ test("index.html: the static shell says what lesson 1 step 1 says, and every pre
 test("traceStats splits a run by arm and by whether the skill file was opened; unfinished answers are not correct", () => {
   const r = (arm, skill_read, correct, cost, tools, finished = true) => ({ arm, skill_read, correct, cost_usd: cost, tools: Array(tools).fill(["read", "{}"]), finished });
   const T = traceStats({ rows: [r("without", false, false, 0.01, 0), r("without", false, true, 0.01, 2), r("with", true, true, 0.04, 1), r("with", true, true, 0.02, 1, false), r("with", false, true, 0.02, 0)] });
-  assert.deepEqual(T.without, { n: 2, correct: 1, cost: 0.01, tools: 1 });
-  assert.deepEqual(T.withRead, { n: 2, correct: 1, cost: 0.03, tools: 1 });
+  assert.deepEqual(T.without, { n: 2, correct: 1, cost: 0.01, tools: 1, chars: 0 });
+  assert.deepEqual(T.withRead, { n: 2, correct: 1, cost: 0.03, tools: 1, chars: 0 });
   assert.equal(T.withSkip.n, 1);
   assert.ok(Math.abs(T.ratio - 4) < 1e-9, "total with (0.08) over total without (0.02)");
   assert.equal(traceStats({ rows: [] }).ratio, 0);

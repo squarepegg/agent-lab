@@ -110,13 +110,13 @@ export function runGrid(res) {
   return grid;
 }
 /** What the trace of a recorded run shows, split three ways: answers without the skill, answers with it where the model opened
- *  the skill file, and answers with it where it did not. Per group: n, correct, mean cost in dollars, mean tool calls.
+ *  the skill file, and answers with it where it did not. Per group: n, correct, mean cost in dollars, mean tool calls, mean answer length in characters.
  *  `ratio` is the total cost with the skill over the total cost without. An answer that did not finish does not count as correct. */
 export function traceStats(res) {
   const groups = { without: [], withRead: [], withSkip: [] };
   for (const r of res.rows) groups[r.arm === "without" ? "without" : r.skill_read ? "withRead" : "withSkip"].push(r);
   const sum = (rs, f) => rs.reduce((s, r) => s + f(r), 0);
-  const stat = (rs) => ({ n: rs.length, correct: sum(rs, (r) => (r.correct && r.finished !== false ? 1 : 0)), cost: rs.length ? sum(rs, (r) => r.cost_usd) / rs.length : 0, tools: rs.length ? sum(rs, (r) => r.tools.length) / rs.length : 0 });
+  const stat = (rs) => ({ n: rs.length, correct: sum(rs, (r) => (r.correct && r.finished !== false ? 1 : 0)), cost: rs.length ? sum(rs, (r) => r.cost_usd) / rs.length : 0, tools: rs.length ? sum(rs, (r) => r.tools.length) / rs.length : 0, chars: rs.length ? sum(rs, (r) => (r.answer ?? "").length) / rs.length : 0 });
   const out = Object.fromEntries(Object.entries(groups).map(([k, rs]) => [k, stat(rs)]));
   const total = (...ks) => ks.reduce((s, k) => s + out[k].n * out[k].cost, 0);
   out.ratio = total("without") ? total("withRead", "withSkip") / total("without") : 0;

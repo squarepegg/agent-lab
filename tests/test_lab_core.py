@@ -192,18 +192,21 @@ def run_file(skill, variant, model_part):
 
 
 class GateRecorded(unittest.TestCase):
-    def test_recorded_runs_get_the_verdicts_the_lesson_depends_on(self):
-        want = {("doubt", None, "haiku"): "NO_DELTA", ("dst", "filler", "haiku"): "NO_DELTA", ("dst", "filler", "sonnet"): "REGRESSION",
-                ("evidence-gated", None, "sonnet"): "TOO_COSTLY", ("dst", None, "haiku"): "TOO_COSTLY"}
+    def test_recorded_runs_get_the_verdicts_the_lessons_depend_on(self):
+        want = {("doubt", None, "haiku"): "NO_DELTA", ("dst", "filler", "haiku"): "NO_DELTA", ("dst", "filler", "sonnet"): "NO_DELTA",
+                ("evidence-gated", None, "sonnet"): "TOO_COSTLY", ("dst", None, "sonnet"): "TOO_COSTLY", ("dst", None, "haiku"): "ADOPT"}
         for (skill, variant, model), verdict in want.items():
             self.assertEqual(L.gate_recorded(run_file(skill, variant, model))["verdict"], verdict, (skill, variant, model))
 
-    def test_no_recorded_run_is_adopted_and_the_real_gate_is_deterministic(self):
-        for name in RUNS:
+    def test_only_one_recorded_run_is_adopted_and_the_real_gate_is_deterministic(self):
+        adopted = []
+        for name, m in RUNS.items():
             res = json.load(open(os.path.join(RECORDED, name)))
             g = L.gate_recorded(res)
-            self.assertNotEqual(g["verdict"], "ADOPT", name)
             self.assertEqual(g, L.gate_recorded(res))
+            if g["verdict"] == "ADOPT":
+                adopted.append((m["skill"], m["variant"], "haiku" if "haiku" in m["model"] else "sonnet"))
+        self.assertEqual(adopted, [("dst", None, "haiku")])
 
     def test_thresholds_can_be_overridden_and_unknown_ones_are_ignored(self):
         res = run_file("evidence-gated", None, "sonnet")

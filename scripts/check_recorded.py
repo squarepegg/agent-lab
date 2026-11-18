@@ -5,12 +5,15 @@
   - re-grading every answer with the vendored skill_ab.missing gives the recorded `correct` (the grader has not drifted)
   - no file holds the shape of a machine path (/Users/x, /home/x, C:\\Users, /var/folders/xx/yyyy): the scrubber replaces only paths it was told
     about, so this is the second layer that refuses what it did not expect
+  - no file holds a word on upstream's own private-word list (check_skills.ALL_FILES_FORBID, the one it applies to every file under skills/). A model that
+    lists its harness's install folders names whatever is installed there (found on a real re-recording), which no path-shape check can know
 Recorded runs are made by scripts/record_runs.py, the only thing here that calls a model."""
 import glob, hashlib, json, os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "vendor"))
 sys.path.insert(0, os.path.join(ROOT, "lab"))
+import check_skills  # noqa: E402  (vendored; only its list of private words is used)
 import skill_ab  # noqa: E402  (vendored; only its pure missing() is used)
 from scrub import detect  # noqa: E402  (lab-written: the shape of a home or temp path, with no knowledge of any machine)
 
@@ -37,7 +40,12 @@ def main():
         if sha(path) != m["sha256"]:
             bad.append(f"{name}: edited after recording (sha256 differs from RUNS.json); re-record with scripts/record_runs.py")
             continue
-        found = detect(open(path, encoding="utf-8").read())
+        body = open(path, encoding="utf-8").read()
+        words = [w for w in check_skills.ALL_FILES_FORBID if w in body.lower()]
+        if words:
+            bad.append(f"{name}: holds {words[0]!r}, a word on upstream's private list; extend scrub() in lab/scrub.py and re-scrub")
+            continue
+        found = detect(body)
         if found:
             bad.append(f"{name}: holds what looks like a machine path ({found[0]!r}); scripts/record_runs.py's scrub did not cover it")
             continue

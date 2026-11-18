@@ -38,7 +38,21 @@ def scrub(text, root, run_home, machine_home, tmp, tmp_parent=None):
         places += [(tmp_parent, "<tmp-parent>"), (tmp_parent.replace("/private", "", 1), "<tmp-parent>")]
     for real, name in places:
         text = text.replace(real, name)
-    return text
+    return fold_throwaway_dirs(hide_installed_packages(text))
+
+
+def fold_throwaway_dirs(text):
+    """A model may spell the throwaway tree with or without the macOS /private prefix, so `root` can miss it; these are the leftovers."""
+    return re.sub(r"<tmp>/lab-home-\w+", "<home>", re.sub(r"<tmp>/lab-rec-\w+", "<root>", text))
+
+
+# The agent's harness installs packages under <home>/.pi/agent/git/github.com/<org>/<repo>, and a model that lists that folder names them.
+# Those names can identify an employer or a private repo, and replacing the home path does not touch them (found on a real re-recording).
+INSTALLED = re.compile(r"(<machine-home>/\.pi/agent/git/github\.com/)[^/\s\"\\]+(?:/[^/\s\"\\]+)?")
+
+
+def hide_installed_packages(text):
+    return INSTALLED.sub(r"\1<org>/<repo>", text)
 
 
 BASE = ["root", "run_home", "cwd", "machine_home", "tmp", "tmp_parent"]

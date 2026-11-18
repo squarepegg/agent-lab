@@ -1,7 +1,7 @@
 {
  "meta": {
   "pyodide": "https://cdn.jsdelivr.net/pyodide/v0.27.7/full/",
-  "vendor_sha256": "1e9c00dfe6f6bee555b5551bbfe137dc32563d611bd050f639d8593511c95bb4"
+  "vendor_sha256": "1b21eab3c87e9260b79cd97da6fbb72f2a382495ac66208d932bfa80e3beb7d6"
  },
  "calls": {
   "explore:5isa6qnvfp": [
@@ -199,21 +199,21 @@
     "bytes": 1089
    }
   ],
-  "gate:1u5vh9xgse": {
+  "gate:1quh268p3c2": {
    "verdict": "ADOPT",
-   "reason": "gain 12 ≥ 2, no regression, cost ×1.0 ≤ 1.5",
+   "reason": "gain 18 ≥ 2, no regression, cost ×1.0 ≤ 1.5",
    "facts": {
     "dev_without": 0,
-    "dev_with": 12,
-    "dev_n": 12,
+    "dev_with": 18,
+    "dev_n": 18,
     "heldout_without": 0,
-    "heldout_with": 9,
-    "heldout_n": 9,
-    "cost_without": 0.21,
-    "cost_with": 0.21,
+    "heldout_with": 6,
+    "heldout_n": 6,
+    "cost_without": 0.24,
+    "cost_with": 0.24,
     "cost_ratio": 1,
     "regressed": [],
-    "gain": 12
+    "gain": 18
    },
    "params": {
     "min_gain": 2,
