@@ -217,7 +217,7 @@ const fold = (key, title, html, def) => (html ? `<details class="fold" ${foldOpe
 function caption() {
   const look = S.lesson ? (lstep()[1].look ?? lstep()[0].look) : "";
   const on = !!look, was = $("stage").classList.contains("cap");
-  $("caption").innerHTML = on ? `<b>look at</b><span>${esc(look)}</span>` : ""; $("caption").classList.toggle("on", on); $("stage").classList.toggle("cap", on);
+  $("caption").innerHTML = on ? `<b>look at</b><span title="${esc(look)}">${esc(look)}</span>` : ""; $("caption").classList.toggle("on", on); $("stage").classList.toggle("cap", on);
   if (on !== was && S.size && S.mode !== "start") fit(...S.size);   // the strip takes height from the canvas
 }
 // Python results a render needs are fetched first, so the render itself is synchronous.
@@ -1060,7 +1060,7 @@ async function runSkill() {
 function renderSkill() {
   const root = vp(); root.replaceChildren(); S.ref = { nodes: new Map(), edges: [] }; S.graph = null;
   const r = S.skill.res; const ps = bundle.probes.filter((p) => p.skill === S.skill.name), beg = S.level === "beginner";
-  root.append(el("text", { class: "col", x: 30, y: 30 }, "skill"), el("text", { class: "col", x: 330, y: 30 }, "text check (a proxy): does the skill's text hold the answer?"), el("text", { class: "col", x: 700, y: 30 }, "the real gate, on the proxy"));
+  root.append(el("text", { class: "col", x: 30, y: 30 }, "skill"), el("text", { class: "col", x: 330, y: 30 }, "text check (a proxy)"), el("text", { class: "col", x: 700, y: 30 }, "the gate, on the proxy"));
   root.append(nodeEl({ id: "skill", kind: "skill", title: S.skill.dir || "skill", sub: `${(S.skill.text || "").length} characters` }, { x: 30, y: 50, w: 250, h: 38 }));
   ps.forEach((p, i) => {
     const cov = r?.coverage.find((c) => c.probe === p.id);
@@ -1075,13 +1075,13 @@ function renderSkill() {
 }
 function skillDrawer() {
   const k = S.skill, r = k.res, beg = S.level === "beginner", own = bundle.skills[k.name] === k.text;
-  let h = `<div class="note"><b>Read this first.</b> The verdict below comes from a <b>text check</b>: does the skill's text contain what each question expects? That is a proxy. It shows the skill could help, not that a model does better. The recorded runs under it are real model behaviour.</div>
+  let h = `${beg ? "" : `<div class="note"><b>Read this first.</b> The verdict below comes from a <b>text check</b>: does the skill's text contain what each question expects? That is a proxy. It shows the skill could help, not that a model does better. The recorded runs under it are real model behaviour.</div>`}
     <div class="row"><select id="sk">${Object.keys(bundle.skills).map((n) => `<option ${n === k.name ? "selected" : ""}>${esc(n)}</option>`).join("")}</select><button class="btn alt" data-act="sload">load</button></div>
     <div class="row"><button class="btn" data-act="sgo">A/B this skill</button><button class="btn alt" data-act="sfill">filler skill</button><button class="btn alt" data-act="sbad">bad skill</button></div>`;
   if (r) {
     h += `<h3>verdict of the text check (proxy)</h3>${verdictHtml(r.gate, "sverdict")}`;
     h += `<h3>recorded behaviour (real model answers)</h3>` + (k.rec.length ? `<table class="rec"><tr><th>model</th><th>correct without → with</th><th>${beg ? "the real gate says" : "gate"}</th></tr>${k.rec.map(({ name, m, g }) => `<tr class="rowx" data-act="openrun" data-run="${esc(name)}"><td title="${esc(m.model)}">${esc(modelName(m.model))}<br><span class="mut">${esc(m.date)}</span></td><td>${g.facts.dev_without}/${g.facts.dev_n} → ${g.facts.dev_with}/${g.facts.dev_n}<br><span class="mut">costs ×${g.facts.cost_ratio}</span></td><td class="${g.verdict === "ADOPT" ? "ok" : "bad"}"><b>${esc(beg ? PLAIN_VERDICT[g.verdict] : g.verdict)}</b></td></tr>`).join("")}</table>
-        <div class="mut">Recorded once with this exact text, 3 tries per question, judged by the same gate. Click a row to read the answers in the Gate.${k.rec.some((x) => x.g.verdict !== r.gate.verdict) ? " Where the proxy and a recorded verdict disagree, believe the recording." : ""}</div>`
+        <div class="mut">Click a row to read the answers in the Gate.${k.rec.some((x) => x.g.verdict !== r.gate.verdict) ? " Where the proxy and a recorded verdict disagree, believe the recording." : ""}</div>${fold("recnote", "How these were recorded", `<div class="mut">Recorded once with this exact text, 3 tries per question, judged by the same gate.</div>`, false)}`
       : `<div class="mut">${!S.runs ? "The recorded runs did not load." : own ? "No run was recorded for this skill." : "No recorded run used this text, so only the proxy applies. Load a sample skill unchanged, or the filler on dst, to compare with real behaviour."}</div>`);
     h += `<h3>lint (real check_skills)</h3>${r.lint.errors.length ? r.lint.errors.map((e) => `<div class="bad">${esc(e)}</div>`).join("") : '<div class="ok">clean</div>'}`;
   }
@@ -1183,7 +1183,7 @@ function wire() {
   $("palist").onclick = (e) => { const n = e.target.closest("[data-n]")?.dataset.n; if (n != null) palPick(+n); };
   $("pal").onclick = (e) => { if (e.target.id === "pal") palClose(); };
   addEventListener("keydown", (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); palOpen(); } else if (e.key === "Escape" && !$("pal").classList.contains("on") && S.mode !== "start") act(() => { S.sel = null; S.ov = {}; paintOverlay(); return drawer(); }); });
-  $("theme").onclick = () => { const l = document.documentElement.dataset.theme === "dark"; document.documentElement.dataset.theme = l ? "light" : "dark"; $("theme").textContent = l ? "dark" : "light"; };
+  $("theme").onclick = () => { const l = document.documentElement.dataset.theme === "dark"; document.documentElement.dataset.theme = l ? "light" : "dark"; $("theme").title = l ? "switch to the dark theme" : "switch to the light theme"; };
   $("share").onclick = async () => { try { await navigator.clipboard.writeText(location.href); toast("link copied", "pass"); } catch { toast(location.href, ""); } };
   const svg = $("svg"); let drag = null;
   svg.addEventListener("pointerdown", (e) => { if (e.target.closest(".node,.step,.gc")) return; drag = { x: e.clientX - S.view.x, y: e.clientY - S.view.y }; svg.classList.add("drag"); svg.setPointerCapture(e.pointerId); });
