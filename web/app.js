@@ -1194,6 +1194,7 @@ function renderAbout() {
 // through, else the first harmless call it blocked, else the first call that tries to leave the folder.
 function traceFocus() {
   const T = S.tl; if (!T?.calls.length) return null;
+  if (S.lesson && !S.lesson.finished && !lstep()[1].blind) return null;   // in a lesson only the step that teaches reading the colours points at a square
   const o = T.labels.findIndex((x) => x.outside);
   return o >= 0 ? { i: o, why: `call ${o + 1}, the first one to leave the working folder` } : { i: 0, why: "call 1, the first thing it did" };
 }
@@ -1322,7 +1323,7 @@ function traceDrawer() {
     <select id="tlans" aria-label="answer">${res.rows.map((x, i) => `<option value="${i}" ${x === r ? "selected" : ""}>${esc(x.probe)} · ${x.arm === "with" ? "with" : "without"} the skill · try ${x.n + 1} · ${x.tools.length} call${x.tools.length === 1 ? "" : "s"}</option>`).join("")}</select>
     <div class="card"><div class="big ${r.correct ? "ok" : "bad"}">${r.correct ? "✔ passed" : "✘ failed"} the check</div>
       <div class="mut">${T.calls.length} tool call${T.calls.length === 1 ? "" : "s"}${bl ? "" : `, ${tlOut()} reaching outside the working folder`} · $${r.cost_usd} · ${r.finished ? "finished" : "did not finish"}${r.arm === "with" ? (r.skill_read ? " · opened the skill file" : " · did not open the skill file") : ""}</div></div>`;
-  h += sel ? `<div class="card gcall"><div class="mut">call ${T.sel + 1} of ${T.calls.length} · ${esc(sel.name)}</div><pre>${esc(guardText(sel))}</pre>${bl ? "" : `<div class="${T.labels[T.sel]?.outside ? "warn" : "ok"}">${esc(T.labels[T.sel]?.why ?? "")}</div>`}</div>` + noteBox(traceKey(T.sel), traceLabel(T.sel)) : `<div class="mut">Click or tap a square to read that call.${bl ? "" : " Start with the ringed one."}</div>`;
+  h += sel ? `<div class="card gcall"><div class="mut">call ${T.sel + 1} of ${T.calls.length} · ${esc(sel.name)}</div><pre>${esc(guardText(sel))}</pre>${bl ? "" : `<div class="${T.labels[T.sel]?.outside ? "warn" : "ok"}">${esc(T.labels[T.sel]?.why ?? "")}</div>`}</div>` + noteBox(traceKey(T.sel), traceLabel(T.sel)) : `<div class="mut">Click or tap a square to read that call.${!bl && traceFocus() ? " Start with the ringed one." : ""}</div>`;
   return h + `<div class="note"><b>What this is.</b> A recorded answer, scrubbed like the rest. “Outside” is this lab's reference label (<code>reaches_outside</code> in <code>lab/guard.py</code>): a path outside the working folder, or a shell feature that can build one. The recording has one cost per answer, not per call.</div>`;
 }
 
