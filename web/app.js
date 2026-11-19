@@ -425,7 +425,7 @@ async function enterStep() {
   pt("step", { lesson: S.lesson.id, i: S.lesson.i, case: S.case });
   store.set("lab.resume", JSON.stringify({ id: S.lesson.id, i: S.lesson.i }));
   S.gate.peek = null;
-  await setMode(st.mode, true); if (!blindNow()) await runActs(st.setup);
+  await setMode(st.mode, true); await runActs(st.setup);
   if (ans) { await runActs(st.predict.run); await explainStep(); }
   await drawer(); $("drawer").scrollTop = 0;
 }
@@ -1254,7 +1254,7 @@ async function tapSquare(i) {
 function summary() {
   const box = $("sum"); if (!phone() || S.mode === "start") { box.innerHTML = ""; return; }
   const sc = MODES.find((m) => m[0] === S.mode)[2], beg = S.level === "beginner";
-  if (sc === "scene-trace") { const T = S.tl, r = blindNow() ? null : tlAnswer(); box.innerHTML = T && r ? `<h4>Trace <span>${esc(r.probe)} · ${r.arm === "with" ? "with" : "without"} the skill</span></h4><div class="mut">${T.calls.length} tool calls, ${tlOut()} reaching outside the working folder · ${r.correct ? "passed" : "failed"} the check · $${r.cost_usd}</div>${psq(T.calls.map((c, i) => ({ cls: T.labels[i]?.outside ? "ask" : "in", label: `${i + 1}. ${c.name} ${guardText(c).slice(0, 60)}`, sel: T.sel === i, focus: traceFocus()?.i === i, noted: !!noteFor(traceKey(i)) })))}` : ""; return; }
+  if (sc === "scene-trace") { const T = S.tl, r = tlAnswer(), bl = blindNow(); box.innerHTML = T && r ? `<h4>Trace <span>${esc(r.probe)} · ${r.arm === "with" ? "with" : "without"} the skill</span></h4><div class="mut">${T.calls.length} tool calls${bl ? "" : `, ${tlOut()} reaching outside the working folder`} · ${r.correct ? "passed" : "failed"} the check · $${r.cost_usd}</div>${psq(T.calls.map((c, i) => ({ cls: bl ? "fine" : T.labels[i]?.outside ? "ask" : "in", label: `${i + 1}. ${c.name} ${guardText(c).slice(0, 60)}`, sel: T.sel === i, focus: !bl && traceFocus()?.i === i, noted: !!noteFor(traceKey(i)) })))}` : ""; return; }
   const steps = (g) => gateSteps(g, beg).map((s, i) => `<div class="sstep ${s.state} ${s.state === "fired" ? (s.verdict === "ADOPT" ? "good" : "bad") : ""}"><b>${i + 1} · ${esc(s.name)}</b><span>${esc(s.question)}</span><em>${s.state === "fired" ? (s.verdict === "ADOPT" ? "→ adopt" : "yes → stop here") : s.state === "no" ? "no" : ""}</em></div>`).join("");
   let h = "";
   if (sc === "scene-graph" && S.graph) {
@@ -1291,7 +1291,7 @@ async function setAnswer(run, r) {
   S.tl = { run, probe: r.probe, arm: r.arm, n: r.n, calls, labels: g.rows, sel: null };
 }
 async function ensureTl() {
-  if (S.tl || !S.runs || blindNow()) return;
+  if (S.tl || !S.runs) return;
   const f = featured(S); if (f) await setAnswer(f.run, f.without);
 }
 const tlAnswer = () => S.tl && S.runs.runs[S.tl.run].rows.find((r) => r.probe === S.tl.probe && r.arm === S.tl.arm && r.n === S.tl.n);
@@ -1299,32 +1299,30 @@ const tlOut = () => S.tl.labels.filter((x) => x.outside).length;
 function renderTrace() {
   const root = vp(); root.replaceChildren(); S.ref = { nodes: new Map(), edges: [] }; S.graph = null;
   const T = S.tl, r = tlAnswer();
-  if (blindNow()) { root.append(el("text", { class: "col", x: 0, y: 20 }, "the recorded answer appears here once you pick")); fit(400, 40); return; }
   if (!T || !r) { root.append(el("text", { class: "col", x: 0, y: 20 }, "no recorded run is loaded")); fit(400, 40); return; }
   const cols = 20, step = 34, n = T.calls.length, rows = Math.max(1, Math.ceil(n / cols)), y0 = 24 + rows * step + 12;
   root.append(el("text", { class: "col", x: 0, y: 10 }, `${modelName(S.runs.runs[T.run].pi_args[1])} · ${r.probe} · ${r.arm === "with" ? "with" : "without"} the skill · try ${r.n + 1}`));
   if (!n) root.append(el("text", { class: "col", x: 0, y: 44 }, "no tool calls: it answered straight away"));
-  const fo = traceFocus();
+  const bl = blindNow(), fo = bl ? null : traceFocus();
   T.calls.forEach((c, i) => {
-    const g = el("rect", { class: `gc ${T.labels[i]?.outside ? "ask" : "in"} ${T.sel === i ? "sel" : ""} ${noteFor(traceKey(i)) ? "noted" : ""} ${fo?.i === i ? "focus" : ""}`, "data-i": i, x: (i % cols) * step, y: 24 + Math.floor(i / cols) * step, width: 28, height: 28, rx: 5 }, el("title", {}, `${i + 1}. ${c.name} ${guardText(c)}`.slice(0, 120)));
+    const g = el("rect", { class: `gc ${bl ? "fine" : T.labels[i]?.outside ? "ask" : "in"} ${T.sel === i ? "sel" : ""} ${noteFor(traceKey(i)) ? "noted" : ""} ${fo?.i === i ? "focus" : ""}`, "data-i": i, x: (i % cols) * step, y: 24 + Math.floor(i / cols) * step, width: 28, height: 28, rx: 5 }, el("title", {}, `${i + 1}. ${c.name} ${guardText(c)}`.slice(0, 120)));
     g.addEventListener("click", (e) => { e.stopPropagation(); act(() => { T.sel = i; renderScene(); return drawer(); }); });
     root.append(g);
   });
   const sel = T.sel != null ? T.calls[T.sel] : null;
-  root.append(el("text", { class: "col", x: 0, y: y0 }, sel ? `${T.sel + 1}. ${sel.name}: ${guardText(sel).slice(0, 56)}` : n ? `start here, at the ringed square: ${fo.why}` : ""));
-  if (sel) root.append(el("text", { class: "col", x: 0, y: y0 + 18, style: "fill:var(--muted)" }, (T.labels[T.sel]?.why ?? "").slice(0, 70)));
+  root.append(el("text", { class: "col", x: 0, y: y0 }, sel ? `${T.sel + 1}. ${sel.name}: ${guardText(sel).slice(0, 56)}` : n ? (fo ? `start here, at the ringed square: ${fo.why}` : "click a square to read that call") : ""));
+  if (sel && !bl) root.append(el("text", { class: "col", x: 0, y: y0 + 18, style: "fill:var(--muted)" }, (T.labels[T.sel]?.why ?? "").slice(0, 70)));
   root.append(el("text", { class: "col", x: 0, y: y0 + (sel ? 44 : 30), style: `fill:var(--${r.correct ? "pass" : "fail"})` }, `then it answered: ${r.correct ? "✔ passed" : "✘ failed"} the check · $${r.cost_usd}`));
   fit(cols * step, y0 + (sel ? 56 : 42));
 }
 function traceDrawer() {
-  if (blindNow()) return `<div class="mut">Make your pick first; the recorded answer appears on the canvas.</div>`;
-  const T = S.tl, R = S.runs, r = tlAnswer(); if (!T || !r) return `<div class="mut">No recorded runs are loaded.</div>`;
+  const T = S.tl, R = S.runs, r = tlAnswer(), bl = blindNow(); if (!T || !r) return `<div class="mut">No recorded runs are loaded.</div>`;
   const res = R.runs[T.run], sel = T.sel != null ? T.calls[T.sel] : null;
   let h = `<select id="tlrun">${Object.keys(R.meta.files).map((n) => `<option value="${esc(n)}" ${n === T.run ? "selected" : ""}>recorded: ${esc(runLabel(n))}</option>`).join("")}</select>
     <select id="tlans" aria-label="answer">${res.rows.map((x, i) => `<option value="${i}" ${x === r ? "selected" : ""}>${esc(x.probe)} · ${x.arm === "with" ? "with" : "without"} the skill · try ${x.n + 1} · ${x.tools.length} call${x.tools.length === 1 ? "" : "s"}</option>`).join("")}</select>
     <div class="card"><div class="big ${r.correct ? "ok" : "bad"}">${r.correct ? "✔ passed" : "✘ failed"} the check</div>
-      <div class="mut">${T.calls.length} tool call${T.calls.length === 1 ? "" : "s"}, ${tlOut()} reaching outside the working folder · $${r.cost_usd} · ${r.finished ? "finished" : "did not finish"}${r.arm === "with" ? (r.skill_read ? " · opened the skill file" : " · did not open the skill file") : ""}</div></div>`;
-  h += sel ? `<div class="card gcall"><div class="mut">call ${T.sel + 1} of ${T.calls.length} · ${esc(sel.name)}</div><pre>${esc(guardText(sel))}</pre><div class="${T.labels[T.sel]?.outside ? "warn" : "ok"}">${esc(T.labels[T.sel]?.why ?? "")}</div></div>` + noteBox(traceKey(T.sel), traceLabel(T.sel)) : `<div class="mut">Click or tap a square to read that call. Start with the ringed one.</div>`;
+      <div class="mut">${T.calls.length} tool call${T.calls.length === 1 ? "" : "s"}${bl ? "" : `, ${tlOut()} reaching outside the working folder`} · $${r.cost_usd} · ${r.finished ? "finished" : "did not finish"}${r.arm === "with" ? (r.skill_read ? " · opened the skill file" : " · did not open the skill file") : ""}</div></div>`;
+  h += sel ? `<div class="card gcall"><div class="mut">call ${T.sel + 1} of ${T.calls.length} · ${esc(sel.name)}</div><pre>${esc(guardText(sel))}</pre>${bl ? "" : `<div class="${T.labels[T.sel]?.outside ? "warn" : "ok"}">${esc(T.labels[T.sel]?.why ?? "")}</div>`}</div>` + noteBox(traceKey(T.sel), traceLabel(T.sel)) : `<div class="mut">Click or tap a square to read that call.${bl ? "" : " Start with the ringed one."}</div>`;
   return h + `<div class="note"><b>What this is.</b> A recorded answer, scrubbed like the rest. “Outside” is this lab's reference label (<code>reaches_outside</code> in <code>lab/guard.py</code>): a path outside the working folder, or a shell feature that can build one. The recording has one cost per answer, not per call.</div>`;
 }
 
@@ -1332,7 +1330,7 @@ function traceDrawer() {
 function renderScene() {
   const sc = MODES.find((m) => m[0] === S.mode)[2];
   const leg = (sc === "scene-guard" && S.guard?.tab === "log") ? [["dim", "allowed"], ["warn", "asked"], ["fail", "denied"]] : (sc === "scene-guard" && S.guard?.tab === "output") ? (S.guard.out.opts.length ? [["fail", "still leaks"], ["pass", "cleaned"], ["warn", "word replaced"], ["dim", "nothing to do"]] : [["fail", "carries the machine's details"], ["dim", "nothing to hide"]]) : { "scene-graph": [["fact", "fact"], ["workstream", "workstream"], ["decision", "decision"], ["catalog", "catalog"], ["pass", "pass"], ["fail", "fail"]], "scene-gate": [["pass", "adopt"], ["fail", "stop"], ["dim", "not reached"]], "scene-skill": [["skill", "skill"], ["pass", "covered"], ["fail", "not covered"]], "scene-about": [["fact", "knowledge map"], ["skill", "toolkit"]], "scene-guard": guardNothing() ? [["fail", "tried to leave the folder"], ["dim", "stayed inside"]] : [["pass", "blocked an escape"], ["fail", "escape got through"], ["warn", "harmless but blocked"], ["dim", "allowed, harmless"]], "scene-home": [] }[sc];
-  $("hud").innerHTML = (sc === "scene-trace" ? TRACE_LEG : leg).map(([c, t]) => `<span><i style="background:var(--${c})"></i>${t}</span>`).join("");
+  $("hud").innerHTML = (sc === "scene-trace" ? (blindNow() ? [["dim", "a tool call"]] : TRACE_LEG) : leg).map(([c, t]) => `<span><i style="background:var(--${c})"></i>${t}</span>`).join("");
   if (sc === "scene-home") return;
   if (sc === "scene-graph") renderGraph(); else if (sc === "scene-gate") renderGate(); else if (sc === "scene-skill") renderSkill(); else if (sc === "scene-guard") renderGuard(); else if (sc === "scene-trace") renderTrace(); else renderAbout();
   summary();
