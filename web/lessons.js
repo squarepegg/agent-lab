@@ -306,12 +306,12 @@ export const LESSONS = [
   },
   {
     id: "timeline", title: "Read one answer, call by call", blurb: "A trace is a list of what the agent did. Here's one to read.",
-    look: "Each square is one tool call, in order. Amber squares reached outside the working folder. Start with the ringed one, then click a few more.",
+    look: "Pick first, then the answer appears as a row of squares, one per tool call, in order. Amber ones reached outside the working folder. Start with the ringed one, then click a few more.",
     learned: "A trace lists what an agent actually did, call by call. A pass rate says whether it worked. The trace shows the path: here, a long search that a short instruction made unnecessary.",
     needs: (S) => !!featured(S)?.with,
     steps: [
       { mode: "trace", blind: true, setup: [["tans", "haiku", "without"]],
-        text: "One recorded answer from a small model, given a question but no skill. Each square on the canvas is a tool call it made before answering. Amber ones reached outside its working folder.",
+        text: "One recorded answer from a small model, given a question but no skill. Once you pick, each square on the canvas is a tool call it made before answering. Amber ones reached outside its working folder.",
         exp: "One row of a `skill_ab.py` results file: `tools` is the list of calls. The amber label is `reaches_outside` in `lab/guard.py`, this lab's reference check, not upstream's.",
         predict: { q: ({ S }) => `This answer made ${plural(featured(S).without.tools.length, "tool call")} and then failed the check. How many of them reached outside the working folder?`,
           choices: ["Hardly any", "About half", "Nearly all"],
